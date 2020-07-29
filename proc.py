@@ -13,39 +13,21 @@ import xarray as xr
 from scipy import signal,stats
 
 
-def ann_avg(ts):
+def ann_avg(ts,dim):
     """
-    # Take Annual Average of a monthly time series [ts]
-    where the time is the first dimension
-    
-    # Input: 
-        ts: array of values, time in dim=0 (time x otherdims)
-    # Output: 
-        annavg: array of annual averaged vvakyes
-    
-    # Dependencies:
-        numpy as np
+    # Take Annual Average of a monthly time series
+    where time is axis "dim"
     
     """
-    
-    # Get size of all other dimensions and convert to array
-    otherdims = np.asarray(ts.shape[1:])
-    
-    # Get number of years
-    nyrs   = ts.shape[0] 
-    
-    # Determine new size
-    newsize = np.concatenate(([int(np.fix(nyrs/12)),12],otherdims))
-    
-    # Reshape to Mon x Year
-    annavg = np.reshape(ts,newsize)
-    
-   # Take the average
-    annavg = np.nanmean(annavg,axis=1)
-    
+    tsshape = ts.shape
+    ntime   = ts.shape[dim] 
+    newshape =    tsshape[:dim:] +(int(ntime/12),12) + tsshape[dim+1::]
+    annavg = np.reshape(ts,newshape)
+    annavg = np.nanmean(annavg,axis=dim+1)
     return annavg
 
 
+# Functions
 def regress_2d(A,B):
     """
     Regresses A (independent variable) onto B (dependent variable), where
@@ -53,62 +35,104 @@ def regress_2d(A,B):
     [N x M]. Script automatically detects this and permutes to allow for matrix
     multiplication.
     
-   Input:
-       A: Independent Variable, 1 or 2D Array
-       B: Dependent Variable, 1 or 2D Array
+    Returns the slope (beta) for each point, array of size [M]
     
-   Output:
-       beta: array of the slope for each point of size [M]
-    
-    # Dependencies:
-        numpy as np
     
     """
     # Determine if A or B is 2D and find anomalies
     
+    # Compute using nan functions (slower)
+    if np.any(np.isnan(A)) or np.any(np.isnan(B)):
+        print("NaN Values Detected...")
     
-    # 2D Matrix is in A [MxN]
-    if len(A.shape) > len(B.shape):
+        # 2D Matrix is in A [MxN]
+        if len(A.shape) > len(B.shape):
+            
+            # Tranpose A so that A = [MxN]
+            if A.shape[1] != B.shape[0]:
+                A = A.T
+            
+            
+            # Set axis for summing/averaging
+            a_axis = 1
+            b_axis = 0
+            
+            # Compute anomalies along appropriate axis
+            Aanom = A - np.nanmean(A,axis=a_axis)[:,None]
+            Banom = B - np.nanmean(B,axis=b_axis)
+            
         
-        # Tranpose A so that A = [MxN]
-        if A.shape[1] != B.shape[0]:
-            A = A.T
+            
+        # 2D matrix is B [N x M]
+        elif len(A.shape) < len(B.shape):
+            
+            # Tranpose B so that it is [N x M]
+            if B.shape[0] != A.shape[0]:
+                B = B.T
+            
+            # Set axis for summing/averaging
+            a_axis = 0
+            b_axis = 0
+            
+            # Compute anomalies along appropriate axis        
+            Aanom = A - np.nanmean(A,axis=a_axis)
+            Banom = B - np.nanmean(B,axis=b_axis)[None,:]
         
+        # Calculate denominator, summing over N
+        Aanom2 = np.power(Aanom,2)
+        denom = np.nansum(Aanom2,axis=a_axis)    
         
-        # Set axis for summing/averaging
-        a_axis = 1
-        b_axis = 0
+        # Calculate Beta
+        beta = Aanom @ Banom / denom
+            
         
-        # Compute anomalies along appropriate axis
-        Aanom = A - np.nanmean(A,axis=a_axis)[:,None]
-        Banom = B - np.nanmean(B,axis=b_axis)
+        b = (np.nansum(B,axis=b_axis) - beta * np.nansum(A,axis=a_axis))/A.shape[a_axis]
+    else:
+        # 2D Matrix is in A [MxN]
+        if len(A.shape) > len(B.shape):
+            
+            # Tranpose A so that A = [MxN]
+            if A.shape[1] != B.shape[0]:
+                A = A.T
+            
+            
+            # Set axis for summing/averaging
+            a_axis = 1
+            b_axis = 0
+            
+            # Compute anomalies along appropriate axis
+            Aanom = A - np.mean(A,axis=a_axis)[:,None]
+            Banom = B - np.mean(B,axis=b_axis)
+            
         
-
+            
+        # 2D matrix is B [N x M]
+        elif len(A.shape) < len(B.shape):
+            
+            # Tranpose B so that it is [N x M]
+            if B.shape[0] != A.shape[0]:
+                B = B.T
+            
+            # Set axis for summing/averaging
+            a_axis = 0
+            b_axis = 0
+            
+            # Compute anomalies along appropriate axis        
+            Aanom = A - np.mean(A,axis=a_axis)
+            Banom = B - np.mean(B,axis=b_axis)[None,:]
         
-    # 2D matrix is B [N x M]
-    elif len(A.shape) < len(B.shape):
+        # Calculate denominator, summing over N
+        Aanom2 = np.power(Aanom,2)
+        denom = np.sum(Aanom2,axis=a_axis)    
         
-        # Tranpose B so that it is [N x M]
-        if B.shape[0] != A.shape[0]:
-            B = B.T
+        # Calculate Beta
+        beta = Aanom @ Banom / denom
+            
         
-        # Set axis for summing/averaging
-        a_axis = 0
-        b_axis = 0
-        
-        # Compute anomalies along appropriate axis        
-        Aanom = A - np.nanmean(A,axis=a_axis)
-        Banom = B - np.nanmean(B,axis=b_axis)[None,:]
+        b = (np.sum(B,axis=b_axis) - beta * np.sum(A,axis=a_axis))/A.shape[a_axis]
     
-    # Calculate denominator, summing over N
-    Aanom2 = np.power(Aanom,2)
-    denom = np.sum(Aanom2,axis=a_axis)    
     
-    # Calculate Beta
-    beta = Aanom @ Banom / denom
-    
-        
-    return beta
+    return beta,b
 
 
 def area_avg(data,bbox,lon,lat,wgt):
@@ -319,6 +343,8 @@ def calc_lagcovar(var1,var2,lags,basemonth,detrendopt):
 
 
 def getpt_pop(lonf,latf,ds,searchdeg=0.5,returnarray=1):
+    
+    
     """ 
     
     Quick script to find and average values on a POP grid, for a DataArray [ds].
@@ -357,3 +383,36 @@ def getpt_pop(lonf,latf,ds,searchdeg=0.5,returnarray=1):
         return pmean
     else:
         return pmean
+    
+    
+def find_latlon(lonf,latf,lon,lat):
+    """
+    Find lat and lon indices
+    """
+    if((np.any(np.where(lon>180)) & (lonf < 0)) or (np.any(np.where(lon<0)) & (lonf > 180))):
+        print("Potential mis-match detected between lonf and longitude coordinates")
+    
+    klon = np.abs(lon - lonf).argmin()
+    klat = np.abs(lat - latf).argmin()
+    
+    msg1 = "Closest lon to %.2f was %.2f" % (lonf,lon[klon])
+    msg2 = "Closest lat to %.2f was %.2f" % (latf,lat[klat])
+    print(msg1)
+    print(msg2)
+    
+    return klon,klat
+
+def lon360to180(lon360,var):
+    """
+    Convert Longitude from Degrees East to Degrees West 
+    Inputs:
+        1. lon360 - array with longitude in degrees east
+        2. var    - corresponding variable [lon x lat x time]
+    """
+    
+    kw = np.where(lon360 >= 180)[0]
+    ke = np.where(lon360 < 180)[0]
+    lon180 = np.concatenate((lon360[kw]-360,lon360[ke]),0)
+    var = np.concatenate((var[kw,:,:],var[ke,:,:]),0)
+    
+    return lon180,var
