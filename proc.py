@@ -402,6 +402,7 @@ def find_latlon(lonf,latf,lon,lat):
     
     return klon,klat
 
+
 def lon360to180(lon360,var):
     """
     Convert Longitude from Degrees East to Degrees West 
@@ -416,3 +417,189 @@ def lon360to180(lon360,var):
     var = np.concatenate((var[kw,:,:],var[ke,:,:]),0)
     
     return lon180,var
+
+
+def find_nan(data,dim):
+    """
+    For a 2D array, remove any point if there is a nan in dimension [dim]
+    
+    Inputs:
+        1) data: 2d array, which will be summed along last dimension
+        2) dim: dimension to search along. 0 or 1.
+    Outputs:
+        1) okdata: data with nan points removed
+        2) knan: boolean array with indices of nan points
+        
+
+    """
+    
+    # Sum along select dimension
+    datasum = np.sum(data,axis=dim)
+    
+    
+    # Find non nan pts
+    knan  = np.isnan(datasum)
+    okpts = np.invert(knan)
+    
+    if dim == 0:
+        okdata = data[:,okpts]
+    elif dim == 1:    
+        okdata = data[okpts,:]
+    
+    return okdata,knan,okpts
+
+def year2mon(ts):
+    """
+    Separate mon x year from a 1D timeseries of monthly data
+    """
+    ts = np.reshape(ts,(int(np.ceil(ts.size/12)),12))
+    ts = ts.T
+    return ts
+
+def detrend_dim(invar,dim):
+    
+    """
+    Detrends n-dimensional variable [invar] at each point along axis [dim].
+    Performs appropriate reshaping and NaN removal, and returns
+    variable in the same shape+order. Assumes equal spacing along [dim] for 
+    detrending
+    
+    Also outputs linear model and coefficients.
+    
+    Dependencies: 
+        numpy as np
+        find_nan (function)
+        regress_2d (function)
+    
+    Inputs:
+        1) invar: variable to detrend
+        2) dim: dimension of axis to detrend along
+        
+    Outputs:
+        1) dtvar: detrended variable
+        2) linmod: computed trend at each point
+        3) beta: regression coefficient (slope) at each point
+        4) interept: y intercept at each point
+    
+    
+    """
+    
+    # Reshape variable
+    varshape = invar.shape
+    
+    # Reshape to move time to first dim
+    newshape = np.hstack([dim,np.arange(0,dim,1),np.arange(dim+1,len(varshape),1)])
+    newvar = np.transpose(invar,newshape)
+    
+    # Combine all other dims and reshape to [time x otherdims]
+    tdim = newvar.shape[0]
+    otherdims = newvar.shape[1::]
+    proddims = np.prod(otherdims)
+    newvar = np.reshape(newvar,(tdim,proddims))
+    
+    # Find non nan points
+    varok,knan,okpts = find_nan(newvar,0)
+    
+    # Ordinary Least Squares Regression
+    tper = np.arange(0,tdim)
+    m,b = regress_2d(tper,varok)
+    
+    # Detrend
+    ymod = (m[:,None]*tper + b[:,None]).T
+    dtvarok = varok - ymod
+    
+    # Replace into variable of original size
+    dtvar  = np.zeros(newvar.shape) * np.nan
+    linmod = np.copy(dtvar)
+    beta   = np.zeros(okpts.shape) * np.nan
+    intercept = np.copy(beta)
+    
+    dtvar[:,okpts] = dtvarok
+    linmod[:,okpts] = ymod
+    beta[okpts] = m
+    intercept[okpts] = b
+    
+    # Reshape to original size
+    dtvar  = np.reshape(dtvar,((tdim,)+otherdims))
+    linmod = np.reshape(linmod,((tdim,)+otherdims))
+    beta = np.reshape(beta,(otherdims))
+    intercept = np.reshape(beta,(otherdims))
+    
+    # Tranpose to original order
+    oldshape = [dtvar.shape.index(x) for x in varshape]
+    dtvar = np.transpose(dtvar,oldshape)
+    linmod = np.transpose(linmod,oldshape)
+    
+    return dtvar,linmod,beta,intercept
+
+
+def regress2ts(var,ts,normalizeall,method):
+    
+    
+    # Anomalize and normalize the data (time series is assumed to have been normalized)
+    if normalizeall == 1:
+        varmean = np.nanmean(var,2)
+        varstd  = np.nanstd(var,2)
+        var = (var - varmean[:,:,None]) /varstd[:,:,None]
+        
+    # Get variable shapes
+    londim = var.shape[0]
+    latdim = var.shape[1]
+    
+    # 1st method is matrix multiplication
+    if method == 1:
+        
+        # Combine the spatial dimensions 
+
+        var = np.reshape(var,(londim*latdim,var.shape[2]))
+        
+        
+        # Find Nan Points
+        # sumvar = np.sum(var,1)
+        
+        # # Find indices of nan pts and non-nan (ok) pts
+        # nanpts = np.isnan(sumvar)
+        # okpts  = np.invert(nanpts)
+    
+        # # Drop nan pts and reshape again to separate space and time dimensions
+        # var_ok = var[okpts,:]
+        #var[np.isnan(var)] = 0
+        
+        
+        # Perform regression
+        #var_reg = np.matmul(np.ma.anomalies(var,axis=1),np.ma.anomalies(ts,axis=0))/len(ts)
+        var_reg,_ = regress_2d(ts,var)
+        
+        
+        # Reshape to match lon x lat dim
+        var_reg = np.reshape(var_reg,(londim,latdim))
+    
+    
+    
+    
+    # 2nd method is looping point by poin  t
+    elif method == 2:
+        
+        
+        # Preallocate       
+        var_reg = np.zeros((londim,latdim))
+        
+        # Loop lat and long
+        for o in range(londim):
+            for a in range(latdim):
+                
+                # Get time series for that period
+                vartime = np.squeeze(var[o,a,:])
+                
+                # Skip nan points
+                if any(np.isnan(vartime)):
+                    var_reg[o,a]=np.nan
+                    continue
+                
+                # Perform regression 
+                r = np.polyfit(ts,vartime,1)
+                #r=stats.linregress(vartime,ts)
+                var_reg[o,a] = r[0]
+                #var_reg[o,a]=stats.pearsonr(vartime,ts)[0]
+    
+    return var_reg
