@@ -603,3 +603,20 @@ def regress2ts(var,ts,normalizeall,method):
                 #var_reg[o,a]=stats.pearsonr(vartime,ts)[0]
     
     return var_reg
+
+def xrdeseason(ds):
+    """ Remove seasonal cycle, given an Dataarray with dimension 'time'"""
+    
+    return ds.groupby('time.month') - ds.groupby('time.month').mean('time')
+
+def calc_clim(ts,dim):
+    """
+    Given monthly timeseries in axis [dim], calculate the climatology...
+    """
+
+    tsshape = ts.shape
+    ntime   = ts.shape[dim] 
+    newshape =    tsshape[:dim:] +(int(ntime/12),12) + tsshape[dim+1::]
+    climavg = np.reshape(ts,newshape)
+    climavg = np.nanmean(climavg,axis=dim)
+    return climavg
