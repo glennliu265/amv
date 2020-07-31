@@ -18,6 +18,9 @@ import matplotlib.pyplot as plt
 import cartopy.feature as cfeature
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 
+#%% Functions
+
+
 def quickstatslabel(ts):
     """ Quickly generate label of mean ,stdev ,and maximum for a figure title/text
     """
@@ -151,3 +154,52 @@ def plot_annavg(var,units,figtitle,ax=None,ymax=None,stats='mon'):
         ax.set_ylim([-1*ymax,ymax])
 
     return ax
+
+def viz_kprev(h,kprev,locstring=""):
+    
+    """
+    Quick visualization of mixed layer cycle (h)
+    and the corresponding detrainment index found using the
+    kprev function in scm (or prep_mld scripts)
+    
+    Inputs:
+        1) h - MLD cycle (array of size 12)
+        2) kprev - Detraining months (array of size 12)
+        3) string indicate location (Lon/Lat)
+    
+    """
+    
+    # Create Connector lines ([entrainmon,detrainmon],[MLD,MLD])
+    connex = [((im+1,kprev[im]),(h[im],h[im])) for im in range(12) if kprev[im] != 0]
+    
+    # Indicate entraining months
+    foundmon = kprev[kprev!=0]
+    foundmld = h[kprev!=0]
+    
+    # Append month to the end
+    plotmon = np.arange(1,14,1)
+    plotmld = np.concatenate((h,[h[0]]))
+    
+    # Start Plot
+    fig,ax = plt.subplots(1,1,figsize=(6,4))
+    plt.style.use('seaborn-bright')
+    
+    # Plot the MLD cycle
+    ax.plot(plotmon,plotmld,color='k',label='MLD Cycle')
+    
+    # Plot the connectors
+    [ax.plot(connex[m][0],connex[m][1]) for m in range(len(connex))]
+    [ax.annotate("%.2f"%(connex[m][0][1]),(connex[m][0][1],connex[m][1][1])) for m in range(len(connex))]
+    # Plot Markers
+    ax.scatter(foundmon,foundmld,marker="x")
+    
+    ax.set(xlabel='Month',
+           ylabel='Mixed Layer Depth',
+           xlim=(1,12),
+           title="Mixed Layer Depth Seasonal Cycle \n" + locstring
+           )
+
+    ax.set_xticks(range(1,14,1))
+    
+    return fig,ax
+    
