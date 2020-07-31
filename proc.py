@@ -324,7 +324,7 @@ def calc_lagcovar(var1,var2,lags,basemonth,detrendopt):
             modswitch = i+1   # Add year on lag = modswitch
             
         if addyr == 1 and i == modswitch:
-            print('adding year on '+ str(i))
+            #print('adding year on '+ str(i))
             addyr = 0         # Reset counter
             nxtyr = nxtyr + 1 # Shift window forward
             
@@ -335,9 +335,9 @@ def calc_lagcovar(var1,var2,lags,basemonth,detrendopt):
         # Calculate correlation
         corr_ts[i] = stats.pearsonr(varbase,varlag)[0]
             
-        if lagm == basemonth:
-            print(i)
-            print(corr_ts[i])
+        # if lagm == basemonth:
+        #     print(i)
+        #     print(corr_ts[i])
                       
     return corr_ts
 
@@ -455,6 +455,8 @@ def year2mon(ts):
     ts = np.reshape(ts,(int(np.ceil(ts.size/12)),12))
     ts = ts.T
     return ts
+
+
 
 def detrend_dim(invar,dim):
     
@@ -609,7 +611,8 @@ def xrdeseason(ds):
     
     return ds.groupby('time.month') - ds.groupby('time.month').mean('time')
 
-def calc_clim(ts,dim):
+
+def calc_clim(ts,dim,returnts=0):
     """
     Given monthly timeseries in axis [dim], calculate the climatology...
     """
@@ -617,6 +620,147 @@ def calc_clim(ts,dim):
     tsshape = ts.shape
     ntime   = ts.shape[dim] 
     newshape =    tsshape[:dim:] +(int(ntime/12),12) + tsshape[dim+1::]
-    climavg = np.reshape(ts,newshape)
-    climavg = np.nanmean(climavg,axis=dim)
-    return climavg
+    
+    tsyrmon = np.reshape(ts,newshape)
+    climavg = np.nanmean(tsyrmon,axis=dim)
+    
+    if returnts==1:
+        return climavg,tsyrmon
+    else:
+        return climavg
+    
+    
+    
+def calc_lagcovar_nd(var1,var2,lags,basemonth,detrendopt):
+    import numpy as np
+    from scipy import signal
+    from scipy import stats
+    
+    
+    
+    debug = 0
+    
+    if debug == 1:
+        basemonth = kmonth
+        lags = lags
+        var1 = temps
+        var2 = temps
+        detrendopt = 1
+    
+    # Get total number of lags
+    lagdim = len(lags)
+    
+    # Get timeseries length
+    totyr = var1.shape[1]
+    npts  = var1.shape[2]
+    
+    # Get lag and lead sizes (in years)
+    leadsize = int(np.ceil(len(np.where(lags < 0)[0])/12))
+    lagsize = int(np.ceil(len(np.where(lags > 0)[0])/12))
+    
+    
+    # Detrend variables if option is set
+    if detrendopt == 1:
+        var1 = signal.detrend(var1,1,type='linear')
+        var2 = signal.detrend(var2,1,type='linear')
+    
+    # Get base timeseries to perform the autocorrelation on
+    base_ts = np.arange(0+leadsize,totyr-lagsize)
+    varbase = var1[basemonth-1,base_ts,:]
+        
+    # Preallocate Variable to store correlations
+    corr_ts = np.zeros(lagdim,npts)
+    
+    # Set some counters
+    nxtyr = 0
+    addyr = 0
+    modswitch = 0
+    
+    for i in lags:
+        
+        
+        lagm = (basemonth + i)%12
+        
+        if lagm == 0:
+            lagm = 12
+            addyr = 1         # Flag to add to nxtyr
+            modswitch = i+1   # Add year on lag = modswitch
+            
+        if addyr == 1 and i == modswitch:
+            #print('adding year on '+ str(i))
+            addyr = 0         # Reset counter
+            nxtyr = nxtyr + 1 # Shift window forward
+            
+        # Index the other variable
+        lag_ts = np.arange(0+nxtyr,len(varbase)+nxtyr)
+        varlag = var2[lagm-1,lag_ts,:]
+        
+        # Calculate correlation
+        corr_ts[i,:] = pearsonr_2d(varbase,varlag,0)
+        
+        #stats.pearsonr(varbase,varlag)[0]
+            
+        #if lagm == 3:
+            #print(i)
+            #print(corr_ts[i])
+            
+            
+    return corr_ts
+
+def pearsonr_2d(A,B,dim,returnsig=0,p=0.05,tails=2,dof='auto'):
+    """
+    Calculates correlation between two matrices of equal size and also returns
+    the significance test result
+    
+    Dependencies
+        numpy as np
+        scipy stats
+    
+    """
+    
+    # Find Anomaly
+    Aanom = A - np.mean(A,dim)
+    Banom = B - np.mean(B,dim)
+    
+    # Elementwise product of A and B
+    AB = Aanom * Banom
+    
+    # Square A and B
+    A2 = np.power(Aanom,2)
+    B2 = np.power(Banom,2)
+    
+    # Compute Pearson's Correlation Coefficient
+    rho = np.sum(AB,dim) / np.sqrt(np.sum(A2,dim)*np.sum(B2,dim))
+    
+    if returnsig == 0:
+        return rho
+    else:
+        # Perform Significance Testing
+        
+        # Determine DOF (more options to add later...)
+        if dof == 'auto':
+            # Assume N-2 dof
+            n_eff = A.shape[dim]-2
+        else:
+            # Use manually supplied dof
+            n_eff = dof
+        
+        # Compute p-value based on tails
+        ptilde = p/tails
+        
+        # Compute T at each point
+        T = rho * np.sqrt(n_eff / (1 - np.power(rho,2)))
+        
+        # Get threshold critical value
+        critval = stats.t.ppf(1-ptilde,n_eff)
+        
+        # Perform test
+        sigtest = np.where(np.abs(T) > critval)
+        
+        # Get critical correlation threshold
+        corrthres = np.sqrt(1/ ((n_eff/np.power(critval,2))+1) )
+        
+        return rho,T,critval,sigtest,corrthres
+        
+        
+      
