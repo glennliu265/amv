@@ -631,21 +631,7 @@ def calc_clim(ts,dim,returnts=0):
     
     
     
-def calc_lagcovar_nd(var1,var2,lags,basemonth,detrendopt):
-    import numpy as np
-    from scipy import signal
-    from scipy import stats
-    
-    
-    
-    debug = 0
-    
-    if debug == 1:
-        basemonth = kmonth
-        lags = lags
-        var1 = temps
-        var2 = temps
-        detrendopt = 1
+def calc_lagcovar_nd(var1,var2,lags,basemonth,detrendopt):    
     
     # Get total number of lags
     lagdim = len(lags)
@@ -669,7 +655,7 @@ def calc_lagcovar_nd(var1,var2,lags,basemonth,detrendopt):
     varbase = var1[basemonth-1,base_ts,:]
         
     # Preallocate Variable to store correlations
-    corr_ts = np.zeros(lagdim,npts)
+    corr_ts = np.zeros((lagdim,npts))
     
     # Set some counters
     nxtyr = 0
@@ -687,7 +673,6 @@ def calc_lagcovar_nd(var1,var2,lags,basemonth,detrendopt):
             modswitch = i+1   # Add year on lag = modswitch
             
         if addyr == 1 and i == modswitch:
-            #print('adding year on '+ str(i))
             addyr = 0         # Reset counter
             nxtyr = nxtyr + 1 # Shift window forward
             
@@ -698,11 +683,7 @@ def calc_lagcovar_nd(var1,var2,lags,basemonth,detrendopt):
         # Calculate correlation
         corr_ts[i,:] = pearsonr_2d(varbase,varlag,0)
         
-        #stats.pearsonr(varbase,varlag)[0]
-            
-        #if lagm == 3:
-            #print(i)
-            #print(corr_ts[i])
+
             
             
     return corr_ts
@@ -735,7 +716,6 @@ def pearsonr_2d(A,B,dim,returnsig=0,p=0.05,tails=2,dof='auto'):
     if returnsig == 0:
         return rho
     else:
-        # Perform Significance Testing
         
         # Determine DOF (more options to add later...)
         if dof == 'auto':
@@ -758,9 +738,6 @@ def pearsonr_2d(A,B,dim,returnsig=0,p=0.05,tails=2,dof='auto'):
         sigtest = np.where(np.abs(T) > critval)
         
         # Get critical correlation threshold
-        corrthres = np.sqrt(1/ ((n_eff/np.power(critval,2))+1) )
+        corrthres = np.sqrt(1/ ((n_eff/np.power(critval,2))+1))
         
         return rho,T,critval,sigtest,corrthres
-        
-        
-      
