@@ -16,7 +16,7 @@ from amv import proc
 
 import matplotlib.pyplot as plt
 import cartopy.feature as cfeature
-from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 
 #%% Functions
 
@@ -53,13 +53,18 @@ def init_map(bbox,ax=None):
     ax.set_extent(bbox)
     
     # Add Filled Coastline
-    ax.add_feature(cfeature.COASTLINE,facecolor='k')
+    ax.add_feature(cfeature.COASTLINE)
+    #ax.add_feature(cfeature.LAND,facecolor='k',zorder=-1)
+    
     
     # Add Gridlines
     gl = ax.gridlines(draw_labels=True,linewidth=0.5,color='gray',linestyle=':')
-    gl.xlabels_top = gl.ylabels_right = False
-    gl.xformatter = LONGITUDE_FORMATTER
-    gl.yformatter = LATITUDE_FORMATTER
+    gl.top_labels = gl.right_labels = False
+    
+
+    
+    gl.xformatter = LongitudeFormatter(degree_symbol='')
+    gl.yformatter = LatitudeFormatter(degree_symbol='')
     
     return ax
 
