@@ -741,3 +741,36 @@ def pearsonr_2d(A,B,dim,returnsig=0,p=0.05,tails=2,dof='auto'):
         corrthres = np.sqrt(1/ ((n_eff/np.power(critval,2))+1))
         
         return rho,T,critval,sigtest,corrthres
+    
+
+def sel_region(var,lon,lat,bbox):
+    """
+    
+    Select Region
+    
+    Assume longitude is always searching eastward...
+    Assume var is of the form [lon x lat x otherdims]
+    bbox is [lonW lonE latS latN]
+    
+    
+    """    
+        
+    # Find indices
+    klat = np.where((lat >= bbox[2]) & (lat <= bbox[3]))[0]
+    if lon[0] < lon[1]:
+        klon = np.where((lon >= bbox[0]) & (lon <= bbox[1]))[0]
+    elif lon[0] > lon[1]:
+        print("Warning, crossing the prime meridian!")
+        klon = np.where((lon <= bbox[1]) | (lon >= bbox[0]))[0]
+    
+    
+    lonr = lon[klon]
+    latr = lat[klat]
+    
+    #print("Bounds from %.2f to %.2f Latitude and %.2f to %.2f Longitude" % (latr[0],latr[-1],lonr[0],lonr[-1]))
+        
+    
+    # Index variable
+    varr = var[klon[:,None],klat[None,:],:]
+    
+    return varr,lonr,latr
