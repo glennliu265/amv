@@ -757,9 +757,9 @@ def sel_region(var,lon,lat,bbox):
         
     # Find indices
     klat = np.where((lat >= bbox[2]) & (lat <= bbox[3]))[0]
-    if lon[0] < lon[1]:
+    if bbox[0] < bbox[1]:
         klon = np.where((lon >= bbox[0]) & (lon <= bbox[1]))[0]
-    elif lon[0] > lon[1]:
+    elif bbox[0] > bbox[1]:
         print("Warning, crossing the prime meridian!")
         klon = np.where((lon <= bbox[1]) | (lon >= bbox[0]))[0]
     
