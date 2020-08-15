@@ -11,7 +11,7 @@ Data Processing Functions
 import numpy as np
 import xarray as xr
 from scipy import signal,stats
-
+from scipy.signal import butter, lfilter, freqz, filtfilt, detrend
 
 def ann_avg(ts,dim):
     """
@@ -774,3 +774,76 @@ def sel_region(var,lon,lat,bbox):
     varr = var[klon[:,None],klat[None,:],:]
     
     return varr,lonr,latr
+
+def calc_AMV(lon,lat,sst,bbox,order,cutofftime,awgt):
+    """
+    Calculate AMV Index for detrended/anomalized SST data [LON x LAT x Time]
+    given bounding box [bbox]. Applies cosine area weighing
+    
+
+    Parameters
+    ----------
+    lon : ARRAY [LON]
+        Longitude values
+    lat : ARRAY [LAT]
+        Latitude Values
+    sst : ARRAY [LON x LAT x TIME]
+        Sea Surface Temperature
+    bbox : ARRAY [LonW,LonE,LonS,LonN]
+        Bounding Box for Area Average
+    order : INT
+        Butterworth Filter Order
+    cutofftime : INT
+        Filter Cutoff, expressed in same timesteps as input data
+        
+    Returns
+    -------
+    amv: ARRAY [TIME]
+        AMV Index (Not Standardized)
+    
+    aa_sst: ARRAY [TIME]
+        Area Averaged SST
+
+    """
+    
+    """
+    
+    # Dependencies
+    functions: area_avg, detrendlin
+    
+    numpy as np
+    from scipy.signal import butter,filtfilt
+    """
+    
+    # Take the weighted area average
+    aa_sst = area_avg(sst,bbox,lon,lat,awgt)
+
+
+    # Design Butterworth Lowpass Filter
+    filtfreq = len(aa_sst)/cutofftime
+    nyquist  = len(aa_sst)/2
+    cutoff = filtfreq/nyquist
+    b,a    = butter(order,cutoff,btype="lowpass")
+    
+    # fs = 1/(12*30*24*3600)
+    # xtk     = [fs/100,fs/10,fs,fs*12,fs*12*30]
+    # xtklabel = ['century','decade','year','mon',"day"]
+
+    # w, h = freqz(b, a, worN=1000)
+    # plt.subplot(2, 1, 1)
+    # plt.plot(0.5*fs*w/np.pi, np.abs(h), 'b')
+    # plt.plot(cutoff, 0.5*np.sqrt(2), 'ko')
+    # plt.axvline(cutoff, color='k')
+    # plt.xlim(fs/1200, 0.5*fs)
+    # plt.xscale('log')
+    # plt.xticks(xtk,xtklabel)
+    # plt.title("Lowpass Filter Frequency Response")
+    # plt.xlabel('Frequency [Hz]')
+    # plt.grid()
+
+    
+    # Compute AMV Index
+    amv = filtfilt(b,a,aa_sst)
+    
+    return amv,aa_sst
+    
