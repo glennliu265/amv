@@ -17,7 +17,8 @@ from amv import proc
 import matplotlib.pyplot as plt
 import cartopy.feature as cfeature
 from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
-
+import cartopy.crs as ccrs
+from cartopy.util import add_cyclic_point
 #%% Functions
 
 
@@ -207,4 +208,97 @@ def viz_kprev(h,kprev,locstring=""):
     ax.set_xticks(range(1,14,1))
     
     return fig,ax
+
+
+def plot_AMV(amv,ax=None):
     
+    """
+    Plot amv time series
+    
+    Dependencies:
+        
+    matplotlib.pyplot as plt
+    numpy as np
+    """
+    if ax is None:
+        ax = plt.gca()
+    
+    
+    htimefull = np.arange(len(amv))
+    
+    ax.plot(htimefull,amv,color='k')
+    ax.fill_between(htimefull,0,amv,where=amv>0,facecolor='red',interpolate=True,alpha=0.5)
+    ax.fill_between(htimefull,0,amv,where=amv<0,facecolor='blue',interpolate=True,alpha=0.5)
+
+    return ax
+
+def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0):
+
+    fig = plt.gcf()
+    
+    if ax is None:
+        ax = plt.gca()
+        ax = plt.axes(projection=ccrs.PlateCarree())
+        
+    # Add cyclic point to avoid the gap
+    var,lon1 = add_cyclic_point(var,coord=lon)
+    
+
+    
+    # Set  extent
+    ax.set_extent(bbox)
+    
+    # Add filled coastline
+    ax.add_feature(cfeature.COASTLINE,facecolor='k')
+    
+    
+    if len(cint) == 1:
+        # Automaticall set contours to max values
+        cmax = np.nanmax(np.abs(var))
+        cmax = np.round(cmax,decimals=2)
+        cint = np.linspace(cmax*-1,cmax,10)
+    
+    
+    
+    if pcolor == 0:
+
+        # Draw contours
+        cs = ax.contourf(lon1,lat,var,cint,cmap=cmap)
+    
+    
+    
+        # Negative contours
+        cln = ax.contour(lon1,lat,var,
+                    cint[cint<0],
+                    linestyles='dashed',
+                    colors='k',
+                    linewidths=0.5,
+                    transform=ccrs.PlateCarree())
+    
+        # Positive Contours
+        clp = ax.contour(lon1,lat,var,
+                    cint[cint>=0],
+                    colors='k',
+                    linewidths=0.5,
+                    transform=ccrs.PlateCarree())    
+                          
+        #ax.clabel(cln,colors=None)
+    else:
+        
+        cs = ax.pcolormesh(lon1,lat,var,vmin = cint[0],vmax=cint[-1],cmap=cmap)
+        
+                                
+                
+    # Add Gridlines
+    gl = ax.gridlines(draw_labels=True,linewidth=0.75,color='gray',linestyle=':')
+
+    gl.xlabels_top = gl.ylabels_right = False
+    gl.xformatter = LongitudeFormatter(degree_symbol='')
+    gl.yformatter = LatitudeFormatter(degree_symbol='')
+    if len(clab) == 1:
+        cbar= fig.colorbar(cs,ax=ax,fraction=0.046, pad=0.04)
+    else:
+        cbar = fig.colorbar(cs,ax=ax,ticks=clab,fraction=0.046, pad=0.04)
+    #cbar.ax.set_yticklabels(['{:.0f}'.format(x) for x in cint], fontsize=10, weight='bold')
+    
+    return ax
