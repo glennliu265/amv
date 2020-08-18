@@ -158,7 +158,7 @@ def plot_annavg(var,units,figtitle,ax=None,ymax=None,stats='mon'):
     # Set ymax
     if ymax is not None:
         ax.set_ylim([-1*ymax,ymax])
-        ax.set_yticks(-1*ymax,ymax,9)
+        ax.set_yticks(np.linspace(-1*ymax,ymax,4))
 
     return ax
 
