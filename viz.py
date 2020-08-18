@@ -158,6 +158,7 @@ def plot_annavg(var,units,figtitle,ax=None,ymax=None,stats='mon'):
     # Set ymax
     if ymax is not None:
         ax.set_ylim([-1*ymax,ymax])
+        ax.set_yticks(-1*ymax,ymax,9)
 
     return ax
 
@@ -256,7 +257,7 @@ def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0)
         # Automaticall set contours to max values
         cmax = np.nanmax(np.abs(var))
         cmax = np.round(cmax,decimals=2)
-        cint = np.linspace(cmax*-1,cmax,10)
+        cint = np.linspace(cmax*-1,cmax,9)
     
     
     
@@ -295,10 +296,14 @@ def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0)
     gl.xlabels_top = gl.ylabels_right = False
     gl.xformatter = LongitudeFormatter(degree_symbol='')
     gl.yformatter = LatitudeFormatter(degree_symbol='')
+    gl.xlabel_style={'size':8}
+    gl.ylabel_style={'size':8}
     if len(clab) == 1:
-        cbar= fig.colorbar(cs,ax=ax,fraction=0.046, pad=0.04)
+        cbar= fig.colorbar(cs,ax=ax,fraction=0.046, pad=0.04,format="%.1e")
+        cbar.ax.tick_params(labelsize=8)
     else:
-        cbar = fig.colorbar(cs,ax=ax,ticks=clab,fraction=0.046, pad=0.04)
+        cbar = fig.colorbar(cs,ax=ax,ticks=clab,fraction=0.046, pad=0.04,format="%.1e")
+        cbar.ax.tick_params(labelsize=8)
     #cbar.ax.set_yticklabels(['{:.0f}'.format(x) for x in cint], fontsize=10, weight='bold')
     
     return ax
