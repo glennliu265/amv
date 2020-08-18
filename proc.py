@@ -536,7 +536,7 @@ def detrend_dim(invar,dim):
     return dtvar,linmod,beta,intercept
 
 
-def regress2ts(var,ts,normalizeall,method):
+def regress2ts(var,ts,normalizeall=0,method=1):
     
     
     # Anomalize and normalize the data (time series is assumed to have been normalized)
@@ -580,7 +580,7 @@ def regress2ts(var,ts,normalizeall,method):
     
     
     
-    # 2nd method is looping point by poin  t
+    # 2nd method is looping point by point
     elif method == 2:
         
         
@@ -744,7 +744,7 @@ def pearsonr_2d(A,B,dim,returnsig=0,p=0.05,tails=2,dof='auto'):
         return rho,T,critval,sigtest,corrthres
     
 
-def sel_region(var,lon,lat,bbox):
+def sel_region(var,lon,lat,bbox,reg_avg=0):
     """
     
     Select Region
@@ -774,6 +774,9 @@ def sel_region(var,lon,lat,bbox):
     # Index variable
     varr = var[klon[:,None],klat[None,:],:]
     
+    if reg_avg==1:
+        varr = np.nanmean(varr,(0,1))
+        return varr
     return varr,lonr,latr
 
 def calc_AMV(lon,lat,sst,bbox,order,cutofftime,awgt):
@@ -847,4 +850,49 @@ def calc_AMV(lon,lat,sst,bbox,order,cutofftime,awgt):
     amv = filtfilt(b,a,aa_sst)
     
     return amv,aa_sst
+    
+def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10):
+    """
+    
+    Wrapper for quick AMV calculation.
+    
+    Inputs:
+        1) sst  [lon x lat x time] Array (monthly data)
+        2) lon  [lon] Array
+        3) lat  [lat] Array
+        4) bbox [lonW, lonE, latS, latN] Vector
+        5) order (optional, int), order of butterworth filter
+        6) cutofftime (optional, int), filter cutoff time in years
+    
+    Outputs:
+        1) amvidx     [time]      Array - AMV Index
+        2) amvpattern [lon x lat] Array - AMV Spatial
+    
+    Dependencies:
+        from amv.proc:
+            sel_region
+            ann_avg
+            calc_AMV
+            regress2ts
+        
+        numpy as np
+    
+    """
+    
+    sst = np.copy(var_in)
+    
+    # Resample to monthly data 
+    annsst     = ann_avg(sst,2)
+    
+    # Calculate Index
+    amvidx,_   = calc_AMV(lon,lat,annsst,bbox,order,cutofftime,1)
+    
+    # Normalize indeix
+    idxnorm    = amvidx / np.nanstd(amvidx)
+    
+    # Regress back to SST for spatial pattern
+    amvpattern = regress2ts(annsst,idxnorm)
+    
+    return amvidx,amvpattern
+    
     
