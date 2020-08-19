@@ -307,3 +307,35 @@ def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0)
     #cbar.ax.set_yticklabels(['{:.0f}'.format(x) for x in cint], fontsize=10, weight='bold')
     
     return ax
+
+def plot_box(bbox,ax=None,return_line=False,leglab="Bounding Box",color='k',linestyle='solid',linewidth=1):
+    
+    """
+    Plot bounding box
+    Inputs:
+        1) bbox [1D-ARRAY] [lonW,lonE,latS,latN]
+        Optional Arguments...
+        2) ax           [axis] axis to plot onto
+        3) return_line  [Bool] return line object for legend labeling
+        4) leglabel     [str]  Label for legend
+        5) color        [str]  Line Color, default = black
+        6) linestyle    [str]  Line style, default = solid
+        7) linewidth    [#]    Line width, default = 1  
+    
+    
+    """
+    if ax is None:
+        ax = plt.gca()
+    # Plot North Boundary
+    ax.plot([bbox[0],bbox[1]],[bbox[3],bbox[3]],color=color,ls=linestyle,lw=linewidth,label='_nolegend_')
+    # Plot East Boundary
+    ax.plot([bbox[1],bbox[1]],[bbox[3],bbox[2]],color=color,ls=linestyle,lw=linewidth,label='_nolegend_')
+    # Plot South Boundary
+    ax.plot([bbox[1],bbox[0]],[bbox[2],bbox[2]],color=color,ls=linestyle,lw=linewidth,label='_nolegend_')
+    # Plot West Boundary
+    ax.plot([bbox[0],bbox[0]],[bbox[2],bbox[3]],color=color,ls=linestyle,lw=linewidth,label='_nolegend_')
+    
+    if return_line == True:
+        linesample =  ax.plot([bbox[0],bbox[0]],[bbox[2],bbox[3]],color=color,ls=linestyle,lw=linewidth,label=leglab)
+        return ax,linesample
+    return ax
