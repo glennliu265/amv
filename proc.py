@@ -744,7 +744,7 @@ def pearsonr_2d(A,B,dim,returnsig=0,p=0.05,tails=2,dof='auto'):
         return rho,T,critval,sigtest,corrthres
     
 
-def sel_region(var,lon,lat,bbox,reg_avg=0):
+def sel_region(var,lon,lat,bbox,reg_avg=0,reg_sum=0):
     """
     
     Select Region
@@ -772,10 +772,13 @@ def sel_region(var,lon,lat,bbox,reg_avg=0):
         
     
     # Index variable
-    varr = var[klon[:,None],klat[None,:],:]
+    varr = var[klon[:,None],klat[None,:],...]
     
     if reg_avg==1:
         varr = np.nanmean(varr,(0,1))
+        return varr
+    elif reg_sum == 1:
+        varr = np.nansum(varr,(0,1))
         return varr
     return varr,lonr,latr
 
