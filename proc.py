@@ -29,7 +29,7 @@ def ann_avg(ts,dim):
 
 
 # Functions
-def regress_2d(A,B):
+def regress_2d(A,B,nanwarn=1):
     """
     Regresses A (independent variable) onto B (dependent variable), where
     either A or B can be a timeseries [N-dimensions] or a space x time matrix 
@@ -44,7 +44,8 @@ def regress_2d(A,B):
     
     # Compute using nan functions (slower)
     if np.any(np.isnan(A)) or np.any(np.isnan(B)):
-        print("NaN Values Detected...")
+        if nanwarn == 1:
+            print("NaN Values Detected...")
     
         # 2D Matrix is in A [MxN]
         if len(A.shape) > len(B.shape):
@@ -744,7 +745,7 @@ def pearsonr_2d(A,B,dim,returnsig=0,p=0.05,tails=2,dof='auto'):
         return rho,T,critval,sigtest,corrthres
     
 
-def sel_region(var,lon,lat,bbox,reg_avg=0,reg_sum=0):
+def sel_region(var,lon,lat,bbox,reg_avg=0,reg_sum=0,warn=1):
     """
     
     Select Region
@@ -761,7 +762,8 @@ def sel_region(var,lon,lat,bbox,reg_avg=0,reg_sum=0):
     if bbox[0] < bbox[1]:
         klon = np.where((lon >= bbox[0]) & (lon <= bbox[1]))[0]
     elif bbox[0] > bbox[1]:
-        print("Warning, crossing the prime meridian!")
+        if warn == 1:
+            print("Warning, crossing the prime meridian!")
         klon = np.where((lon <= bbox[1]) | (lon >= bbox[0]))[0]
     
     
