@@ -416,7 +416,7 @@ def lon360to180(lon360,var):
     kw = np.where(lon360 >= 180)[0]
     ke = np.where(lon360 < 180)[0]
     lon180 = np.concatenate((lon360[kw]-360,lon360[ke]),0)
-    var = np.concatenate((var[kw,:,:],var[ke,:,:]),0)
+    var = np.concatenate((var[kw,...],var[ke,...]),0)
     
     return lon180,var
 
@@ -436,20 +436,25 @@ def find_nan(data,dim):
     """
     
     # Sum along select dimension
-    datasum = np.sum(data,axis=dim)
+    if len(data.shape) > 1:
+        datasum = np.sum(data,axis=dim)
+    else:
+        datasum = data.copy()
     
     
     # Find non nan pts
     knan  = np.isnan(datasum)
     okpts = np.invert(knan)
     
-    if dim == 0:
-        okdata = data[:,okpts]
-    elif dim == 1:    
-        okdata = data[okpts,:]
-    
+    if len(data.shape) > 1:
+        if dim == 0:
+            okdata = data[:,okpts]
+        elif dim == 1:    
+            okdata = data[okpts,:]
+    else:
+        okdata = data[okpts]
+        
     return okdata,knan,okpts
-
 def year2mon(ts):
     """
     Separate mon x year from a 1D timeseries of monthly data
@@ -537,7 +542,7 @@ def detrend_dim(invar,dim):
     return dtvar,linmod,beta,intercept
 
 
-def regress2ts(var,ts,normalizeall=0,method=1):
+def regress2ts(var,ts,normalizeall=0,method=1,nanwarn=1):
     
     
     # Anomalize and normalize the data (time series is assumed to have been normalized)
@@ -572,7 +577,7 @@ def regress2ts(var,ts,normalizeall=0,method=1):
         
         # Perform regression
         #var_reg = np.matmul(np.ma.anomalies(var,axis=1),np.ma.anomalies(ts,axis=0))/len(ts)
-        var_reg,_ = regress_2d(ts,var)
+        var_reg,_ = regress_2d(ts,var,nanwarn=nanwarn)
         
         
         # Reshape to match lon x lat dim
@@ -896,7 +901,7 @@ def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10):
     idxnorm    = amvidx / np.nanstd(amvidx)
     
     # Regress back to SST for spatial pattern
-    amvpattern = regress2ts(annsst,idxnorm)
+    amvpattern = regress2ts(annsst,idxnorm,nanwarn=0)
     
     return amvidx,amvpattern
     
