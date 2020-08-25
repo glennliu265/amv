@@ -22,10 +22,10 @@ from cartopy.util import add_cyclic_point
 #%% Functions
 
 
-def quickstatslabel(ts):
+def quickstatslabel(ts,fmt="%.2f"):
     """ Quickly generate label of mean ,stdev ,and maximum for a figure title/text
-    """
-    statsstring = "( Mean:%.2f | Stdev:%.2f | Max:%.2f )" % (np.nanmean(ts),np.nanstd(ts),np.nanmax(np.abs(ts)))
+    """   
+    statsstring = "( Mean:%.2e | Stdev:%.2e | Max:%.2e )" % (np.nanmean(ts),np.nanstd(ts),np.nanmax(np.abs(ts)))
     return statsstring
 
 
@@ -233,7 +233,7 @@ def plot_AMV(amv,ax=None):
 
     return ax
 
-def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0):
+def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0,labels=True,fmt="%.1f"):
 
     fig = plt.gcf()
     
@@ -250,7 +250,7 @@ def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0)
     ax.set_extent(bbox)
     
     # Add filled coastline
-    ax.add_feature(cfeature.COASTLINE,facecolor='k')
+    ax.add_feature(cfeature.LAND,color=[0.4,0.4,0.4])
     
     
     if len(cint) == 1:
@@ -283,7 +283,9 @@ def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0)
                     linewidths=0.5,
                     transform=ccrs.PlateCarree())    
                           
-        #ax.clabel(cln,colors=None)
+        if labels is True:
+            ax.clabel(cln,colors=None,fmt=fmt)
+            ax.clabel(clp,colors=None,fmt=fmt)
     else:
         
         cs = ax.pcolormesh(lon1,lat,var,vmin = cint[0],vmax=cint[-1],cmap=cmap)
@@ -293,16 +295,16 @@ def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0)
     # Add Gridlines
     gl = ax.gridlines(draw_labels=True,linewidth=0.75,color='gray',linestyle=':')
 
-    gl.xlabels_top = gl.ylabels_right = False
+    gl.top_labels = gl.right_labels = False
     gl.xformatter = LongitudeFormatter(degree_symbol='')
     gl.yformatter = LatitudeFormatter(degree_symbol='')
     gl.xlabel_style={'size':8}
     gl.ylabel_style={'size':8}
     if len(clab) == 1:
-        cbar= fig.colorbar(cs,ax=ax,fraction=0.046, pad=0.04,format="%.1e")
+        cbar= fig.colorbar(cs,ax=ax,fraction=0.046, pad=0.04,format=fmt)
         cbar.ax.tick_params(labelsize=8)
     else:
-        cbar = fig.colorbar(cs,ax=ax,ticks=clab,fraction=0.046, pad=0.04,format="%.1e")
+        cbar = fig.colorbar(cs,ax=ax,ticks=clab,fraction=0.046, pad=0.04,format=fmt)
         cbar.ax.tick_params(labelsize=8)
     #cbar.ax.set_yticklabels(['{:.0f}'.format(x) for x in cint], fontsize=10, weight='bold')
     
@@ -338,4 +340,54 @@ def plot_box(bbox,ax=None,return_line=False,leglab="Bounding Box",color='k',line
     if return_line == True:
         linesample =  ax.plot([bbox[0],bbox[0]],[bbox[2],bbox[3]],color=color,ls=linestyle,lw=linewidth,label=leglab)
         return ax,linesample
+    return ax
+
+
+def plot_contoursign(var,lon,lat,cint,ax=None,bbox=None,clab=True,clab_fmt="%.1f",lw=1,add_cyc=False):
+    """
+    Plot contours, with solid as positive and dashed as negative values
+    Inputs:
+        1) varin [Array: lat x lon] - Input Variable
+        2) lon [Array: lon] - Longitude values (tested with 360, should work with 180)
+        3) lat [Array: lat] - Latitude values
+        4) cint [Array: levels] - contour levels (negative and positive)
+        Optional Arguments
+            5) ax [geoaxes] - Axes to plot on
+            6) bbox [Array: lonW,lonE,latS,latN] - Region to plot
+            7) clab [Bool] - Option to include contour labels
+            8) clab_fmt [Str] - String formatting option
+            9) lw [Float] - Contour Linewidths 
+    
+    """
+    # Get current axis if none is assigned
+    if ax is None:
+        ax = plt.gca()
+    
+
+    #Set Plotting boundaries/extent
+    if bbox != None:
+        ax.set_extent(bbox)
+    
+    # # Add cyclic point to remove blank meridian
+    if add_cyc is True:
+        var,lon = add_cyclic_point(var,lon) 
+
+    # Negative contours
+    cln = ax.contour(lon,lat,var,
+                cint[cint<0],
+                linestyles='dashed',
+                colors='k',
+                linewidths=lw)
+        
+    # Positive Contours
+    clp = ax.contour(lon,lat,var,
+                cint[cint>=0],
+                colors='k',
+                linewidths=lw,
+                transform=ccrs.PlateCarree())
+    if clab is True:
+        # Add Label
+        plt.clabel(cln,fmt=clab_fmt,fontsize=8)
+        plt.clabel(clp,fmt=clab_fmt,fontsize=8)
+    
     return ax
