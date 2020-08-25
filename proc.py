@@ -427,7 +427,7 @@ def find_nan(data,dim):
     
     Inputs:
         1) data: 2d array, which will be summed along last dimension
-        2) dim: dimension to search along. 0 or 1.
+        2) dim: dimension to sum along. 0 or 1
     Outputs:
         1) okdata: data with nan points removed
         2) knan: boolean array with indices of nan points
@@ -861,7 +861,7 @@ def calc_AMV(lon,lat,sst,bbox,order,cutofftime,awgt):
     
     return amv,aa_sst
     
-def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10):
+def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10,anndata=False):
     """
     
     Wrapper for quick AMV calculation.
@@ -871,8 +871,10 @@ def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10):
         2) lon  [lon] Array
         3) lat  [lat] Array
         4) bbox [lonW, lonE, latS, latN] Vector
+        OPTIONAL
         5) order (optional, int), order of butterworth filter
         6) cutofftime (optional, int), filter cutoff time in years
+        7) anndata - set to 1 if input data is already annual (skip resampling)
     
     Outputs:
         1) amvidx     [time]      Array - AMV Index
@@ -889,10 +891,14 @@ def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10):
     
     """
     
-    sst = np.copy(var_in)
+    
     
     # Resample to monthly data 
-    annsst     = ann_avg(sst,2)
+    if anndata == False:
+        sst      = np.copy(var_in)
+        annsst   = ann_avg(sst,2)
+    else:
+        annsst   = var_in.copy()
     
     # Calculate Index
     amvidx,_   = calc_AMV(lon,lat,annsst,bbox,order,cutofftime,1)
@@ -904,5 +910,29 @@ def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10):
     amvpattern = regress2ts(annsst,idxnorm,nanwarn=0)
     
     return amvidx,amvpattern
+
+def detrend_poly(x,y,deg):
+    """
+    Matrix for of polynomial detrend
+    # Based on :https://stackoverflow.com/questions/27746297/detrend-flux-time-series-with-non-linear-trend
     
+    Inputs:
+        1) x --> independent variable
+        2) y --> 2D Array of dependent variables
+        3) deg --> degree of polynomial to fit
     
+    """
+    # Transpose to align dimensions for polyfit
+    if len(y) != len(x):
+        y = y.T
+    
+    # Get the fit
+    fit = np.polyfit(x,y,deg=deg)
+    # Prepare matrix (x^n, x^n-1 , ... , x^0)
+    #inputs = np.array([np.power(x,d) for d in range(len(fit))])
+    inputs = np.array([np.power(x,d) for d in reversed(range(len(fit)))])
+    # Calculate model
+    model = fit.T.dot(inputs)
+    # Remove trend
+    ydetrend = y - model.T
+    return ydetrend,model
