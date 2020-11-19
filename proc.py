@@ -144,7 +144,7 @@ def area_avg(data,bbox,lon,lat,wgt):
     based on wgt type (see inputs)
     
     Inputs:
-        1) data: target array [lat x lon x otherdims]
+        1) data: target array [lon x lat x otherdims]
         2) bbox: bounding box [lonW, lonE, latS, latN]
         3) lon:  longitude coordinate
         4) lat:  latitude coodinate
@@ -455,6 +455,7 @@ def find_nan(data,dim):
         okdata = data[okpts]
         
     return okdata,knan,okpts
+
 def year2mon(ts):
     """
     Separate mon x year from a 1D timeseries of monthly data
@@ -688,15 +689,52 @@ def calc_lagcovar_nd(var1,var2,lags,basemonth,detrendopt):
         varlag = var2[lagm-1,lag_ts,:]
         
         # Calculate correlation
-        corr_ts[i,:] = pearsonr_2d(varbase,varlag,0)
-        
-
-            
-            
+        corr_ts[i,:] = pearsonr_2d(varbase,varlag,0)       
     return corr_ts
 
 def pearsonr_2d(A,B,dim,returnsig=0,p=0.05,tails=2,dof='auto'):
     """
+    Calculate Pearson's Correlation Coefficient for two 2-D Arrays
+    along the specified dimension. Input arrays are anomalized.
+    
+    Option to perform students t-test.
+    
+    
+    
+    Inputs
+    -------
+    1) A : ARRAY
+        First variable, 2D
+    2) B : ARRAY
+        Second variable, 2D (same axis arrangement as A)
+    3) dim : INT
+        Dimension to compute correlation along
+    OPTIONAL ARGS
+    4) returnsig : BOOL
+        Return significance test result    
+    5) p : FLOAT
+        P-value for significance testing
+    6) tails: INT
+        Number of tails (1 or 2)
+    7) dof: "auto" or INT
+        Degress of freedom method. Set to "auto" for ndim - 2, or
+        manually enter an integer value.
+    
+    Outputs
+    --------
+    1) rho : ARRAY
+        Array of correlation coefficients
+    OPTIONAL OUTPUTS (if returnsig=1)
+    2) T : ARRAY
+        T values from testing
+    3) critval : FLOAT
+        T - Critical value used as threshold
+    4) sigtest : ARRAY of BOOLs
+        Indicates points that passed significance threshold
+    5) corrthres : FLOAT
+        Correlation threshold corresponding to critval
+    
+    
     Calculates correlation between two matrices of equal size and also returns
     the significance test result
     
@@ -748,12 +786,59 @@ def pearsonr_2d(A,B,dim,returnsig=0,p=0.05,tails=2,dof='auto'):
         corrthres = np.sqrt(1/ ((n_eff/np.power(critval,2))+1))
         
         return rho,T,critval,sigtest,corrthres
+  
     
+  
+def covariance2d(A,B,dim):
+     """
+    Calculate Covariancefor two 2-D Arrays
+    along the specified dimension. Input arrays are anomalized.
+        
+    Inputs
+    -------
+    1) A : ARRAY
+        First variable, 2D
+    2) B : ARRAY
+        Second variable, 2D (same axis arrangement as A)
+    3) dim : INT
+        Dimension to compute correlation along
+        
+    Outputs
+    -------    
+    1) cov : ARRAY
+        Covariance
+    
+    """
+    
+    # Find Anomaly
+    Aanom = A - np.mean(A,dim)
+    Banom = B - np.mean(B,dim)
+    
+    # Elementwise product of A and B
+    AB = Aanom * Banom
+    
+    # Calculate covariance
+    cov = np.sum(AB,dim)/A.shape[dim]
+    
+    return cov
+
 
 def sel_region(var,lon,lat,bbox,reg_avg=0,reg_sum=0,warn=1):
     """
     
     Select Region
+    
+    Inputs
+        1) var: ARRAY, variable with dimensions [lon x lat x otherdims]
+        2) lon: ARRAY, Longitude values
+        3) lat: ARRAY, Latitude values
+        4) bbox: ARRAY, bounding coordinates [lonW lonE latS latN]
+        5) reg_avg: BOOL, set to 1 to return regional average
+        6) reg_sum: BOOL, set to 1 to return regional sum
+        7) warn: BOOL, set to 1 to print warning text for region selection
+    Outputs:
+        1) varr: ARRAY: Output variable, cut to region
+        2+3), lonr, latr: ARRAYs, new cut lat/lon
     
     Assume longitude is always searching eastward...
     Assume var is of the form [lon x lat x otherdims]
@@ -823,7 +908,7 @@ def calc_AMV(lon,lat,sst,bbox,order,cutofftime,awgt):
     """
     
     # Dependencies
-    functions: area_avg, detrendlin
+    functions: area_avg
     
     numpy as np
     from scipy.signal import butter,filtfilt
