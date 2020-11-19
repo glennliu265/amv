@@ -790,7 +790,7 @@ def pearsonr_2d(A,B,dim,returnsig=0,p=0.05,tails=2,dof='auto'):
     
   
 def covariance2d(A,B,dim):
-     """
+    """
     Calculate Covariancefor two 2-D Arrays
     along the specified dimension. Input arrays are anomalized.
         
