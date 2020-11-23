@@ -21,13 +21,33 @@ import cartopy.crs as ccrs
 from cartopy.util import add_cyclic_point
 #%% Functions
 
+def return_mon_label(m,nletters='all'):
+    """
+    Return month labels for a given month m
+    
+    inputs
+    ------
+    
+    1) m : INT
+        Number of the month
+    2) nletters INT or 'all'
+        Number of letters to return
+    
+    """
+    mons = ["January","February","March","April","May","June",
+            "July","August","September","October","November","December"]
+    
+    if nletters == 'all':
+        return mons[m-1]
+    else:
+        return mons[m-1][:nletters]
+
 
 def quickstatslabel(ts,fmt="%.2f"):
     """ Quickly generate label of mean ,stdev ,and maximum for a figure title/text
     """   
     statsstring = "( Mean:%.2e | Stdev:%.2e | Max:%.2e )" % (np.nanmean(ts),np.nanstd(ts),np.nanmax(np.abs(ts)))
     return statsstring
-
 
 def quickstats(ts):
     """ Yields nanmean, nanstd, and and absolute max of a timeseries
@@ -38,7 +58,7 @@ def quickstats(ts):
     return tmean,tstd,tmax
 
 
-def init_map(bbox,ax=None):
+def init_map(bbox,crs=ccrs.PlateCarree(),ax=None):
     """
     Quickly initialize a map for plotting
     """
@@ -51,7 +71,7 @@ def init_map(bbox,ax=None):
     #ax = plt.axes(projection=ccrs.PlateCarree())
         
     
-    ax.set_extent(bbox)
+    ax.set_extent(bbox,crs)
     
     # Add Filled Coastline
     ax.add_feature(cfeature.COASTLINE)
@@ -69,7 +89,13 @@ def init_map(bbox,ax=None):
     
     return ax
 
-def ensemble_plot(var,dim,ax=None,color='k',ysymmetric=1,ialpha=0.1,plotrange=1):
+def ensemble_plot(var,dim,ax=None,color='k',ysymmetric=1,ialpha=0.1,plotrange=1,returnlegend=True,returnline=False,plotindv=True):
+    """
+    
+    plotrange [BOOL] - Set to true to plot max and minimum values
+    returnlegend [BOOL] - set to true to return the legend
+    returnline [BOOL] - set to True to return the ens average line object
+    """
     if ax is None:
         ax = plt.gca()
     
@@ -86,30 +112,42 @@ def ensemble_plot(var,dim,ax=None,color='k',ysymmetric=1,ialpha=0.1,plotrange=1)
     minens = np.nanmin(var,1)
     
     
+    
     # Plot for each ensemble member
-    for e in range(nens):
-        ax.plot(tper,var[:,e],color=color,alpha=ialpha)
+    if plotindv==True:
+        for e in range(nens):
+            ax.plot(tper,var[:,e],color=color,alpha=ialpha)
         
-    # Plot 1 more line for labeling
-    ln1 = ax.plot(tper,var[:,-1],color=color,alpha=ialpha,label='Indv. Member')
+        # Plot 1 more line for labeling and add to collection
+        ln1 = ax.plot(tper,var[:,-1],color=color,alpha=ialpha,label='Indv. Member')
+        lns = ln1
+    
+    # Plot ens average
     ln2 = ax.plot(tper,np.nanmean(var,1),color=color,linewidth=1.5,label="Ens. Avg.")
+    if plotindv==True: # Add ensemble mean toline ollection
+        lns += ln2
+    else:
+        lns = ln2
     
     # Plot maximum and minimum values
     if plotrange == 1:
         ln3 = ax.plot(tper,maxens,color=color,linestyle="dashed",linewidth=0.5,label="Max/Min")
         ax.plot(tper,minens,color=color,linestyle="dashed",linewidth=0.5)
+        lns += ln3
     
     if ysymmetric == 1:
         ax.set_ylim([-1*tmax,tmax])
         
-    
     # Set Legend
-    if plotrange == 1:
-        lns = ln1 + ln2 + ln3
-    else:
-        lns = ln1 + ln2
-    labs = [l.get_label() for l in lns]
-    ax.legend(lns,labs,loc=0,ncol=2)
+    if returnlegend==True:
+        labs = [l.get_label() for l in lns]
+        ax.legend(lns,labs,loc=0,ncol=2)
+    elif returnline == True:
+        if len(lns) > 1:
+            if plotindv==True:
+                return ax,lns[1] # Get 2nd line
+            return ax,lns[0] # Get 1st line
+        return ax,ln2
     return ax
 
 def plot_annavg(var,units,figtitle,ax=None,ymax=None,stats='mon'):
@@ -233,8 +271,7 @@ def plot_AMV(amv,ax=None):
 
     return ax
 
-def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0,labels=True,fmt="%.1f"):
-
+def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0,labels=True,fmt="%.1f",clabelBG=False,fontsize=10):
     fig = plt.gcf()
     
     if ax is None:
@@ -244,7 +281,7 @@ def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0,
     # Add cyclic point to avoid the gap
     var,lon1 = add_cyclic_point(var,coord=lon)
     
-
+    
     
     # Set  extent
     ax.set_extent(bbox)
@@ -264,8 +301,10 @@ def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0,
     if pcolor == 0:
 
         # Draw contours
-        cs = ax.contourf(lon1,lat,var,cint,cmap=cmap)
-    
+        cs = ax.contourf(lon1,lat,var,cint,cmap=cmap,extend='both')
+        
+        cs.cmap.set_over('red')
+        cs.cmap.set_under('blue')
     
     
         # Negative contours
@@ -284,8 +323,12 @@ def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0,
                     transform=ccrs.PlateCarree())    
                           
         if labels is True:
-            ax.clabel(cln,colors=None,fmt=fmt)
-            ax.clabel(clp,colors=None,fmt=fmt)
+            clabelsn= ax.clabel(cln,colors=None,fmt=fmt,fontsize=fontsize)
+            clabelsp= ax.clabel(clp,colors=None,fmt=fmt,fontsize=fontsize)
+            
+            # if clabelBG is True:
+            #     [txt.set_backgroundcolor('white') for txt in clabelsn]
+            #     [txt.set_backgroundcolor('white') for txt in clabelsp]
     else:
         
         cs = ax.pcolormesh(lon1,lat,var,vmin = cint[0],vmax=cint[-1],cmap=cmap)
