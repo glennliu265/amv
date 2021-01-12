@@ -200,7 +200,7 @@ def plot_annavg(var,units,figtitle,ax=None,ymax=None,stats='mon'):
 
     return ax
 
-def viz_kprev(h,kprev,locstring=""):
+def viz_kprev(h,kprev,locstring="",ax=None):
     
     """
     Quick visualization of mixed layer cycle (h)
@@ -213,7 +213,9 @@ def viz_kprev(h,kprev,locstring=""):
         3) string indicate location (Lon/Lat)
     
     """
-    
+    if ax is None:
+        ax = plt.gca()
+        
     # Create Connector lines ([entrainmon,detrainmon],[MLD,MLD])
     connex = [((im+1,kprev[im]),(h[im],h[im])) for im in range(12) if kprev[im] != 0]
     
@@ -226,7 +228,7 @@ def viz_kprev(h,kprev,locstring=""):
     plotmld = np.concatenate((h,[h[0]]))
     
     # Start Plot
-    fig,ax = plt.subplots(1,1,figsize=(6,4))
+    #fig,ax = plt.subplots(1,1,figsize=(6,4))
     plt.style.use('seaborn-bright')
     
     # Plot the MLD cycle
@@ -246,7 +248,7 @@ def viz_kprev(h,kprev,locstring=""):
 
     ax.set_xticks(range(1,14,1))
     
-    return fig,ax
+    return ax
 
 
 def plot_AMV(amv,ax=None):
@@ -434,3 +436,48 @@ def plot_contoursign(var,lon,lat,cint,ax=None,bbox=None,clab=True,clab_fmt="%.1f
         plt.clabel(clp,fmt=clab_fmt,fontsize=8)
     
     return ax
+
+def summarize_params(lat,lon,params):
+    """
+    Creates a quick 3-panel plot of Damping, MLD, and Forcing
+    at a single point
+
+    Parameters
+    ----------
+    lat : ARRAY
+        Latitudes
+    lon : ARRAY
+        Longitudes
+    params : Tuple
+        Contains the output of scm.get_data, specifically:
+            [lon_index,lat_index],damping,mld,dentrain_month,forcing           
+
+    Returns
+    -------
+    fig,ax (matplotlib objects)
+    """
+    xtks = np.arange(1,13,1)
+    locstring = "LON: %.1f, LAT: %.1f" % (lon[params[0][0]],lat[params[0][1]]) 
+    fig,axs = plt.subplots(3,1,figsize=(4,6),sharex=True)
+    
+    ax = axs[0] # Plot Damping 
+    ax.plot(xtks,params[1],color='r')
+    ax.set_ylabel("Damping $(W/m^{2})$")
+    ax.set_xticks(xtks)
+    ax.grid(True,linestyle='dotted')
+    
+    ax = axs[1] # Plot MLD
+    ax=viz_kprev(params[2],params[3],ax=ax)
+    ax.set_xticks(xtks)
+    ax.set_title("")
+    ax.set_ylabel("Mixed-Layer Depth (m)")
+    ax.grid(True,linestyle='dotted')
+    
+    ax = axs[2] # Plot Forcing
+    ax.plot(xtks,params[4])
+    ax.set_ylabel("Forcing $(W/m^{2})$",color='k')
+    ax.set_xticks(xtks)
+    ax.grid(True,linestyle='dotted')
+    plt.suptitle(locstring)
+    plt.tight_layout()
+    return fig,ax
