@@ -98,7 +98,6 @@ def regress_2d(A,B,nanwarn=1):
                 A = A.T
             
             
-            # Set axis for summing/averaging
             a_axis = 1
             b_axis = 0
             
@@ -316,8 +315,7 @@ def calc_lagcovar(var1,var2,lags,basemonth,detrendopt):
     modswitch = 0
     
     for i in lags:
-        
-        
+
         lagm = (basemonth + i)%12
         
         if lagm == 0:
@@ -405,18 +403,32 @@ def find_latlon(lonf,latf,lon,lat):
     return klon,klat
 
 
-def lon360to180(lon360,var):
+def lon360to180(lon360,var,autoreshape=False,debug=True):
     """
     Convert Longitude from Degrees East to Degrees West 
     Inputs:
         1. lon360 - array with longitude in degrees east
         2. var    - corresponding variable [lon x lat x time]
+        3. autoreshape - BOOL, reshape variable autocmatically if size(var) > 3
     """
     
+    # Reshape to combine dimensions
+    dimflag = False 
+    if (len(var.shape) > 3) & (autoreshape==True):
+        if debug:
+           print("Warning, variable has more than 3 dimensions, combining last!")
+        dimflag = True
+        vshape    = var.shape
+        otherdims = np.prod(vshape[2:]) 
+        var = var.reshape(vshape[0],vshape[1],otherdims)
+        
     kw = np.where(lon360 >= 180)[0]
     ke = np.where(lon360 < 180)[0]
     lon180 = np.concatenate((lon360[kw]-360,lon360[ke]),0)
     var = np.concatenate((var[kw,...],var[ke,...]),0)
+    
+    if dimflag:
+        var = var.reshape(vshape)
     
     return lon180,var
 
@@ -616,7 +628,6 @@ def regress2ts(var,ts,normalizeall=0,method=1,nanwarn=1):
 
 def xrdeseason(ds):
     """ Remove seasonal cycle, given an Dataarray with dimension 'time'"""
-    
     return ds.groupby('time.month') - ds.groupby('time.month').mean('time')
 
 
@@ -1016,8 +1027,111 @@ def detrend_poly(x,y,deg):
     # Prepare matrix (x^n, x^n-1 , ... , x^0)
     #inputs = np.array([np.power(x,d) for d in range(len(fit))])
     inputs = np.array([np.power(x,d) for d in reversed(range(len(fit)))])
+    
     # Calculate model
     model = fit.T.dot(inputs)
+    
     # Remove trend
     ydetrend = y - model.T
     return ydetrend,model
+
+def coarsen_byavg(invar,lat,lon,deg,tol,latweight=True,verbose=True):
+    """
+    Coarsen an input variable to specified resolution [deg]
+    by averaging values within a search tolerance for each new grid box.
+    
+    Dependencies: numpy as np
+
+    Parameters
+    ----------
+    invar : ARRAY [TIME x LAT x LON]
+        Input variable to regrid
+    lat : ARRAY [LAT]
+        Latitude values of input
+    lon : ARRAY [LON]
+        Longitude values of input
+    deg : INT
+        Resolution of the new grid (in degrees)
+    tol : TYPE
+        Search tolerance (pulls all lat/lon +/- tol)
+    
+    OPTIONAL ---
+    latweight : BOOL
+        Set to true to apply latitude weighted-average
+    verbose : BOOL
+        Set to true to print status
+    
+
+    Returns
+    -------
+    outvar : ARRAY [TIME x LAT x LON]
+        Regridded variable       
+    lat5 : ARRAY [LAT]
+        New Latitude values of input
+    lon5 : ARRAY [LON]
+        New Longitude values of input
+
+    """
+
+    # Make new Arrays
+    lon5 = np.arange(0,360+deg,deg)
+    lat5 = np.arange(-90,90+deg,deg)
+    
+    
+    # Set up latitude weights
+    if latweight:
+        _,Y = np.meshgrid(lon,lat)
+        wgt = np.cos(np.radians(Y)) # [lat x lon]
+        invar *= wgt[None,:,:] # Multiply by latitude weight
+    
+    # Get time dimension and preallocate
+    nt = invar.shape[0]
+    outvar = np.zeros((nt,len(lat5),len(lon5)))
+    
+    # Loop and regrid
+    i=0
+    for o in range(len(lon5)):
+        for a in range(len(lat5)):
+            lonf = lon5[o]
+            latf = lat5[a]
+            
+            lons = np.where((lon >= lonf-tol) & (lon <= lonf+tol))[0]
+            lats = np.where((lat >= latf-tol) & (lat <= latf+tol))[0]
+            
+            varf = invar[:,lats[:,None],lons[None,:]]
+            
+            if latweight:
+                wgtbox = wgt[lats[:,None],lons[None,:]]
+                varf = np.sum(varf/np.sum(wgtbox,(0,1)),(1,2)) # Divide by the total weight for the box
+            else:
+                varf = varf.mean((1,2))
+            outvar[:,a,o] = varf.copy()
+            i+= 1
+            msg="\rCompleted %i of %i"% (i,len(lon5)*len(lat5))
+            print(msg,end="\r",flush=True)
+    return outvar,lat5,lon5
+
+
+def tilebylag(kmonth,var,lags): 
+    """
+    Tile a monthly variable along a lag sequence,
+    shifting to recenter lag0 = kmonth+1
+
+    Parameters
+    ----------
+    kmonth : INT
+        Index of month at lag 0 (ex. Jan, kmonth=0)
+    var : ARRAY [12,]
+        Monthly variable
+    lags : ARRAY [nlags]
+        Lags to tile along
+
+    Returns
+    -------
+    vartile : ARRAY [nlags]
+        Tiled and shifted variable
+
+    """
+    vartile = np.tile(np.array(var),int(np.floor(len(lags)/12))) 
+    vartile = np.concatenate([np.roll(vartile,-kmonth),[var[kmonth]]])
+    return vartile
