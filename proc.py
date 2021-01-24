@@ -402,6 +402,42 @@ def find_latlon(lonf,latf,lon,lat):
     
     return klon,klat
 
+def combine_dims(var,nkeep,debug=True):
+    """
+    Keep first n dimensions of var, and 
+    reshape to combine the rest
+
+    Parameters
+    ----------
+    var : ARRAY
+        Array to reshape
+    nkeep : INT
+        Number of dimensions to avoid reshape
+    debug : BOOL (optional)
+        Prints warning message if reshaping occurs
+        
+    
+    Returns
+    -------
+    var : ARRAY
+        Reshaped Variable
+    vshape : TYPE
+        Original shape of the variable
+    dimflag : BOOL
+        True if variable is reshaped
+
+    """
+    dimflag = False
+    vshape  = var.shape
+    if (len(var.shape) > nkeep+1):
+        dimflag=True
+        if debug:
+           print("Warning, variable has more than %i dimensions, combining last!"% (nkeep+1))
+        otherdims = np.prod(vshape[nkeep:])
+        newshape = np.hstack([vshape[:nkeep],[otherdims]])
+        var = var.reshape(vshape[0],vshape[1],otherdims)
+    return var,vshape,dimflag
+
 
 def lon360to180(lon360,var,autoreshape=False,debug=True):
     """
@@ -414,13 +450,8 @@ def lon360to180(lon360,var,autoreshape=False,debug=True):
     
     # Reshape to combine dimensions
     dimflag = False 
-    if (len(var.shape) > 3) & (autoreshape==True):
-        if debug:
-           print("Warning, variable has more than 3 dimensions, combining last!")
-        dimflag = True
-        vshape    = var.shape
-        otherdims = np.prod(vshape[2:]) 
-        var = var.reshape(vshape[0],vshape[1],otherdims)
+    if autoreshape:
+        var,vshape,dimflag=combine_dims(var,2,debug=True)
         
     kw = np.where(lon360 >= 180)[0]
     ke = np.where(lon360 < 180)[0]
@@ -834,7 +865,7 @@ def covariance2d(A,B,dim):
     return cov
 
 
-def sel_region(var,lon,lat,bbox,reg_avg=0,reg_sum=0,warn=1):
+def sel_region(var,lon,lat,bbox,reg_avg=0,reg_sum=0,warn=1,autoreshape=False):
     """
     
     Select Region
@@ -857,7 +888,11 @@ def sel_region(var,lon,lat,bbox,reg_avg=0,reg_sum=0,warn=1):
     
     
     """    
-        
+    # Reshape to combine dimensions
+    dimflag = False 
+    if autoreshape:
+        var,vshape,dimflag=combine_dims(var,2,debug=True)
+    
     # Find indices
     klat = np.where((lat >= bbox[2]) & (lat <= bbox[3]))[0]
     if bbox[0] < bbox[1]:
@@ -872,7 +907,6 @@ def sel_region(var,lon,lat,bbox,reg_avg=0,reg_sum=0,warn=1):
     latr = lat[klat]
     
     #print("Bounds from %.2f to %.2f Latitude and %.2f to %.2f Longitude" % (latr[0],latr[-1],lonr[0],lonr[-1]))
-        
     
     # Index variable
     varr = var[klon[:,None],klat[None,:],...]
@@ -883,6 +917,12 @@ def sel_region(var,lon,lat,bbox,reg_avg=0,reg_sum=0,warn=1):
     elif reg_sum == 1:
         varr = np.nansum(varr,(0,1))
         return varr
+    
+    # Reshape variable automatically
+    if dimflag:
+        newshape = np.hstack([[len(lonr),len(latr)],vshape[2:]])
+        varr     = varr.reshape(newshape)
+    
     return varr,lonr,latr
 
 def calc_AMV(lon,lat,sst,bbox,order,cutofftime,awgt):
