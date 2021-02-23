@@ -1175,3 +1175,64 @@ def tilebylag(kmonth,var,lags):
     vartile = np.tile(np.array(var),int(np.floor(len(lags)/12))) 
     vartile = np.concatenate([np.roll(vartile,-kmonth),[var[kmonth]]])
     return vartile
+
+def remove_ss_sinusoid(ts,t=None,dt=12,semiannual=True,Winv=None):
+    """
+    Removes annual and semiannual (optional) cycles
+    using least squares fit to sinusoids:
+    
+    y = A + B sin(omega*t*pi)   + C cos(omega*t*pi)
+          + D sin(2*omega*t*pi) + E cos(2*omega*t*pi) 
+    
+    Inputs
+    ------
+        ts : [n x m] ARRAY
+            Matrix of timeseries n is time (rows), m is space (columns)
+        t  : [n,] ARRAY, optional    
+            Array of times (Default, uses np.arange(0,n,1))
+        dt : INT, optional    
+            Number of timesteps equivalent to 1 year
+        semiannual: BOOL, optional
+            Set to True to remove semiannual cycle as well (default is True)
+        Winv : [n x n matrix], optional
+            Weighting matrix, Default uses equal weights for all time points (1/n) 
+    
+    Outputs
+    -------
+        x : ARRAY
+            Contains the coefficients [A,B,C,D,E]
+            [5 x 1] if semiannual is true, [3 x 1] if false
+        E : ARRAY
+            Contains the sines and cosines [n x 5] (or [n x 3])
+    
+    """
+    # Get shape
+    nt,ns = ts.shape
+    
+    # Make time vector
+    if t is None:
+        t = np.arange(0,nt,1)
+    
+    # Set periods
+    omegas = [1/dt]
+    if semiannual:
+        omegas.append(omegas[0]*2)
+    
+    # Prepare observational matrix
+    E = []
+    E.append(np.ones(nt))
+    for w in omegas:
+        sints = np.sin(np.pi*t*w)
+        costs = np.cos(np.pi*t*w)
+        E.append(sints)
+        E.append(costs)
+    E = np.array(E).T # [nt x 4]
+    
+    # Calculate weighting matrix
+    if Winv is None:
+        Winv = np.diag(np.ones(nt)) * 1/nt # [nt x nt]
+    
+    # Perform Least Squares Fit
+    F = np.linalg.inv(E.T@Winv@E)@E.T@Winv
+    x = F@ts
+    return x,E
