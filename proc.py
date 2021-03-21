@@ -474,7 +474,7 @@ def find_nan(data,dim):
     Outputs:
         1) okdata: data with nan points removed
         2) knan: boolean array with indices of nan points
-        
+        3) okpts: indices for non-nan points
 
     """
     
@@ -1181,8 +1181,11 @@ def remove_ss_sinusoid(ts,t=None,dt=12,semiannual=True,Winv=None):
     Removes annual and semiannual (optional) cycles
     using least squares fit to sinusoids:
     
-    y = A + B sin(omega*t*pi)   + C cos(omega*t*pi)
-          + D sin(2*omega*t*pi) + E cos(2*omega*t*pi) 
+        
+    y = A + B sin(w*t*pi)   + C cos(w*t*pi)
+          + D sin(2w*t*pi)  + E cos(2w*t*pi) 
+    
+    where w = 1/period
     
     Inputs
     ------
@@ -1236,3 +1239,34 @@ def remove_ss_sinusoid(ts,t=None,dt=12,semiannual=True,Winv=None):
     F = np.linalg.inv(E.T@Winv@E)@E.T@Winv
     x = F@ts
     return x,E
+
+def calc_pearsonconf(rho,conf,tails,n):
+    """
+    rho   : pearson r
+    conf  : confidence level
+    tails : 1 or 2 tailed
+    n     : Sample size
+    """
+    # Get z-critical
+    alpha = (1-conf)/tails
+    zcrit = stats.norm.ppf(1 - alpha)
+    
+    # Transform to z-space
+    zprime = 0.5*np.log((1+rho)/(1-rho))
+    
+    # Calculate standard error
+    SE = 1/ np.sqrt(n-3)
+    
+    # Get Confidence
+    z_lower = zprime-zcrit*SE
+    z_upper = zprime+zcrit*SE
+    
+    # Convert back to r
+    c_lower = np.tanh(z_lower)
+    c_upper = np.tanh(z_upper)
+    return c_lower,c_upper
+    
+def make_locstring(lon,lat):
+    locfn    = "lon%i_lat%i" % (lon,lat)
+    loctitle = "Lon: %i Lat: %i" % (lon,lat)
+    return locfn,loctitle
