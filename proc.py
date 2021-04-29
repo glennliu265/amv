@@ -13,6 +13,7 @@ import numpy as np
 import xarray as xr
 from scipy import signal,stats
 from scipy.signal import butter, lfilter, freqz, filtfilt, detrend
+import os
 
 def ann_avg(ts,dim):
     """
@@ -125,6 +126,9 @@ def regress_2d(A,B,nanwarn=1):
         # Calculate denominator, summing over N
         Aanom2 = np.power(Aanom,2)
         denom = np.sum(Aanom2,axis=a_axis)    
+        
+        
+        
         
         # Calculate Beta
         beta = Aanom @ Banom / denom
@@ -1270,3 +1274,21 @@ def make_locstring(lon,lat):
     locfn    = "lon%i_lat%i" % (lon,lat)
     loctitle = "Lon: %i Lat: %i" % (lon,lat)
     return locfn,loctitle
+
+
+def makedir(expdir):
+    """
+    Check if "expdir" exists, and creates a directory if it doesn't
+
+    Parameters
+    ----------
+    expdir : TYPE
+        DESCRIPTION.
+
+    """
+    checkdir = os.path.isdir(expdir)
+    if not checkdir:
+        print(expdir + " Not Found! \n\tCreating Directory...")
+        os.makedirs(expdir)
+    else:
+        print(expdir+" was found!")
