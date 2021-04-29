@@ -273,7 +273,7 @@ def plot_AMV(amv,ax=None):
 
     return ax
 
-def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0,labels=True,fmt="%.1f",clabelBG=False,fontsize=10):
+def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0,labels=True,fmt="%.1f",clabelBG=False,fontsize=10,returncbar=False):
     fig = plt.gcf()
     
     if ax is None:
@@ -349,10 +349,12 @@ def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0,
         cbar= fig.colorbar(cs,ax=ax,fraction=0.046, pad=0.04,format=fmt)
         cbar.ax.tick_params(labelsize=8)
     else:
-        cbar = fig.colorbar(cs,ax=ax,ticks=clab,fraction=0.046, pad=0.04,format=fmt)
+        cbar = fig.colorbar(cs,ax=ax,ticks=clab,fraction=0.046, pad=0.04,format=fmt,shrink=0.95)
         cbar.ax.tick_params(labelsize=8)
     #cbar.ax.set_yticklabels(['{:.0f}'.format(x) for x in cint], fontsize=10, weight='bold')
     
+    if returncbar:
+        return ax,cbar
     return ax
 
 def plot_box(bbox,ax=None,return_line=False,leglab="Bounding Box",color='k',linestyle='solid',linewidth=1):
@@ -437,7 +439,7 @@ def plot_contoursign(var,lon,lat,cint,ax=None,bbox=None,clab=True,clab_fmt="%.1f
     
     return ax
 
-def summarize_params(lat,lon,params):
+def summarize_params(lat,lon,params,synth=False):
     """
     Creates a quick 3-panel plot of Damping, MLD, and Forcing
     at a single point
@@ -451,33 +453,207 @@ def summarize_params(lat,lon,params):
     params : Tuple
         Contains the output of scm.get_data, specifically:
             [lon_index,lat_index],damping,mld,dentrain_month,forcing           
+    synth: Tuple
+        Contains synthetic data for
+            [damping,mld,forcing]
 
     Returns
     -------
     fig,ax (matplotlib objects)
     """
+    alpha = 1
+    if synth is not False:
+        alpha = 0.25
+        
+    # Initialized Figure
     xtks = np.arange(1,13,1)
     locstring = "LON: %.1f, LAT: %.1f" % (lon[params[0][0]],lat[params[0][1]]) 
     fig,axs = plt.subplots(3,1,figsize=(4,6),sharex=True)
     
-    ax = axs[0] # Plot Damping 
-    ax.plot(xtks,params[1],color='r')
+    # Plot Damping
+    ax = axs[0]
+    ax.plot(xtks,params[1],color='r',alpha=alpha,label="Seasonal Mean")
     ax.set_ylabel("Damping $(W/m^{2})$")
     ax.set_xticks(xtks)
     ax.grid(True,linestyle='dotted')
+    if synth is not False:
+        ax.plot(xtks,synth[0],color='r',label="Model Input")
+        ax.legend(fontsize=8)
     
-    ax = axs[1] # Plot MLD
-    ax=viz_kprev(params[2],params[3],ax=ax)
+    # Plot MLD
+    ax = axs[1] 
+    if synth is not False: # Don't Plot Kprev for constant MLD
+        ax.plot(xtks,params[2],alpha=alpha,color='b',label="Seasonal Mean")
+        ax.plot(xtks,synth[1],color='b',label="Model Input")
+        ax.legend(fontsize=8)
+    else:
+        ax=viz_kprev(params[2],params[3],ax=ax)
     ax.set_xticks(xtks)
     ax.set_title("")
     ax.set_ylabel("Mixed-Layer Depth (m)")
     ax.grid(True,linestyle='dotted')
     
-    ax = axs[2] # Plot Forcing
-    ax.plot(xtks,params[4])
-    ax.set_ylabel("Forcing $(W/m^{2})$",color='k')
+    # Plot Forcing
+    ax = axs[2]
+    
+    ax.plot(xtks,params[4],color='k',label="Seasonal Mean",alpha=alpha)
+    ax.set_ylabel("Forcing $(W/m^{2})$")
     ax.set_xticks(xtks)
     ax.grid(True,linestyle='dotted')
+    fmax = np.abs(params[4]).max()
+    if synth is not False:
+        ax.plot(xtks,synth[2],color='k',label="Model Input")
+        ax.legend(fontsize=8)
+    ax.set_ylim([-fmax,fmax])
     plt.suptitle(locstring)
     plt.tight_layout()
     return fig,ax
+
+def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None):
+    """
+    Function to initialize autocorrelation plot with months on top,
+    lat on the bottom
+    
+    Parameters
+    ----------
+    kmonth : INT
+        Index of Month corresponding to lag=0.
+    xticks : ARRAY
+        Lags that will be shown
+    lags : ARRAY
+        Lags to visulize
+    ax : matplotlib object, optional
+        Axis to plot on
+    title : STR, optional
+        Title of plot. The default is "SST Autocorrelation, Lag 0 = Month.
+    loopvar: ARRAY [12,], optional
+        Monthly variable to tile and plot in the background
+    
+    Returns
+    -------
+    ax,ax2, and ax3 if loopvar is not None : matplotlib object
+        Axis with plot
+
+    """
+    if ax is None:
+        ax = plt.gca()
+    # Tile Months for plotting
+    mons3=('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec')
+    mons3tile = np.tile(np.array(mons3),int(np.floor(len(lags)/12))) 
+    mons3tile = np.concatenate([np.roll(mons3tile,-kmonth),[mons3[kmonth]]])
+    
+    # Set up second axis
+    ax2 = ax.twiny()
+    ax2.set_xticks(xticks)
+    ax2.set_xticklabels(mons3tile[xticks], rotation = 45)
+    ax2.set_axisbelow(True)
+    ax2.grid(zorder=0,alpha=0)
+    ax2.set_xlim(xticks[[0,-1]])
+    
+    # Plot second variable if option is set
+    if loopvar is not None:
+        ax3 = ax.twinx()
+        loopvar = proc.tilebylag(kmonth,loopvar,lags)
+        ax3.plot(lags,loopvar,color='gray',linestyle='dashed')
+        ax3.tick_params(axis='y',labelcolor='gray')
+        ax3.grid(False)
+    
+    ax.set_xticks(xticks)
+    ax.set_xlim([xticks[0],xticks[-1]])
+    if title is None:
+        ax.set_title("SST Autocorrelation, Lag 0 = %s" % (mons3[kmonth]))
+    else:
+        ax.set_title(title)
+    ax.set_xlabel("Lags (Months)")
+    ax.set_ylabel("Correlation")
+    ax.grid(True,linestyle='dotted')
+    plt.tight_layout()
+    
+    if loopvar is not None:
+        return ax,ax2,ax3
+    return ax,ax2
+
+def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None):
+    """
+    Add Coastlines, grid, and set extent for geoaxes
+    
+    Parameters
+    ----------
+    ax : matplotlib geoaxes
+        Axes to plot on 
+    bbox : [LonW,LonE,LatS,LatN], optional
+        Bounding box for plotting. The default is [-180,180,-90,90].
+    proj : cartopy.crs, optional
+        Projection. The default is None.
+
+    Returns
+    -------
+    ax : matplotlib geoaxes
+        Axes with setup
+    """
+    if proj is None:
+        proj = ccrs.PlateCarree()
+    ax.add_feature(cfeature.COASTLINE,color='black',lw=0.75)
+    ax.set_extent(bbox)
+    gl = ax.gridlines(crs=proj, draw_labels=True,
+                  linewidth=2, color='gray', alpha=0.5, linestyle="dotted",lw=0.75)
+    gl.right_labels = False
+    gl.top_labels = False
+    return ax
+
+
+#%% Spectral Analysis
+def make_axtime(ax,htax,denom='year'):
+    
+    # Units in Seconds
+    dtday = 3600*24
+    dtyr  = dtday*365
+    
+    fnamefull = ("Millennium","Century","Decade","Year","Month")
+    if denom == 'month':
+        
+        # Set frequency (by 10^n months, in seconds)
+        fs = [1/(dtyr*1000),1/(dtyr*100),1/(dtyr*10),1/(dtyr),1/(dtday*30)]
+        xtk      = np.array(fs)#/dtin
+        
+        # Set frequency tick labels
+        fsl = ["%.1e" % s for s in xtk]
+        
+        # Set period tick labels
+        per = [ "%.2e \n (%s) " % (int(1/fs[i]/(dtday*30)),fnamefull[i]) for i in range(len(fnamefull))]
+        
+        # Set axis names
+        axl_bot = "Frequency (cycles/sec)" # Axis Label
+        axl_top = "Period (Months)"
+        
+        
+    elif denom == 'year':
+        
+        # Set frequency (by 10^n years, in seconds)
+        denoms = [1000,100,10,1,.1]
+        fs = [1/(dtyr*1000),1/(dtyr*100),1/(dtyr*10),1/(dtyr),1/(dtyr*.1)]
+        xtk      = np.array(fs)#/dtin
+        
+        # Set tick labels for frequency axis
+        fsl = ["%.3f" % (fs[i]*dtyr) for i in range(len(fs))]
+        
+        # Set period tick labels
+        per = [ "%.2e \n (%s) " % (denoms[i],fnamefull[i]) for i in range(len(fnamefull))]
+        
+        # Set axis labels
+        axl_bot = "Frequency (cycles/year)" # Axis Label
+        axl_top = "Period (Years)"
+
+    
+    
+    for i,a in enumerate([ax,htax]):
+        a.set_xticks(xtk)
+        if i == 0:
+            a.set_xticklabels(fsl)
+            a.set_xlabel("")
+            a.set_xlabel(axl_bot)
+        else:
+            a.set_xticklabels(per)
+            a.set_xlabel("")
+            a.set_xlabel(axl_top)
+    return ax,htax
