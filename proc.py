@@ -1292,3 +1292,32 @@ def makedir(expdir):
         os.makedirs(expdir)
     else:
         print(expdir+" was found!")
+        
+        
+def calc_conflag(ac,conf,tails,n):
+    """
+    Calculate Confidence Intervals for autocorrelation function
+
+    Parameters
+    ----------
+    ac : ARRAY [nlags]
+        Autocorrelation values by lag
+    conf : NUMERIC
+        Confidence level (ex. 0.95)
+    tails : INT
+        # of tails to consider
+    n : INT
+        Degrees of Freedom
+
+    Returns
+    -------
+    cflags : ARRAY [nlags]
+        Confidence interval for each lag
+
+    """
+    cflags = np.zeros((len(ac),2))
+    for l in range(len(ac)):
+        rhoin = ac[l]
+        cfout = calc_pearsonconf(rhoin,conf,tails,n)
+        cflags[l,:] = cfout
+    return cflags
