@@ -19,6 +19,10 @@ import cartopy.feature as cfeature
 from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 import cartopy.crs as ccrs
 from cartopy.util import add_cyclic_point
+from matplotlib.ticker import LogLocator
+
+
+
 #%% Functions
 
 def return_mon_label(m,nletters='all'):
@@ -273,7 +277,9 @@ def plot_AMV(amv,ax=None):
 
     return ax
 
-def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0,labels=True,fmt="%.1f",clabelBG=False,fontsize=10,returncbar=False):
+def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0,labels=True,fmt="%.1f",clabelBG=False,fontsize=10,returncbar=False,
+                     omit_cbar=False):
+    
     fig = plt.gcf()
     
     if ax is None:
@@ -283,22 +289,17 @@ def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0,
     # Add cyclic point to avoid the gap
     var,lon1 = add_cyclic_point(var,coord=lon)
     
-    
-    
     # Set  extent
     ax.set_extent(bbox)
     
     # Add filled coastline
     ax.add_feature(cfeature.LAND,color=[0.4,0.4,0.4])
     
-    
     if len(cint) == 1:
         # Automaticall set contours to max values
         cmax = np.nanmax(np.abs(var))
         cmax = np.round(cmax,decimals=2)
         cint = np.linspace(cmax*-1,cmax,9)
-    
-    
     
     if pcolor == 0:
 
@@ -339,18 +340,23 @@ def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0,
                 
     # Add Gridlines
     gl = ax.gridlines(draw_labels=True,linewidth=0.75,color='gray',linestyle=':')
-
     gl.top_labels = gl.right_labels = False
     gl.xformatter = LongitudeFormatter(degree_symbol='')
     gl.yformatter = LatitudeFormatter(degree_symbol='')
-    gl.xlabel_style={'size':8}
-    gl.ylabel_style={'size':8}
+    gl.xlabel_style={'size':fontsize}
+    gl.ylabel_style={'size':fontsize}
+    
+    # Colorvar
+    if omit_cbar is True:
+        return ax,cs
+    
     if len(clab) == 1:
         cbar= fig.colorbar(cs,ax=ax,fraction=0.046, pad=0.04,format=fmt)
-        cbar.ax.tick_params(labelsize=8)
+        cbar.ax.tick_params(labelsize=fontsize)
     else:
         cbar = fig.colorbar(cs,ax=ax,ticks=clab,fraction=0.046, pad=0.04,format=fmt,shrink=0.95)
-        cbar.ax.tick_params(labelsize=8)
+        cbar.ax.tick_params(labelsize=fontsize)
+    
     #cbar.ax.set_yticklabels(['{:.0f}'.format(x) for x in cint], fontsize=10, weight='bold')
     
     if returncbar:
@@ -620,7 +626,7 @@ def make_axtime(ax,htax,denom='year'):
         fsl = ["%.1e" % s for s in xtk]
         
         # Set period tick labels
-        per = [ "%.2e \n (%s) " % (int(1/fs[i]/(dtday*30)),fnamefull[i]) for i in range(len(fnamefull))]
+        per = [ "%.1e \n (%s) " % (int(1/fs[i]/(dtday*30)),fnamefull[i]) for i in range(len(fnamefull))]
         
         # Set axis names
         axl_bot = "Frequency (cycles/sec)" # Axis Label
@@ -638,7 +644,7 @@ def make_axtime(ax,htax,denom='year'):
         fsl = ["%.3f" % (fs[i]*dtyr) for i in range(len(fs))]
         
         # Set period tick labels
-        per = [ "%.2e \n (%s) " % (denoms[i],fnamefull[i]) for i in range(len(fnamefull))]
+        per = [ "%.0e \n (%s) " % (denoms[i],fnamefull[i]) for i in range(len(fnamefull))]
         
         # Set axis labels
         axl_bot = "Frequency (cycles/year)" # Axis Label
@@ -647,7 +653,7 @@ def make_axtime(ax,htax,denom='year'):
     
     
     for i,a in enumerate([ax,htax]):
-        a.set_xticks(xtk)
+        a.set_xticks(xtk,minor=False)
         if i == 0:
             a.set_xticklabels(fsl)
             a.set_xlabel("")
@@ -656,4 +662,34 @@ def make_axtime(ax,htax,denom='year'):
             a.set_xticklabels(per)
             a.set_xlabel("")
             a.set_xlabel(axl_top)
+        
+        #x_major = LogLocator(base = dtyr, numticks = 1)
+        #a.xaxis.set_major_locator(x_major)
+        #minor_locator = AutoMinorLocator(10)
+        #a.xaxis.set_minor_locator(minor_locator)
+    #ax.grid(True,which='major',ls='dotted',lw=0.5)
     return ax,htax
+
+def twin_freqaxis(ax,freq,tunit,dt,fontsize=12):
+    # Set top axis for linaer-log plots, in terms of cycles/sec
+    
+    # Set and get bottom axis units
+    xmin = 10**(np.floor(np.log10(np.min(freq))))
+    ax.set_xlim([xmin,0.5/dt])
+    ax.grid(True,ls='dotted')
+    
+    # Make top axis
+    htax   = ax.twiny()
+    htax.set_xscale("log")
+    htax.set_yscale("linear")
+    htax.set_xlim([xmin,0.5/dt])
+    htax.set_xlabel("Period (%s)"%tunit,fontsize=fontsize)
+    return htax
+
+def add_yrlines(ax):
+    vlv = [1/(100*365*24*3600),1/(10*365*24*3600),1/(365*24*3600)]
+    vll = ["Century","Decade","Year"]
+    for vv in vlv:
+        ax.axvline(vv,color='k',ls='dashed',label=vll,lw=0.75)
+    return ax
+
