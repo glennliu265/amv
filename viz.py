@@ -649,9 +649,7 @@ def make_axtime(ax,htax,denom='year'):
         # Set axis labels
         axl_bot = "Frequency (cycles/year)" # Axis Label
         axl_top = "Period (Years)"
-
-    
-    
+        
     for i,a in enumerate([ax,htax]):
         a.set_xticks(xtk,minor=False)
         if i == 0:
@@ -670,19 +668,34 @@ def make_axtime(ax,htax,denom='year'):
     #ax.grid(True,which='major',ls='dotted',lw=0.5)
     return ax,htax
 
-def twin_freqaxis(ax,freq,tunit,dt,fontsize=12):
-    # Set top axis for linaer-log plots, in terms of cycles/sec
+
+def twin_freqaxis(ax,freq,tunit,dt,fontsize=12,mode='log-lin'):
+    # Set top axis for linear-log plots, in terms of cycles/sec
     
     # Set and get bottom axis units
     xmin = 10**(np.floor(np.log10(np.min(freq))))
     ax.set_xlim([xmin,0.5/dt])
-    ax.grid(True,ls='dotted')
     
     # Make top axis
     htax   = ax.twiny()
-    htax.set_xscale("log")
-    htax.set_yscale("linear")
     htax.set_xlim([xmin,0.5/dt])
+    
+    if mode == 'lin-log': # Log (x) Linear (y)
+        
+        htax.set_xscale("log")
+        htax.set_yscale("linear")
+        
+        
+    elif mode == 'lin-lin': # Linear (x,y)
+        # Note this is probably not even needed...
+        htax.set_xscale("linear")
+        htax.set_yscale("linear")
+        
+    elif mode == 'log-log':
+        htax.set_xscale("log")
+        htax.set_yscale("log")
+        
+    ax.grid(True,ls='dotted')
     htax.set_xlabel("Period (%s)"%tunit,fontsize=fontsize)
     return htax
 
