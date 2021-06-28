@@ -15,6 +15,9 @@ from scipy import signal,stats
 from scipy.signal import butter, lfilter, freqz, filtfilt, detrend
 import os
 
+
+
+
 def ann_avg(ts,dim):
     """
     # Take Annual Average of a monthly time series
@@ -164,7 +167,12 @@ def area_avg(data,bbox,lon,lat,wgt):
     
 
     """
-        
+    # Check order of longitude
+   # vshape = data.shape
+    #nlon = lon.shape[0]
+    #nlat = lat.shape[0]
+    
+    
     # Find lat/lon indices 
     kw = np.abs(lon - bbox[0]).argmin()
     ke = np.abs(lon - bbox[1]).argmin()
@@ -869,7 +877,7 @@ def covariance2d(A,B,dim):
     return cov
 
 
-def sel_region(var,lon,lat,bbox,reg_avg=0,reg_sum=0,warn=1,autoreshape=False):
+def sel_region(var,lon,lat,bbox,reg_avg=0,reg_sum=0,warn=1,autoreshape=False,returnidx=False):
     """
     
     Select Region
@@ -906,6 +914,8 @@ def sel_region(var,lon,lat,bbox,reg_avg=0,reg_sum=0,warn=1,autoreshape=False):
             print("Warning, crossing the prime meridian!")
         klon = np.where((lon <= bbox[1]) | (lon >= bbox[0]))[0]
     
+    if returnidx:
+        return klon,klat
     
     lonr = lon[klon]
     latr = lat[klat]
@@ -1321,3 +1331,115 @@ def calc_conflag(ac,conf,tails,n):
         cfout = calc_pearsonconf(rhoin,conf,tails,n)
         cflags[l,:] = cfout
     return cflags
+
+#%%
+
+def calc_DMI(sst,lon,lat):
+    """
+    Calculate the Dipole Mode Index over the Indian Ocean
+    Using difference in SSTs over western/eastern boxes from
+    Saji et al. 1999
+    
+    Inputs:
+        1) sst : ARRAY[lon x lat x time] - SST anomalies
+        2) lon : ARRAY[lon] - Longitudes
+        3) lat : ARRAY[lat] - Latitudes
+    
+    Output:
+        1) DMI : ARRAY[time] - Dipole Mode Index
+    """
+    # Regions to calculate index over (Saji et al. 1999)
+    wIO = [50,70,-10,10] # Western Indian Ocean Box
+    eIO = [90,110,-10,0]  # Eastern Box
+    
+    wsst = sel_region(sst,lon,lat,wIO,reg_avg=1)
+    esst = sel_region(sst,lon,lat,eIO,reg_avg=1)
+    
+    DMI = wsst - esst
+    return DMI
+
+
+def get_posneg(varr,idx,return_id=False):
+    """
+    Get positive and negative years of an varianble
+    based on some climate index
+    
+    Inputs:
+        1) varr : ARRAY[lon x lat x time] - Target Variable
+        2) idx  : ARRAY[time] - Target Index
+        3) return_id : BOOL - Set to true to just return indices
+    Output:
+        1) varrp : ARRAY[lon x lat x time] - Positive years
+        2) varrn : ARRAY[lon x lat x time] - Negative years
+        3) varrz : ARRAY[lon x lat x time] - Zero years
+    
+        if return_id:
+            1) kp : ARRAY[time] - Positive Indices
+            2) kn : ARRAY[time] - Negative Indices
+            3) Kz : ARRAY[time] - Zero Indices
+    """
+    
+    kp = idx > 0
+    kn = idx < 0
+    kz = idx == 0
+    
+    if return_id:
+        return kp,kn,kz
+    
+    varrp = varr[:,:,kp]
+    varrn = varr[:,:,kn]
+    varrz = varr[:,:,kz]
+    
+    return varrp,varrn,varrz
+
+def get_posneg_sigma(varr,idxin,sigma=1,normalize=True,return_id=False):
+    """
+    Given index, normalize (optional) and take the values
+    [sigma] standard deviations above and below the mean
+    
+    Inputs:
+        1) varr : ARRAY[lon x lat x time] - Target Variable
+        2) idx  : ARRAY[time] - Target Index
+        3) sigma : NUMERIC - n standard deviation to use as threshold
+        4) normalize : BOOL - Option to  
+        3) return_id : BOOL - Set to true to just return indices
+    Output:
+        1) varrp : ARRAY[lon x lat x time] - Positive years
+        2) varrn : ARRAY[lon x lat x time] - Negative years
+        3) varrz : ARRAY[lon x lat x time] - Zero years
+    
+        if return_id:
+            1) kp : ARRAY[time] - Positive Indices
+            2) kn : ARRAY[time] - Negative Indices
+            3) Kz : ARRAY[time] - Zero Indices
+    """
+    idx = idxin.copy()
+   
+    if normalize: # Normalize the index so sigma = 1
+        idx -= np.nanmean(idx) # Anomalize
+        idx /= np.nanstd(idx)
+    
+    kp = idx > sigma # Extreme Positive
+    kn = idx < -sigma # Extreme Negative
+    kz = ~kp * ~kn
+    
+    if return_id:
+        return kp,kn,kz
+    
+    varrp = varr[:,:,kp]
+    varrn = varr[:,:,kn]
+    varrz = varr[:,:,kz]
+    return varrp,varrn,varrz
+    
+    
+    
+        
+    
+    
+    
+    
+    
+    
+    
+    
+    
