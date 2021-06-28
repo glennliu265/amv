@@ -363,7 +363,8 @@ def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0,
         return ax,cbar
     return ax
 
-def plot_box(bbox,ax=None,return_line=False,leglab="Bounding Box",color='k',linestyle='solid',linewidth=1):
+def plot_box(bbox,ax=None,return_line=False,leglab="Bounding Box",
+             color='k',linestyle='solid',linewidth=1,proj=ccrs.PlateCarree()):
     
     """
     Plot bounding box
@@ -379,19 +380,25 @@ def plot_box(bbox,ax=None,return_line=False,leglab="Bounding Box",color='k',line
     
     
     """
+    
+    for i in [0,1]:
+        if bbox[i] > 180:
+            bbox[i] -= 360
+            
     if ax is None:
         ax = plt.gca()
+    
     # Plot North Boundary
-    ax.plot([bbox[0],bbox[1]],[bbox[3],bbox[3]],color=color,ls=linestyle,lw=linewidth,label='_nolegend_')
+    ax.plot([bbox[0],bbox[1]],[bbox[3],bbox[3]],color=color,ls=linestyle,lw=linewidth,label='_nolegend_',transform=proj)
     # Plot East Boundary
-    ax.plot([bbox[1],bbox[1]],[bbox[3],bbox[2]],color=color,ls=linestyle,lw=linewidth,label='_nolegend_')
+    ax.plot([bbox[1],bbox[1]],[bbox[3],bbox[2]],color=color,ls=linestyle,lw=linewidth,label='_nolegend_',transform=proj)
     # Plot South Boundary
-    ax.plot([bbox[1],bbox[0]],[bbox[2],bbox[2]],color=color,ls=linestyle,lw=linewidth,label='_nolegend_')
+    ax.plot([bbox[1],bbox[0]],[bbox[2],bbox[2]],color=color,ls=linestyle,lw=linewidth,label='_nolegend_',transform=proj)
     # Plot West Boundary
-    ax.plot([bbox[0],bbox[0]],[bbox[2],bbox[3]],color=color,ls=linestyle,lw=linewidth,label='_nolegend_')
+    ax.plot([bbox[0],bbox[0]],[bbox[2],bbox[3]],color=color,ls=linestyle,lw=linewidth,label='_nolegend_',transform=proj)
     
     if return_line == True:
-        linesample =  ax.plot([bbox[0],bbox[0]],[bbox[2],bbox[3]],color=color,ls=linestyle,lw=linewidth,label=leglab)
+        linesample =  ax.plot([bbox[0],bbox[0]],[bbox[2],bbox[3]],color=color,ls=linestyle,lw=linewidth,label=leglab,transform=proj)
         return ax,linesample
     return ax
 
@@ -669,22 +676,31 @@ def make_axtime(ax,htax,denom='year'):
     return ax,htax
 
 
-def twin_freqaxis(ax,freq,tunit,dt,fontsize=12,mode='log-lin'):
+def twin_freqaxis(ax,freq,tunit,dt,fontsize=12,mode='log-lin',xtick=None):
     # Set top axis for linear-log plots, in terms of cycles/sec
-    
-    # Set and get bottom axis units
-    xmin = 10**(np.floor(np.log10(np.min(freq))))
-    ax.set_xlim([xmin,0.5/dt])
     
     # Make top axis
     htax   = ax.twiny()
-    htax.set_xlim([xmin,0.5/dt])
     
-    if mode == 'lin-log': # Log (x) Linear (y)
+    # Set and get bottom axis units
+    if xtick is None:
+        xmin = 10**(np.floor(np.log10(np.min(freq))))
+        ax.set_xlim([xmin,0.5/dt])
+        htax.set_xlim([xmin,0.5/dt])
+    else:
+        xlm = [xtick[0],xtick[-1]]
+        ax.set_xticks(xtick)
+        ax.set_xlim(xlm)
+        htax.set_xticks(xtick)
+        htax.set_xlim(xlm)
+        xtkl = ["%.1f" % (1/x) for x in xtick]
+        #print(xtkl)
+        htax.set_xticklabels(xtkl)
+    
+    if mode == 'log-lin': # Log (x) Linear (y)
         
         htax.set_xscale("log")
         htax.set_yscale("linear")
-        
         
     elif mode == 'lin-lin': # Linear (x,y)
         # Note this is probably not even needed...
@@ -697,12 +713,20 @@ def twin_freqaxis(ax,freq,tunit,dt,fontsize=12,mode='log-lin'):
         
     ax.grid(True,ls='dotted')
     htax.set_xlabel("Period (%s)"%tunit,fontsize=fontsize)
+    
+    # Make sure axis ticks are the same
+    htax.set_xticks(ax.get_xticks())
     return htax
 
-def add_yrlines(ax):
+def add_yrlines(ax,dt=1,label=False):
+    
     vlv = [1/(100*365*24*3600),1/(10*365*24*3600),1/(365*24*3600)]
-    vll = ["Century","Decade","Year"]
-    for vv in vlv:
-        ax.axvline(vv,color='k',ls='dashed',label=vll,lw=0.75)
+    vlv = np.array(vlv) * dt
+    if label==False:
+        vll = ["","",""]
+    else:
+        vll = ["Century","Decade","Year"]
+    for v,vv in enumerate(vlv):
+        ax.axvline(vv,color='k',ls='dashed',label=vll[v],lw=0.75)
     return ax
 
