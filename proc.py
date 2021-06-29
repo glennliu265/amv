@@ -939,7 +939,7 @@ def sel_region(var,lon,lat,bbox,reg_avg=0,reg_sum=0,warn=1,autoreshape=False,ret
     
     return varr,lonr,latr
 
-def calc_AMV(lon,lat,sst,bbox,order,cutofftime,awgt):
+def calc_AMV(lon,lat,sst,bbox,order,cutofftime,awgt,runmean=False):
     """
     Calculate AMV Index for detrended/anomalized SST data [LON x LAT x Time]
     given bounding box [bbox]. Applies cosine area weighing
@@ -959,6 +959,14 @@ def calc_AMV(lon,lat,sst,bbox,order,cutofftime,awgt):
         Butterworth Filter Order
     cutofftime : INT
         Filter Cutoff, expressed in same timesteps as input data
+    awgt : INT (0,1,2)
+        Type of Area weighting
+        0 = No weight
+        1 = cos
+        2 = cos^2
+    
+    runmean : BOOL
+        Set to true to do simple running mean
         
     Returns
     -------
@@ -981,7 +989,6 @@ def calc_AMV(lon,lat,sst,bbox,order,cutofftime,awgt):
     
     # Take the weighted area average
     aa_sst = area_avg(sst,bbox,lon,lat,awgt)
-
 
     # Design Butterworth Lowpass Filter
     filtfreq = len(aa_sst)/cutofftime
@@ -1007,11 +1014,13 @@ def calc_AMV(lon,lat,sst,bbox,order,cutofftime,awgt):
 
     
     # Compute AMV Index
-    amv = filtfilt(b,a,aa_sst)
-    
+    if runmean:
+        amv = np.convolve(aa_sst,np.ones(cutofftime)/cutofftime,mode='same')
+    else:
+        amv = filtfilt(b,a,aa_sst)
     return amv,aa_sst
     
-def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10,anndata=False):
+def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10,anndata=False,runmean=False):
     """
     
     Wrapper for quick AMV calculation.
@@ -1025,7 +1034,7 @@ def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10,anndata=False):
         5) order (optional, int), order of butterworth filter
         6) cutofftime (optional, int), filter cutoff time in years
         7) anndata - set to 1 if input data is already annual (skip resampling)
-    
+        8) runmean [BOOL] set to True to take running mean
     Outputs:
         1) amvidx     [time]      Array - AMV Index
         2) amvpattern [lon x lat] Array - AMV Spatial
@@ -1051,7 +1060,7 @@ def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10,anndata=False):
         annsst   = var_in.copy()
     
     # Calculate Index
-    amvidx,_   = calc_AMV(lon,lat,annsst,bbox,order,cutofftime,1)
+    amvidx,_   = calc_AMV(lon,lat,annsst,bbox,order,cutofftime,1,runmean=runmean)
     
     # Normalize indeix
     idxnorm    = amvidx / np.nanstd(amvidx)
