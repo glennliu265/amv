@@ -586,7 +586,7 @@ def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None):
         return ax,ax2,ax3
     return ax,ax2
 
-def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None):
+def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1]):
     """
     Add Coastlines, grid, and set extent for geoaxes
     
@@ -598,6 +598,8 @@ def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None):
         Bounding box for plotting. The default is [-180,180,-90,90].
     proj : cartopy.crs, optional
         Projection. The default is None.
+    blabels : ARRAY of BOOL [Left, Right, Upper, Lower]
+        Lat/Lon Labels. Default is [1,0,0,1]
 
     Returns
     -------
@@ -610,8 +612,10 @@ def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None):
     ax.set_extent(bbox)
     gl = ax.gridlines(crs=proj, draw_labels=True,
                   linewidth=2, color='gray', alpha=0.5, linestyle="dotted",lw=0.75)
-    gl.right_labels = False
-    gl.top_labels = False
+    gl.left_labels = blabels[0]
+    gl.right_labels = blabels[1]
+    gl.top_labels   = blabels[2]
+    gl.bottom_labels = blabels[3]
     return ax
 
 
