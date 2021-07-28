@@ -33,7 +33,7 @@ def ann_avg(ts,dim):
 
 
 # Functions
-def regress_2d(A,B,nanwarn=1):
+def regress_2d(A,B,nanwarn=1,verbose=True):
     """
     Regresses A (independent variable) onto B (dependent variable), where
     either A or B can be a timeseries [N-dimensions] or a space x time matrix 
@@ -45,6 +45,8 @@ def regress_2d(A,B,nanwarn=1):
     
     """
     # Determine if A or B is 2D and find anomalies
+    bothND = False # By default, assume both A and B are not 2-D.
+    # Note: need to rewrite function such that this wont be a concern...
     
     # Compute using nan functions (slower)
     if np.any(np.isnan(A)) or np.any(np.isnan(B)):
@@ -125,20 +127,46 @@ def regress_2d(A,B,nanwarn=1):
             # Compute anomalies along appropriate axis        
             Aanom = A - np.mean(A,axis=a_axis)
             Banom = B - np.mean(B,axis=b_axis)[None,:]
-        
+            
+        # A is [P x N], B is [N x M]
+        elif len(A.shape) == len(B.shape):
+            if verbose:
+                print("Note, both A and B are 2-D...")
+            bothND = True
+            if A.shape[1] != B.shape[0]:
+                print("WARNING, Dimensions not matching...")
+                print("A is %s, B is %s" % (str(A.shape),str(B.shape)))
+                print("Detecting common dimension")
+                # Get intersecting indices 
+                intersect, ind_a, ind_b = np.intersect1d(A.shape,B.shape, return_indices=True)
+                if ind_a[0] == 0: # A is [N x P]
+                    A = A.T # Transpose to [P x N]
+                if ind_b[0] == 1: # B is [M x N]
+                    B = B.T # Transpose to [N x M]
+                print("New dims: A is %s, B is %s" % (str(A.shape),str(B.shape)))
+            
+            # Set axis for summing/averaging
+            a_axis = 1
+            b_axis = 0
+            
+            # Compute anomalies along appropriate axis        
+            Aanom = A - np.mean(A,axis=a_axis)[:,None]
+            Banom = B - np.mean(B,axis=b_axis)[None,:]
+
         # Calculate denominator, summing over N
         Aanom2 = np.power(Aanom,2)
-        denom = np.sum(Aanom2,axis=a_axis)    
-        
-        
-        
+        denom = np.sum(Aanom2,axis=a_axis)
+        if bothND:
+            denom = denom[:,None] # Broadcast
+            
         
         # Calculate Beta
         beta = Aanom @ Banom / denom
             
-        
-        b = (np.sum(B,axis=b_axis) - beta * np.sum(A,axis=a_axis))/A.shape[a_axis]
-    
+        if bothND:
+            b = (np.sum(B,axis=b_axis)[None,:] - beta * np.sum(A,axis=a_axis)[:,None])/A.shape[a_axis]
+        else:
+            b = (np.sum(B,axis=b_axis) - beta * np.sum(A,axis=a_axis))/A.shape[a_axis]
     
     return beta,b
 
@@ -877,7 +905,7 @@ def covariance2d(A,B,dim):
     return cov
 
 
-def sel_region(var,lon,lat,bbox,reg_avg=0,reg_sum=0,warn=1,autoreshape=False,returnidx=False):
+def sel_region(var,lon,lat,bbox,reg_avg=0,reg_sum=0,warn=1,autoreshape=False,returnidx=False,awgt=None):
     """
     
     Select Region
@@ -890,6 +918,7 @@ def sel_region(var,lon,lat,bbox,reg_avg=0,reg_sum=0,warn=1,autoreshape=False,ret
         5) reg_avg: BOOL, set to 1 to return regional average
         6) reg_sum: BOOL, set to 1 to return regional sum
         7) warn: BOOL, set to 1 to print warning text for region selection
+        8) awgt: INT, type of area weighting to apply (default is None, no area weight)
     Outputs:
         1) varr: ARRAY: Output variable, cut to region
         2+3), lonr, latr: ARRAYs, new cut lat/lon
@@ -926,7 +955,10 @@ def sel_region(var,lon,lat,bbox,reg_avg=0,reg_sum=0,warn=1,autoreshape=False,ret
     varr = var[klon[:,None],klat[None,:],...]
     
     if reg_avg==1:
-        varr = np.nanmean(varr,(0,1))
+        if awgt is not None:
+            varr = area_avg(varr,bbox,lonr,latr,awgt)
+        else:
+            varr = np.nanmean(varr,(0,1))
         return varr
     elif reg_sum == 1:
         varr = np.nansum(varr,(0,1))
