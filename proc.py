@@ -503,6 +503,32 @@ def lon360to180(lon360,var,autoreshape=False,debug=True):
     
     return lon180,var
 
+def lon180to360(lon180,var,autoreshape=False,debug=True):
+    """
+    Convert Longitude from Degrees West to Degrees East 
+    Inputs:
+        1. lon180 - array with longitude in degrees west
+        2. var    - corresponding variable [lon x lat x time]
+        3. autoreshape - BOOL, reshape variable autocmatically if size(var) > 3
+    
+    """
+    
+    # Reshape to combine dimensions
+    dimflag = False 
+    if autoreshape:
+        var,vshape,dimflag=combine_dims(var,2,debug=True)
+        
+    kw = np.where(lon180 < 0)[0]
+    ke = np.where(lon180 >= 0)[0]
+    lon360 = np.concatenate((lon180[ke],lon180[kw]+360),0)
+    
+    var = np.concatenate((var[ke,...],var[kw,...]),0)
+    
+    if dimflag:
+        var = var.reshape(vshape)
+    
+    return lon360,var
+
 
 def find_nan(data,dim):
     """

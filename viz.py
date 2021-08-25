@@ -551,6 +551,7 @@ def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None):
     if ax is None:
         ax = plt.gca()
     # Tile Months for plotting
+
     mons3=('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec')
     mons3tile = np.tile(np.array(mons3),int(np.floor(len(lags)/12))) 
     mons3tile = np.concatenate([np.roll(mons3tile,-kmonth),[mons3[kmonth]]])
@@ -586,7 +587,7 @@ def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None):
         return ax,ax2,ax3
     return ax,ax2
 
-def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1]):
+def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_error=False):
     """
     Add Coastlines, grid, and set extent for geoaxes
     
@@ -612,6 +613,12 @@ def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1]):
     ax.set_extent(bbox)
     gl = ax.gridlines(crs=proj, draw_labels=True,
                   linewidth=2, color='gray', alpha=0.5, linestyle="dotted",lw=0.75)
+    
+    # Remove the degree symbol
+    if ignore_error:
+        gl.xformatter = LongitudeFormatter(direction_label=False,degree_symbol='')
+        gl.yformatter = LatitudeFormatter(direction_label=False,degree_symbol='')
+    
     gl.left_labels = blabels[0]
     gl.right_labels = blabels[1]
     gl.top_labels   = blabels[2]
@@ -680,7 +687,7 @@ def make_axtime(ax,htax,denom='year'):
     return ax,htax
 
 
-def twin_freqaxis(ax,freq,tunit,dt,fontsize=12,mode='log-lin',xtick=None):
+def twin_freqaxis(ax,freq,tunit,dt,fontsize=12,mode='log-lin',xtick=None,include_title=True):
     # Set top axis for linear-log plots, in terms of cycles/sec
     
     # Make top axis
@@ -716,7 +723,8 @@ def twin_freqaxis(ax,freq,tunit,dt,fontsize=12,mode='log-lin',xtick=None):
         htax.set_yscale("log")
         
     ax.grid(True,ls='dotted')
-    htax.set_xlabel("Period (%s)"%tunit,fontsize=fontsize)
+    if include_title:
+        htax.set_xlabel("Period (%s)"%tunit,fontsize=fontsize)
     
     # Make sure axis ticks are the same
     htax.set_xticks(ax.get_xticks())
@@ -732,5 +740,220 @@ def add_yrlines(ax,dt=1,label=False):
         vll = ["Century","Decade","Year"]
     for v,vv in enumerate(vlv):
         ax.axvline(vv,color='k',ls='dashed',label=vll[v],lw=0.75)
+    return ax
+
+#%% Quick Spectra Analysis Plots
+
+def plot_freqxpower(specs,freqs,enames,ecolors,
+                    plotdt=3600*24*365,ax=None,xtick=None,xlm=None,
+                    plotconf=None,plottitle=None):
+    """
+    Frequency x Power plot.
+
+    Parameters
+    ----------
+    specs : ARRAY [spec1,spec2]
+        List containing each spectra to plot
+    freqs : ARRAY [freq1,freq2]
+        Corresponding frequency for each spectra
+    enames : ARRAY of strings
+        Labels for each spectra
+    ecolors : ARRAY of strings
+        Color for each line
+    plotdt : INT, optional
+        Plotting timestep. The default is annual (3600*24*365).
+    ax : matplotlib.axis, optional
+        Axis to plot on. The default is None.
+    xtick :  ARRAY of floats, optional
+        Frequencies to tick. The default is None.
+    xlm : TYPE, optional
+        X-limits of plot. The default is None.
+    plotconf : ARRAY[CC1,CC2] where CC = [:,1] is the 95% confidence, optional
+        Include the 95% confidence level. The default is None.
+    plottitle : STR, optional
+        Title of plot. The default is None.
+
+    Returns
+    -------
+    ax : matplotlib axes
+        AAxes with the plot.
+    """
+    
+    # Set default plotting parameters
+    if ax is None:
+        ax = plt.gca()
+    if xtick is None:
+        xtick  = [float(10)**(x) for x in np.arange(-4,2)]
+    if xlm is None:
+        xlm    = [5e-4,10]
+    if plottitle is None:
+        plottitle="Spectral Estimate"
+    
+    # Plot spectra
+    for n in range(len(specs)):
+        ax.semilogx(freqs[n]*plotdt,specs[n]*freqs[n],color=ecolors[n],label=enames[n])
+        
+        if plotconf is not None: # Plot 95% Significance level
+            ax.semilogx(freqs[n]*plotdt,plotconf[n][:,1]*freqs[n],label="",color=ecolors[n],ls="dashed")
+
+    # Set Axis Labels
+    ax.set_ylabel("Frequency x Power ($(degC)^{2}$)",fontsize=12)
+    ax.set_xlabel("Frequency (cycles/year)",fontsize=12)
+    
+    # Twin x-axis for period
+    htax = twin_freqaxis(ax,freqs[1],"Years",plotdt,mode='log-lin',xtick=xtick,include_title=False)
+    
+    # Set upper x-axis ticks
+    xtick2 = htax.get_xticks()
+    xtkl   = ["%.1f" % (1/x) for x in xtick2]
+    htax.set_xticklabels(xtkl)
+    
+    # Set axis limits
+    ax.set_xlim(xlm)
+    htax.set_xlim(xlm)  
+    ax.legend(fontsize=10)
+    ax.set_title(plottitle)
+    return ax
+# --------------
+def plot_freqlin(specs,freqs,enames,ecolors,
+                plotdt=3600*24*365,ax=None,xtick=None,xlm=None,
+                plotconf=None,plottitle=None):
+    """
+    Linear-Linear Plot
+
+    Parameters
+    ----------
+    specs : ARRAY [spec1,spec2]
+        List containing each spectra to plot
+    freqs : ARRAY [freq1,freq2]
+        Corresponding frequency for each spectra
+    enames : ARRAY of strings
+        Labels for each spectra
+    ecolors : ARRAY of strings
+        Color for each line
+    plotdt : INT, optional
+        Plotting timestep. The default is annual (3600*24*365).
+    ax : matplotlib.axis, optional
+        Axis to plot on. The default is None.
+    xtick :  ARRAY of floats, optional
+        Frequencies to tick. The default is None.
+    xlm : TYPE, optional
+        X-limits of plot. The default plots the multidecadal band
+    plotconf : ARRAY[CC1,CC2] where CC = [:,1] is the 95% confidence, optional
+        Include the 95% confidence level. The default is None.
+    plottitle : STR, optional
+        Title of plot. The default is None.
+
+    Returns
+    -------
+    ax : matplotlib axes
+        AAxes with the plot.
+    """
+    
+    # Set default plotting parameters
+    if ax is None:
+        ax = plt.gca()
+    if xtick is None:
+        xtick    = np.array([0,0.02,0.04,0.1,0.2])
+    if xlm is None:
+        xlm      = [0,0.2]
+    if plottitle is None:
+        plottitle="Spectral Estimate"
+    
+    # Plot spectra
+    for n in range(len(specs)):
+        ax.plot(freqs[n]*plotdt,specs[n]/plotdt,color=ecolors[n],label=enames[n])
+        
+        if plotconf is not None: # Plot 95% Significance level
+            ax.plot(freqs[n]*plotdt,plotconf[n][:,1]/plotdt,label="",color=ecolors[n],ls="dashed")
+
+    # Set Axis Labels
+    ax.set_ylabel("Power ($(degC)^{2} / cpy$)",fontsize=12)
+    ax.set_xlabel("Frequency (cycles/year)",fontsize=12)
+    
+    # Twin x-axis for period
+    htax = twin_freqaxis(ax,freqs[1],"Years",plotdt,mode='lin-lin',xtick=xtick,include_title=False)
+    
+    # Set upper x-axis ticks
+    xtick2 = htax.get_xticks()
+    xtkl     =  1/np.array(xtick)
+    htax.set_xticklabels(xtkl)
+    
+    # Set axis limits
+    ax.set_xlim(xlm)
+    htax.set_xlim(xlm)  
+    ax.legend(fontsize=10,ncol=2)
+    ax.set_title(plottitle)
+    return ax
+# --------------
+def plot_freqlog(specs,freqs,enames,ecolors,
+                plotdt=3600*24*365,ax=None,xtick=None,xlm=None,
+                plotconf=None,plottitle=None):
+    """
+    Log-Log Plot
+
+    Parameters
+    ----------
+    specs : ARRAY [spec1,spec2]
+        List containing each spectra to plot
+    freqs : ARRAY [freq1,freq2]
+        Corresponding frequency for each spectra
+    enames : ARRAY of strings
+        Labels for each spectra
+    ecolors : ARRAY of strings
+        Color for each line
+    plotdt : INT, optional
+        Plotting timestep. The default is annual (3600*24*365).
+    ax : matplotlib.axis, optional
+        Axis to plot on. The default is None.
+    xtick :  ARRAY of floats, optional
+        Frequencies to tick. The default is None.
+    xlm : TYPE, optional
+        X-limits of plot. The default plots the multidecadal band
+    plotconf : ARRAY[CC1,CC2] where CC = [:,1] is the 95% confidence, optional
+        Include the 95% confidence level. The default is None.
+    plottitle : STR, optional
+        Title of plot. The default is None.
+
+    Returns
+    -------
+    ax : matplotlib axes
+        AAxes with the plot.
+    """
+    
+    # Set default plotting parameters
+    if ax is None:
+        ax = plt.gca()
+    if xtick is None:
+        xtick  = [float(10)**(x) for x in np.arange(-4,2)]
+    if xlm is None:
+        xlm    = [5e-4,10]
+    if plottitle is None:
+        plottitle="Spectral Estimate"
+    
+    # Plot spectra
+    for n in range(len(specs)):
+        ax.loglog(freqs[n]*plotdt,specs[n]/plotdt,color=ecolors[n],label=enames[n])
+        
+        if plotconf is not None: # Plot 95% Significance level
+            ax.loglog(freqs[n]*plotdt,plotconf[n][:,1]/plotdt,label="",color=ecolors[n],ls="dashed")
+
+    # Set Axis Labels
+    ax.set_ylabel("Power ($(degC)^{2} / cpy$)",fontsize=12)
+    ax.set_xlabel("Frequency (cycles/year)",fontsize=12)
+    
+    # Twin x-axis for period
+    htax = twin_freqaxis(ax,freqs[1],"Years",plotdt,mode='log-log',xtick=xtick,include_title=False)
+    
+    # Set upper x-axis ticks
+    xtick2 = htax.get_xticks()
+    xtkl     =  1/np.array(xtick)
+    htax.set_xticklabels(xtkl)
+    
+    # Set axis limits
+    ax.set_xlim(xlm)
+    htax.set_xlim(xlm)  
+    ax.legend(fontsize=10,ncol=2)
+    ax.set_title(plottitle)
     return ax
 
