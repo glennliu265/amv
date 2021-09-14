@@ -853,8 +853,8 @@ def pearsonr_2d(A,B,dim,returnsig=0,p=0.05,tails=2,dof='auto'):
     """
     
     # Find Anomaly
-    Aanom = A - np.mean(A,dim)
-    Banom = B - np.mean(B,dim)
+    Aanom = A - np.nanmean(A,dim)
+    Banom = B - np.nanmean(B,dim)
     
     # Elementwise product of A and B
     AB = Aanom * Banom
@@ -864,7 +864,7 @@ def pearsonr_2d(A,B,dim,returnsig=0,p=0.05,tails=2,dof='auto'):
     B2 = np.power(Banom,2)
     
     # Compute Pearson's Correlation Coefficient
-    rho = np.sum(AB,dim) / np.sqrt(np.sum(A2,dim)*np.sum(B2,dim))
+    rho = np.nansum(AB,dim) / np.sqrt(np.nansum(A2,dim)*np.nansum(B2,dim))
     
     if returnsig == 0:
         return rho
