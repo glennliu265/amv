@@ -746,7 +746,7 @@ def add_yrlines(ax,dt=1,label=False):
 
 def plot_freqxpower(specs,freqs,enames,ecolors,
                     plotdt=3600*24*365,ax=None,xtick=None,xlm=None,
-                    plotconf=None,plottitle=None):
+                    plotconf=None,plottitle=None,alpha=None):
     """
     Frequency x Power plot.
 
@@ -772,6 +772,8 @@ def plot_freqxpower(specs,freqs,enames,ecolors,
         Include the 95% confidence level. The default is None.
     plottitle : STR, optional
         Title of plot. The default is None.
+    alpha : LIST [Numeric,...]
+        List of alpha values. Default is 1 for all.
 
     Returns
     -------
@@ -788,13 +790,17 @@ def plot_freqxpower(specs,freqs,enames,ecolors,
         xlm    = [5e-4,10]
     if plottitle is None:
         plottitle="Spectral Estimate"
+    if alpha is None:
+        alpha = np.ones(len(specs))
     
     # Plot spectra
     for n in range(len(specs)):
-        ax.semilogx(freqs[n]*plotdt,specs[n]*freqs[n],color=ecolors[n],label=enames[n])
+        ax.semilogx(freqs[n]*plotdt,specs[n]*freqs[n],color=ecolors[n],label=enames[n],
+                    alpha=alpha[n])
         
         if plotconf is not None: # Plot 95% Significance level
-            ax.semilogx(freqs[n]*plotdt,plotconf[n][:,1]*freqs[n],label="",color=ecolors[n],ls="dashed")
+            ax.semilogx(freqs[n]*plotdt,plotconf[n][:,1]*freqs[n],label="",color=ecolors[n],
+                        ls="dashed")
 
     # Set Axis Labels
     ax.set_ylabel("Frequency x Power ($(degC)^{2}$)",fontsize=12)
@@ -813,11 +819,12 @@ def plot_freqxpower(specs,freqs,enames,ecolors,
     htax.set_xlim(xlm)  
     ax.legend(fontsize=10)
     ax.set_title(plottitle)
+    
     return ax
 # --------------
 def plot_freqlin(specs,freqs,enames,ecolors,
                 plotdt=3600*24*365,ax=None,xtick=None,xlm=None,
-                plotconf=None,plottitle=None):
+                plotconf=None,plottitle=None,alpha=None):
     """
     Linear-Linear Plot
 
@@ -843,6 +850,8 @@ def plot_freqlin(specs,freqs,enames,ecolors,
         Include the 95% confidence level. The default is None.
     plottitle : STR, optional
         Title of plot. The default is None.
+    alpha : LIST [Numeric,...]
+        List of alpha values. Default is 1 for all.
 
     Returns
     -------
@@ -859,10 +868,13 @@ def plot_freqlin(specs,freqs,enames,ecolors,
         xlm      = [0,0.2]
     if plottitle is None:
         plottitle="Spectral Estimate"
+    if alpha is None:
+        alpha = np.ones(len(specs))
     
     # Plot spectra
     for n in range(len(specs)):
-        ax.plot(freqs[n]*plotdt,specs[n]/plotdt,color=ecolors[n],label=enames[n])
+        ax.plot(freqs[n]*plotdt,specs[n]/plotdt,color=ecolors[n],label=enames[n],
+                    alpha=alpha[n])
         
         if plotconf is not None: # Plot 95% Significance level
             ax.plot(freqs[n]*plotdt,plotconf[n][:,1]/plotdt,label="",color=ecolors[n],ls="dashed")
@@ -888,7 +900,7 @@ def plot_freqlin(specs,freqs,enames,ecolors,
 # --------------
 def plot_freqlog(specs,freqs,enames,ecolors,
                 plotdt=3600*24*365,ax=None,xtick=None,xlm=None,
-                plotconf=None,plottitle=None):
+                plotconf=None,plottitle=None,alpha=None):
     """
     Log-Log Plot
 
@@ -914,6 +926,8 @@ def plot_freqlog(specs,freqs,enames,ecolors,
         Include the 95% confidence level. The default is None.
     plottitle : STR, optional
         Title of plot. The default is None.
+    alpha : LIST [Numeric,...]
+        List of alpha values. Default is 1 for all.
 
     Returns
     -------
@@ -930,10 +944,13 @@ def plot_freqlog(specs,freqs,enames,ecolors,
         xlm    = [5e-4,10]
     if plottitle is None:
         plottitle="Spectral Estimate"
+    if alpha is None:
+        alpha = np.ones(len(specs))
     
     # Plot spectra
     for n in range(len(specs)):
-        ax.loglog(freqs[n]*plotdt,specs[n]/plotdt,color=ecolors[n],label=enames[n])
+        ax.loglog(freqs[n]*plotdt,specs[n]/plotdt,color=ecolors[n],label=enames[n],
+                    alpha=alpha[n])
         
         if plotconf is not None: # Plot 95% Significance level
             ax.loglog(freqs[n]*plotdt,plotconf[n][:,1]/plotdt,label="",color=ecolors[n],ls="dashed")
