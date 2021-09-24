@@ -732,7 +732,6 @@ def calc_clim(ts,dim,returnts=0):
     """
     Given monthly timeseries in axis [dim], calculate the climatology...
     """
-
     tsshape = ts.shape
     ntime   = ts.shape[dim] 
     newshape =    tsshape[:dim:] +(int(ntime/12),12) + tsshape[dim+1::]
@@ -1232,7 +1231,6 @@ def coarsen_byavg(invar,lat,lon,deg,tol,latweight=True,verbose=True):
             print(msg,end="\r",flush=True)
     return outvar,lat5,lon5
 
-
 def tilebylag(kmonth,var,lags): 
     """
     Tile a monthly variable along a lag sequence,
@@ -1497,6 +1495,51 @@ def get_posneg_sigma(varr,idxin,sigma=1,normalize=True,return_id=False):
     varrn = varr[:,:,kn]
     varrz = varr[:,:,kz]
     return varrp,varrn,varrz
+
+
+#%% X-array processing
+
+def numpy_to_da(invar,time,lat,lon,varname,savenetcdf=None):
+    """
+    from cvd-12860 tutorials
+    Usage: da = numpy_to_da(invar,lon,lat,time,varname)
+    
+    Converts a NumPy array into an xr.DataArray with the same
+    coordinates as the provided arrays.
+    
+    Parameters
+    ----------
+    invar : 3D ARRAY[time x lat x lon]
+        Input variable
+    lon :   1D ARRAY[lon]
+        Longitude
+    lat : 1D ARRAY[lat]
+        Latitude
+    time : 1D ARRAY[time]
+        Time
+    varname : STR
+        Name of the variable
+    savenetcdf : STR 
+        If string argument is provided, saves as netcdf to the
+        path indicated by the string. Default is None.
+
+    Returns
+    -------
+    da : xr.DataArray
+    """
+    
+    da = xr.DataArray(invar,
+                dims={'time':time,'lat':lat,'lon':lon},
+                coords={'time':time,'lat':lat,'lon':lon},
+                name = varname
+                )
+    if savenetcdf is None:
+        return da
+    else:
+        print("Saving netCDF to %s"%savenetcdf)
+        da.to_netcdf(savenetcdf,
+                 encoding={varname: {'zlib': True}})
+        return da
     
     
     
