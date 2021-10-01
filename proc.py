@@ -1077,7 +1077,7 @@ def calc_AMV(lon,lat,sst,bbox,order,cutofftime,awgt,runmean=False):
         amv = filtfilt(b,a,aa_sst)
     return amv,aa_sst
     
-def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10,anndata=False,runmean=False):
+def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10,anndata=False,runmean=False,dropedge=0):
     """
     
     Wrapper for quick AMV calculation.
@@ -1107,8 +1107,6 @@ def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10,anndata=False,runmea
     
     """
     
-    
-    
     # Resample to monthly data 
     if anndata == False:
         sst      = np.copy(var_in)
@@ -1119,13 +1117,21 @@ def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10,anndata=False,runmea
     # Calculate Index
     amvidx,_   = calc_AMV(lon,lat,annsst,bbox,order,cutofftime,1,runmean=runmean)
     
-    # Normalize indeix
+    # Drop boundary points if option is set
+    amvidxout = amvidx.copy() # Copy for later (without dropped edges)
+    if dropedge > 0:
+        
+        amvidx = amvidx[dropedge:-dropedge]
+        annsst = annsst[:,:,dropedge:-dropedge]
+        
+    # Normalize index
     idxnorm    = amvidx / np.nanstd(amvidx)
     
     # Regress back to SST for spatial pattern
     amvpattern = regress2ts(annsst,idxnorm,nanwarn=0)
     
-    return amvidx,amvpattern
+    
+    return amvidxout,amvpattern
 
 def detrend_poly(x,y,deg):
     """
