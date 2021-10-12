@@ -11,23 +11,42 @@ test from stormtrack (moved 20200815)
 
 import numpy as np
 import xarray as xr
+import calendar as cal
 from scipy import signal,stats
 from scipy.signal import butter, lfilter, freqz, filtfilt, detrend
 import os
 
 
-
-
-def ann_avg(ts,dim):
+def ann_avg(ts,dim,monid=None,nmon=12):
     """
     # Take Annual Average of a monthly time series
     where time is axis "dim"
     
+    1) ts : ARRAY
+        Target timeseries (can be N-D array)
+    2) dim : INT
+        Time axis
+    3) monid : LIST of INT
+        Months/Timesteps to average over (default is all 12)
+    4) nmon : INT
+        Number of timesteps per year (assumes 12 for monthly data)
+    
     """
+    if monid is None:
+        monid = np.arange(0,nmon,1) # Average over all timesteps in a year
+    
+    # Find which axis is time
     tsshape = ts.shape
     ntime   = ts.shape[dim] 
-    newshape =    tsshape[:dim:] +(int(ntime/12),12) + tsshape[dim+1::]
+    
+    # Separate month and year
+    newshape =    tsshape[:dim:] +(int(ntime/nmon),nmon) + tsshape[dim+1::]
     annavg = np.reshape(ts,newshape)
+    
+    # Take the specified months along the month axis
+    annavg = np.take(annavg,monid,axis=dim+1)
+    
+    # Take the mean along the month dimension
     annavg = np.nanmean(annavg,axis=dim+1)
     return annavg
 
@@ -1000,7 +1019,6 @@ def calc_AMV(lon,lat,sst,bbox,order,cutofftime,awgt,runmean=False):
     """
     Calculate AMV Index for detrended/anomalized SST data [LON x LAT x Time]
     given bounding box [bbox]. Applies cosine area weighing
-    
 
     Parameters
     ----------
@@ -1077,7 +1095,8 @@ def calc_AMV(lon,lat,sst,bbox,order,cutofftime,awgt,runmean=False):
         amv = filtfilt(b,a,aa_sst)
     return amv,aa_sst
     
-def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10,anndata=False,runmean=False,dropedge=0):
+def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10,anndata=False,
+                  runmean=False,dropedge=0,monid=None,nmon=12):
     """
     
     Wrapper for quick AMV calculation.
@@ -1091,7 +1110,13 @@ def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10,anndata=False,runmea
         5) order (optional, int), order of butterworth filter
         6) cutofftime (optional, int), filter cutoff time in years
         7) anndata - set to 1 if input data is already annual (skip resampling)
-        8) runmean [BOOL] set to True to take running mean
+        8) runmean [BOOL] set to True to take running mean    
+        9) monid : [LIST] Indices of months involved in AMV calculation. 
+            Default = Ann average. Requires anndata = 0 to work!
+            (ex. monid = [11,0,1] --> DJF AMV Index/Pattern)
+        10) nmon : [INT] Number of months for each timestep (for monthly data)
+        
+        
     Outputs:
         1) amvidx     [time]      Array - AMV Index
         2) amvpattern [lon x lat] Array - AMV Spatial
@@ -1106,11 +1131,15 @@ def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10,anndata=False,runmea
         numpy as np
     
     """
+    if monid is None:
+        monid = np.arange(0,nmon,1)
     
     # Resample to monthly data 
     if anndata == False:
+        
         sst      = np.copy(var_in)
-        annsst   = ann_avg(sst,2)
+        annsst   = ann_avg(sst,2,monid=monid,nmon=nmon)
+        
     else:
         annsst   = var_in.copy()
     
@@ -1373,6 +1402,13 @@ def makedir(expdir):
         os.makedirs(expdir)
     else:
         print(expdir+" was found!")
+        
+def get_monstr(nletters=None):
+    """
+    Get Array containing strings of first 3 letters of reach month
+    """
+    mons = [cal.month_name[i][:nletters] for i in np.arange(1,13,1)]
+    return mons
         
         
 def calc_conflag(ac,conf,tails,n):
