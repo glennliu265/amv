@@ -746,7 +746,7 @@ def add_yrlines(ax,dt=1,label=False):
 
 def plot_freqxpower(specs,freqs,enames,ecolors,
                     plotdt=3600*24*365,ax=None,xtick=None,xlm=None,
-                    plotconf=None,plottitle=None,alpha=None):
+                    plotconf=None,plottitle=None,alpha=None,return_ax2=False):
     """
     Frequency x Power plot.
 
@@ -803,7 +803,7 @@ def plot_freqxpower(specs,freqs,enames,ecolors,
                         ls="dashed")
 
     # Set Axis Labels
-    ax.set_ylabel("Frequency x Power ($(degC)^{2}$)",fontsize=12)
+    ax.set_ylabel("Frequency x Power ($(\degree C)^{2}$)",fontsize=12)
     ax.set_xlabel("Frequency (cycles/year)",fontsize=12)
     
     # Twin x-axis for period
@@ -811,7 +811,10 @@ def plot_freqxpower(specs,freqs,enames,ecolors,
     
     # Set upper x-axis ticks
     xtick2 = htax.get_xticks()
-    xtkl   = ["%.1f" % (1/x) for x in xtick2]
+    xtkl   = ["%i" % (1/x) for x in xtick2]
+    for i in range(len(xtkl)): # Adjust ticks
+        if (1/xtick2[i] < 1) and (1/xtick2[i] > 0):
+            xtkl[i] = "%.2f" % (1/xtick2[i])
     htax.set_xticklabels(xtkl)
     
     # Set axis limits
@@ -820,11 +823,14 @@ def plot_freqxpower(specs,freqs,enames,ecolors,
     ax.legend(fontsize=10)
     ax.set_title(plottitle)
     
+    if return_ax2:
+        return ax,htax
     return ax
+
 # --------------
 def plot_freqlin(specs,freqs,enames,ecolors,
                 plotdt=3600*24*365,ax=None,xtick=None,xlm=None,
-                plotconf=None,plottitle=None,alpha=None):
+                plotconf=None,plottitle=None,alpha=None,return_ax2=False,marker=None):
     """
     Linear-Linear Plot
 
@@ -874,13 +880,13 @@ def plot_freqlin(specs,freqs,enames,ecolors,
     # Plot spectra
     for n in range(len(specs)):
         ax.plot(freqs[n]*plotdt,specs[n]/plotdt,color=ecolors[n],label=enames[n],
-                    alpha=alpha[n])
+                    alpha=alpha[n],marker=marker)
         
         if plotconf is not None: # Plot 95% Significance level
             ax.plot(freqs[n]*plotdt,plotconf[n][:,1]/plotdt,label="",color=ecolors[n],ls="dashed")
 
     # Set Axis Labels
-    ax.set_ylabel("Power ($(degC)^{2} / cpy$)",fontsize=12)
+    ax.set_ylabel("Power ($(\degree C)^{2} / cpy$)",fontsize=12)
     ax.set_xlabel("Frequency (cycles/year)",fontsize=12)
     
     # Twin x-axis for period
@@ -888,7 +894,10 @@ def plot_freqlin(specs,freqs,enames,ecolors,
     
     # Set upper x-axis ticks
     xtick2 = htax.get_xticks()
-    xtkl     =  1/np.array(xtick)
+    xtkl   = ["%i" % (1/x) for x in xtick2]
+    for i in range(len(xtkl)): # Adjust ticks
+        if (1/xtick2[i] < 1) and (1/xtick2[i] > 0):
+            xtkl[i] = "%.2f" % (1/xtick2[i])
     htax.set_xticklabels(xtkl)
     
     # Set axis limits
@@ -896,11 +905,14 @@ def plot_freqlin(specs,freqs,enames,ecolors,
     htax.set_xlim(xlm)  
     ax.legend(fontsize=10,ncol=2)
     ax.set_title(plottitle)
+    
+    if return_ax2:
+        return ax,htax
     return ax
 # --------------
 def plot_freqlog(specs,freqs,enames,ecolors,
                 plotdt=3600*24*365,ax=None,xtick=None,xlm=None,
-                plotconf=None,plottitle=None,alpha=None):
+                plotconf=None,plottitle=None,alpha=None,return_ax2=False):
     """
     Log-Log Plot
 
@@ -956,7 +968,7 @@ def plot_freqlog(specs,freqs,enames,ecolors,
             ax.loglog(freqs[n]*plotdt,plotconf[n][:,1]/plotdt,label="",color=ecolors[n],ls="dashed")
 
     # Set Axis Labels
-    ax.set_ylabel("Power ($(degC)^{2} / cpy$)",fontsize=12)
+    ax.set_ylabel("Power ($(\degree C)^{2} / cpy$)",fontsize=12)
     ax.set_xlabel("Frequency (cycles/year)",fontsize=12)
     
     # Twin x-axis for period
@@ -964,7 +976,10 @@ def plot_freqlog(specs,freqs,enames,ecolors,
     
     # Set upper x-axis ticks
     xtick2 = htax.get_xticks()
-    xtkl     =  1/np.array(xtick)
+    xtkl   = ["%i" % (1/x) for x in xtick2]
+    for i in range(len(xtkl)): # Adjust ticks
+        if (1/xtick2[i] < 1) and (1/xtick2[i] > 0):
+            xtkl[i] = "%.2f" % (1/xtick2[i])
     htax.set_xticklabels(xtkl)
     
     # Set axis limits
@@ -972,5 +987,7 @@ def plot_freqlog(specs,freqs,enames,ecolors,
     htax.set_xlim(xlm)  
     ax.legend(fontsize=10,ncol=2)
     ax.set_title(plottitle)
+    if return_ax2:
+        return ax,htax
     return ax
 
