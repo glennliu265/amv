@@ -20,7 +20,7 @@ from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 import cartopy.crs as ccrs
 from cartopy.util import add_cyclic_point
 from matplotlib.ticker import LogLocator
-
+import matplotlib.gridspec as gridspec
 
 
 #%% Functions
@@ -587,7 +587,7 @@ def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None):
         return ax,ax2,ax3
     return ax,ax2
 
-def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_error=False):
+def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_error=False,fill_color=None):
     """
     Add Coastlines, grid, and set extent for geoaxes
     
@@ -601,7 +601,11 @@ def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_
         Projection. The default is None.
     blabels : ARRAY of BOOL [Left, Right, Upper, Lower]
         Lat/Lon Labels. Default is [1,0,0,1]
-
+    ignore_error : BOOL
+        Set to True to ignore error associated with gridlabeling
+    fill_color : matplotlib color string
+        Add continents with a given fill
+    
     Returns
     -------
     ax : matplotlib geoaxes
@@ -613,6 +617,9 @@ def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_
     ax.set_extent(bbox)
     gl = ax.gridlines(crs=proj, draw_labels=True,
                   linewidth=2, color='gray', alpha=0.5, linestyle="dotted",lw=0.75)
+    
+    if fill_color is not None: # Shade the land
+        ax.add_feature(cfeature.LAND,facecolor=fill_color)
     
     # Remove the degree symbol
     if ignore_error:
@@ -991,3 +998,189 @@ def plot_freqlog(specs,freqs,enames,ecolors,
         return ax,htax
     return ax
 
+def init_2rowodd(ncol,proj,figsize=(6,6),oddtop=False,debug=False):
+    """
+    Initialize a 2-row subplot where
+    the bottom row has the smaller number of plots
+    source: https://www.tutorialguruji.com/python/matplotlib-allign-uneven-number-of-subplots/
+
+    Parameters
+    ----------
+    ncol : INT
+        Number of columns (even). Last row will contain ncol-1 subplots
+
+    proj : Cartopy Projection
+        Projection to set the subplots as
+        
+    figsize : INT (Length x Height)
+        Figure Size
+        
+    oddtop : BOOL
+        Set to True to make odd row on top
+
+    Returns
+    -------
+    axs : LIST of matplotlib axes
+        Flattened list containing subplots
+
+    """
+    
+    fig = plt.figure(figsize=figsize)
+    gs = gridspec.GridSpec(2,ncol*2)
+    
+    nodd = ncol*2-1
+    
+    axs = []
+    for i in range(ncol*2-1):
+        
+        
+        if oddtop: # Shorter row on top
+            if i < ncol-1: 
+                rowid   = 0     # Top row
+                startid = i*2+1 # Start on 1
+                stopid  = i*2+3 # Stop 2 subplots later
+                msg = "for %i <= %i --> gs[0,%i:%i]" % (i,ncol-1,startid,stopid)
+            else:
+                rowid   = 1              # Bot Row
+                startid = 2*(i-ncol)+2   # Start from 0 (+2 since i-ncol = -2)
+                stopid  = 2*(i-ncol)+4   # End 2 plots later
+                msg = "for %i > %i --> gs[1,%i:%i]" % (i,ncol,startid,stopid)
+        else: # Shorter row on bottom
+            if i < ncol:
+                rowid = 0
+                startid = 2 * i
+                stopid  = 2 * i + 2
+                msg = "for %i < %i --> gs[0,%i:%i]" % (i,ncol,startid,stopid)
+            else:
+                rowid = 1
+                startid = 2 * i - nodd
+                stopid  = 2 * i + 2 - nodd
+                msg = "for %i >= %i --> gs[1,%i:%i]" % (i,ncol,startid,stopid)
+        
+        ax = plt.subplot(gs[rowid,startid:stopid],projection=proj)
+        
+        if debug:
+            
+            print(msg)
+            
+        axs.append(ax)
+    return fig,axs
+
+
+
+def return_clevels(cmax,cstep,lstep=None):
+    # cmax : Contour limit
+    # cstep : Contour interval
+    # lstep : Label Inverval
+    
+    clevels   = np.arange(-cmax,cmax+cstep,cstep)
+    if lstep is None:
+        return clevels
+    clabels   = np.arange(-cmax,cmax+lstep,lstep)
+    return clevels, clabels
+
+# def plotmap(ax=None,bbox=None,proj=None,clon=0,figsize=(12,8),land_color=None,blabels=[1,0,0,1]):
+#     """
+#     Usage: fig,ax = plotmap(ax=None,bbox=None,proj=None,clon=0,figsize=(12,8),land_color=None,blabels=[1,0,0,1])
+#     if ax is provided: ax = plotmap(ax=ax,bbox=None,proj=None,clon=0,figsize=(12,8),land_color=None,blabels=[1,0,0,1])
+    
+#     Initialize a figure or axes with coastlines and gridlines.
+
+#     Parameters (All Arguments are Optional!)
+#     ----------
+#     ax : Cartopy GeoAxes
+#         Axes to plot on. The default is to create both figure and axes within the function.
+#     bbox : LIST [west_bound,east_bound,south_bound,north_bound]
+#         Geographic bounding box/extent of the plot. First two elements are longitude bounds, last two
+#         are latitude bounds. The default is Global ([-180,180,-90,90]).
+#     proj : crs.projection
+#         The spatial projection. The default is ccrs.PlateCarree().
+#     clon : NUMERIC
+#         Central Longitude for the projection. The default is 0.
+#     figsize : LIST(Width,Height)
+#         Figure width and height in inches. The default is (12,8).
+#     land_color : STR,
+#         Color of the continents. The default is None.
+#     blabels : LIST of BOOL[Left, Right, Upper, Lower]
+#         Set to 1 to label the axis (for PlateCarree()). The default is [1,0,0,1].
+    
+#     Returns
+#     -------
+#     if ax is None:
+#         returns fig,ax
+#     if ax is provided
+#         returns ax
+        
+#     Dependencies
+#         import cartopy.crs as ccrs
+#         import cartopy.feature as cfeature
+#         from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
+    
+#     """
+#     # Set up projection
+#     if proj is None:
+#         proj = ccrs.PlateCarree(central_longitude=clon)
+
+#     # Initialize Figure
+#     init_fig=False
+#     if ax is None: # If no axis is provided, intialize figure
+#         init_fig=True
+#         fig = plt.figure(figsize=figsize)
+#         ax  = plt.axes(projection=proj)
+
+#     # Set plot extent
+#     if bbox is not None:
+# #         ax.set_extent([-180,180,-90,90],crs=ccrs.PlateCarree()) # Set the specified extent with bbox
+# #     else:
+#         ax.set_extent(bbox,crs=ccrs.PlateCarree()) # Set the specified extent with bbox
+
+#     # Add coastlines, continents
+#     ax.coastlines()
+#     if land_color:
+#         ax.add_feature(cfeature.LAND,facecolor=land_color)
+
+#     # Add gridlines
+#     gl = ax.gridlines(draw_labels=False,
+#                   linewidth=2, color='gray', alpha=1, linestyle="dotted",lw=0.75)
+
+#     # Remove the degree symbol
+#     gl.xformatter = LongitudeFormatter(direction_label=False,degree_symbol='')
+#     gl.yformatter = LatitudeFormatter(direction_label=False,degree_symbol='')
+    
+#     # Turn off labels according to blabels
+#     gl.left_labels   = blabels[0]
+#     gl.right_labels  = blabels[1]
+#     gl.top_labels    = blabels[2]
+#     gl.bottom_labels = blabels[3]    
+    
+#     if init_fig:
+#         return fig,ax
+#     else:
+#         return ax
+
+
+
+# Quick viz seasonal
+
+def qv_seasonal(lon,lat,var,add_coast=True):
+    """
+    var = [lon x lat x month]
+    """
+    
+    fig,axs = plt.subplots(4,3,figsize=(12,12),subplot_kw={'projection':ccrs.PlateCarree()}) # (each row is a season)
+    monloop = np.roll(np.arange(0,12),1) # Start with Dec. 
+    
+    for i,im in enumerate(monloop):
+        
+        ax      = axs.flatten()[i]
+        if add_coast:
+            ax      = add_coast_grid(ax,bbox=[lon[0],lon[-1],lat[0],lat[-1]])
+        
+        plotvar = var[:,:,im].T
+        
+        pcm = ax.pcolormesh(lon,lat,plotvar)
+        fig.colorbar(pcm,ax=ax)
+        ax.set_title("Month %i"%(im+1))
+        
+        
+    
