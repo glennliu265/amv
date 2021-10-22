@@ -12,7 +12,8 @@ import numpy as np
 import sys
 sys.path.append("/Users/gliu/Downloads/02_Research/01_Projects/01_AMV/00_Commons/03_Scripts/")
 from amv import proc
-
+import cmocean
+from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 import cartopy.feature as cfeature
@@ -1159,28 +1160,93 @@ def return_clevels(cmax,cstep,lstep=None):
 #         return ax
 
 
-
-# Quick viz seasonal
-
-def qv_seasonal(lon,lat,var,add_coast=True):
+def plot_mask(lon,lat,mask,reverse=False,color="k",marker="o",markersize=1.5,ax=None):
+    
     """
+    Plot stippling based on a mask
+    
+    1) lon     [ARRAY] : Longitude values
+    2) lat     [ARRAY] : Latitude values
+    3) mask    [ARRAY] : (Lon,Lat) Mask (True = Where to plot Stipple)
+    4) reverse [BOOL]  : Set to True to reverse the mask values
+    5) color [STR] : matplotlib color
+    6) marker [STR] : matplotlib markerstyle
+    7) markersize [STR] : matplotlib markersize
+
+    Solution from: https://matplotlib.org/stable/gallery/images_contours_and_fields/contour_corner_mask.html
+    
+    """
+    # Get current axis
+    if ax is None:
+        ax = plt.gca()
+        
+    # Invert Mask
+    if reverse:
+        # Inversion doesnt work with NaNs...
+        nlon,nlat = mask.shape
+        newcopy   = np.zeros((nlon,nlat)) * np.nan
+        newcopy[mask == True]  = False
+        newcopy[mask == False] = True
+        mask      = newcopy.copy()
+        
+    # Make meshgrid and plot masked array
+    yy,xx = np.meshgrid(lat,lon)
+    smap = ax.plot(np.ma.array(xx,mask=mask),yy,
+                   c=color,marker=marker,markersize=markersize,ls="")
+    return smap 
+
+
+
+
+def init_fig(nrow,ncol,proj=ccrs.PlateCarree(),figsize=(8,6),
+             sharex=False,sharey=False):
+    fig,ax=plt.subplots(nrow,ncol,figsize=figsize,
+                        sharex=sharex,sharey=sharey,
+                        subplot_kw={'projection':proj})
+    return fig,ax
+    
+# %% Exploratory plots (qv module?)
+
+def qv_seasonal(lon,lat,var,
+                add_coast=True,cmap="inferno",
+                bbox=None,anom=False,vmax=None):
+    """
+    Quickly Plot the seasonal cycle of a 2d variable
     var = [lon x lat x month]
     """
     
     fig,axs = plt.subplots(4,3,figsize=(12,12),subplot_kw={'projection':ccrs.PlateCarree()}) # (each row is a season)
     monloop = np.roll(np.arange(0,12),1) # Start with Dec. 
     
-    for i,im in enumerate(monloop):
+    if bbox is None:
+        bbox =[lon[0],lon[-1],lat[0],lat[-1]]
+    
+    for i,im in tqdm(enumerate(monloop)):
         
         ax      = axs.flatten()[i]
+        
+        # Set labels
+        blabel = [0,0,0,0]
+        if i%3 == 0:
+            blabel[0] = 1
+        if i>8:
+            blabel[3] = 1
+            
         if add_coast:
-            ax      = add_coast_grid(ax,bbox=[lon[0],lon[-1],lat[0],lat[-1]])
+            ax      = add_coast_grid(ax,bbox=bbox,blabels=blabel)
         
         plotvar = var[:,:,im].T
         
-        pcm = ax.pcolormesh(lon,lat,plotvar)
+        if anom:
+            if vmax is None: # Find maximum value in dataset
+                vmax = np.nanmax(np.abs(plotvar.flatten()))
+            pcm = ax.pcolormesh(lon,lat,plotvar,cmap=cmocean.cm.balance,vmin=-vmax,vmax=vmax)
+        else:
+            pcm = ax.pcolormesh(lon,lat,plotvar,cmap=cmap)
         fig.colorbar(pcm,ax=ax)
         ax.set_title("Month %i"%(im+1))
-        
+    return ax
+
+
         
     
