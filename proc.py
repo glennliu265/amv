@@ -16,7 +16,6 @@ from scipy import signal,stats
 from scipy.signal import butter, lfilter, freqz, filtfilt, detrend
 import os
 
-
 def ann_avg(ts,dim,monid=None,nmon=12):
     """
     # Take Annual Average of a monthly time series
@@ -49,7 +48,6 @@ def ann_avg(ts,dim,monid=None,nmon=12):
     # Take the mean along the month dimension
     annavg = np.nanmean(annavg,axis=dim+1)
     return annavg
-
 
 # Functions
 def regress_2d(A,B,nanwarn=1,verbose=True):
@@ -1096,7 +1094,8 @@ def calc_AMV(lon,lat,sst,bbox,order,cutofftime,awgt,runmean=False):
     return amv,aa_sst
     
 def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10,anndata=False,
-                  runmean=False,dropedge=0,monid=None,nmon=12):
+                  runmean=False,dropedge=0,monid=None,nmon=12,
+                  mask=None):
     """
     
     Wrapper for quick AMV calculation.
@@ -1115,7 +1114,7 @@ def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10,anndata=False,
             Default = Ann average. Requires anndata = 0 to work!
             (ex. monid = [11,0,1] --> DJF AMV Index/Pattern)
         10) nmon : [INT] Number of months for each timestep (for monthly data)
-        
+        11) mask : ARRAY [lon x lat] --> Mask to Apply
         
     Outputs:
         1) amvidx     [time]      Array - AMV Index
@@ -1136,7 +1135,6 @@ def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10,anndata=False,
     
     # Resample to monthly data 
     if anndata == False:
-        
         sst      = np.copy(var_in)
         annsst   = ann_avg(sst,2,monid=monid,nmon=nmon)
         
@@ -1144,7 +1142,11 @@ def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10,anndata=False,
         annsst   = var_in.copy()
     
     # Calculate Index
-    amvidx,_   = calc_AMV(lon,lat,annsst,bbox,order,cutofftime,1,runmean=runmean)
+    if mask is not None:
+        print("Masking SST for Index Calculation!")
+        amvidx,_   = calc_AMV(lon,lat,annsst*mask[:,:,None],bbox,order,cutofftime,1,runmean=runmean)
+    else:
+        amvidx,_   = calc_AMV(lon,lat,annsst,bbox,order,cutofftime,1,runmean=runmean)
     
     # Drop boundary points if option is set
     amvidxout = amvidx.copy() # Copy for later (without dropped edges)
@@ -1439,6 +1441,33 @@ def calc_conflag(ac,conf,tails,n):
         cflags[l,:] = cfout
     return cflags
 
+
+def nan_inv(invar):
+    """
+    Invert boolean array with NaNs
+
+    Parameters
+    ----------
+    invar : ARRAY
+        BOOLEAN Array with NaNs
+
+    Returns
+    -------
+    inverted : ARRAY
+        Inverted Boolean Array
+    """
+    vshape = invar.shape
+    inverted  = np.zeros((vshape)) * np.nan
+    inverted[invar == True]  = False
+    inverted[invar == False] = True
+    return inverted
+    
+    
+    
+    
+
+
+
 #%%
 
 def calc_DMI(sst,lon,lat):
@@ -1584,8 +1613,6 @@ def numpy_to_da(invar,time,lat,lon,varname,savenetcdf=None):
         return da
     
     
-    
-        
     
     
     
