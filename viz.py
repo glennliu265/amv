@@ -275,7 +275,7 @@ def plot_AMV(amv,ax=None):
     ax.plot(htimefull,amv,color='k')
     ax.fill_between(htimefull,0,amv,where=amv>0,facecolor='red',interpolate=True,alpha=0.5)
     ax.fill_between(htimefull,0,amv,where=amv<0,facecolor='blue',interpolate=True,alpha=0.5)
-
+    
     return ax
 
 def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0,labels=True,fmt="%.1f",clabelBG=False,fontsize=10,returncbar=False,
@@ -588,7 +588,8 @@ def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None):
         return ax,ax2,ax3
     return ax,ax2
 
-def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_error=False,fill_color=None):
+def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_error=False,
+                   fill_color=None,line_color='k',grid_color='gray'):
     """
     Add Coastlines, grid, and set extent for geoaxes
     
@@ -600,7 +601,7 @@ def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_
         Bounding box for plotting. The default is [-180,180,-90,90].
     proj : cartopy.crs, optional
         Projection. The default is None.
-    blabels : ARRAY of BOOL [Left, Right, Upper, Lower]
+    blabels : ARRAY of BOOL [Left, Right, Upper, Lower] or dict
         Lat/Lon Labels. Default is [1,0,0,1]
     ignore_error : BOOL
         Set to True to ignore error associated with gridlabeling
@@ -612,21 +613,34 @@ def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_
     ax : matplotlib geoaxes
         Axes with setup
     """
+    
+    if type(blabels) == dict: # Convert dict to array
+        blnew = [0,0,0,0]
+        if blabels['left'] == 1:
+            blnew[0] = 1
+        if blabels['right'] == 1:
+            blnew[1] = 1
+        if blabels['upper'] == 1:
+            blnew[2] = 1
+        if blabels['lower'] == 1:
+            blnew[3] = 1
+        blabels=blnew
+            
     if proj is None:
         proj = ccrs.PlateCarree()
-    ax.add_feature(cfeature.COASTLINE,color='black',lw=0.75)
+    ax.add_feature(cfeature.COASTLINE,color=line_color,lw=0.75)
     ax.set_extent(bbox)
     gl = ax.gridlines(crs=proj, draw_labels=True,
-                  linewidth=2, color='gray', alpha=0.5, linestyle="dotted",lw=0.75)
+                  linewidth=2, color=grid_color, alpha=0.5, linestyle="dotted",lw=0.75)
     
     if fill_color is not None: # Shade the land
         ax.add_feature(cfeature.LAND,facecolor=fill_color)
     
     # Remove the degree symbol
     if ignore_error:
-        gl.xformatter = LongitudeFormatter(direction_label=False,degree_symbol='')
-        gl.yformatter = LatitudeFormatter(direction_label=False,degree_symbol='')
-    
+        gl.xformatter = LongitudeFormatter(zero_direction_label=False,degree_symbol='')
+        gl.yformatter = LatitudeFormatter(zero_direction_label=False,degree_symbol='')
+        #gl.yformatter = LatitudeFormatter(degree_symbol='')
     gl.left_labels = blabels[0]
     gl.right_labels = blabels[1]
     gl.top_labels   = blabels[2]
@@ -838,7 +852,8 @@ def plot_freqxpower(specs,freqs,enames,ecolors,
 # --------------
 def plot_freqlin(specs,freqs,enames,ecolors,
                 plotdt=3600*24*365,ax=None,xtick=None,xlm=None,
-                plotconf=None,plottitle=None,alpha=None,return_ax2=False,marker=None):
+                plotconf=None,plottitle=None,alpha=None,return_ax2=False,marker=None,
+                lw=1):
     """
     Linear-Linear Plot
 
@@ -866,6 +881,8 @@ def plot_freqlin(specs,freqs,enames,ecolors,
         Title of plot. The default is None.
     alpha : LIST [Numeric,...]
         List of alpha values. Default is 1 for all.
+    lw    : Numeric
+        Linewidth
 
     Returns
     -------
@@ -888,7 +905,7 @@ def plot_freqlin(specs,freqs,enames,ecolors,
     # Plot spectra
     for n in range(len(specs)):
         ax.plot(freqs[n]*plotdt,specs[n]/plotdt,color=ecolors[n],label=enames[n],
-                    alpha=alpha[n],marker=marker)
+                    alpha=alpha[n],marker=marker,lw=lw)
         
         if plotconf is not None: # Plot 95% Significance level
             ax.plot(freqs[n]*plotdt,plotconf[n][:,1]/plotdt,label="",color=ecolors[n],ls="dashed")
@@ -1204,6 +1221,16 @@ def init_fig(nrow,ncol,proj=ccrs.PlateCarree(),figsize=(8,6),
                         sharex=sharex,sharey=sharey,
                         subplot_kw={'projection':proj})
     return fig,ax
+
+
+def init_blabels():
+    """
+    Initialize bounding box labels with keys
+    'left','right','upper','lower' with all values set to False
+    """
+    return {'left':0,'right':0,'upper':0,'lower':0}
+    
+    
     
 # %% Exploratory plots (qv module?)
 
@@ -1246,7 +1273,6 @@ def qv_seasonal(lon,lat,var,
         fig.colorbar(pcm,ax=ax)
         ax.set_title("Month %i"%(im+1))
     return ax
-
 
         
     
