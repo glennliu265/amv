@@ -747,7 +747,7 @@ def xrdeseason(ds):
 
 def calc_clim(ts,dim,returnts=0):
     """
-    Given monthly timeseries in axis [dim], calculate the climatology...
+    Given monthly timeseries with time in axis [dim], calculate the climatology...
     """
     tsshape = ts.shape
     ntime   = ts.shape[dim] 
@@ -911,6 +911,24 @@ def pearsonr_2d(A,B,dim,returnsig=0,p=0.05,tails=2,dof='auto'):
         
         return rho,T,critval,sigtest,corrthres
   
+def ttest_rho(p,tails,dof):
+    """
+    Perform T-Test, given pearsonr, p (0.05), and tails (1 or 2), and degrees
+    of freedom
+    
+    Edit 12/01/2021, removed rho since it is not used
+    
+    """
+    # Compute p-value based on tails
+    ptilde = p/tails
+    
+    # Get threshold critical value
+    critval = stats.t.ppf(1-ptilde,dof)
+    
+    # Get critical correlation threshold
+    corrthres = np.sqrt(1/ ((dof/np.power(critval,2))+1))
+    return corrthres
+    
     
   
 def covariance2d(A,B,dim):
@@ -1568,6 +1586,29 @@ def get_posneg_sigma(varr,idxin,sigma=1,normalize=True,return_id=False):
     return varrp,varrn,varrz
 
 
+def calc_savg(invar,debug=False,return_str=False):
+    """
+    Calculate Seasonal Average of input with time in the last dimension
+    
+    Inputs:
+        1) invar : ARRAY[...,time], N-D monthly variable where time is the last axis
+        2) debug : BOOL, Set to True to Print the Dimension Sizes
+        3) return_str : BOOL, Set to True to return the Month Strings (DJF,MAM,...)
+    Outputs:
+        1) savgs : LIST of ARRAYS, [winter, spring, summer, fall]
+        2) snames : LIST of STR, season names, (returns if return_str is true)
+    """
+    snames = ("DJF"   ,"MAM"  ,"JJA"  ,"SON")
+    sids   = ([11,0,1],[2,3,4],[5,6,7],[8,9,10])
+    savgs = []
+    for s in range(4):
+        savgs.append(np.nanmean(invar[...,sids[s]],-1)) # Take mean along last dimension
+        if debug:
+            print(savgs[s].shape)
+    if return_str:
+        return savgs,snames
+    return savgs
+
 #%% X-array processing
 
 def numpy_to_da(invar,time,lat,lon,varname,savenetcdf=None):
@@ -1614,6 +1655,13 @@ def numpy_to_da(invar,time,lat,lon,varname,savenetcdf=None):
     
     
     
+def cftime2str(times):
+    "Convert array of cftime objects to string (YYYY-MM-DD)"
+    newtimes = []
+    for t in range(len(times)):
+        newstr = "%04i-%02i-%02i" % (times[t].year,times[t].month,times[t].day)
+        newtimes.append(newstr)
+    return np.array(newtimes)
     
     
     
