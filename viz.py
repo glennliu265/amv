@@ -205,7 +205,7 @@ def plot_annavg(var,units,figtitle,ax=None,ymax=None,stats='mon'):
 
     return ax
 
-def viz_kprev(h,kprev,locstring="",ax=None):
+def viz_kprev(h,kprev,locstring="",ax=None,lw=1,msize=25,mstyle="x"):
     
     """
     Quick visualization of mixed layer cycle (h)
@@ -216,6 +216,9 @@ def viz_kprev(h,kprev,locstring="",ax=None):
         1) h - MLD cycle (array of size 12)
         2) kprev - Detraining months (array of size 12)
         3) string indicate location (Lon/Lat)
+        4) lw = linewidths
+        5) msize = markersize
+        6) mstyle = markerstyle
     
     """
     if ax is None:
@@ -237,16 +240,16 @@ def viz_kprev(h,kprev,locstring="",ax=None):
     plt.style.use('seaborn-bright')
     
     # Plot the MLD cycle
-    ax.plot(plotmon,plotmld,color='k',label='MLD Cycle')
+    ax.plot(plotmon,plotmld,color='k',label='MLD Cycle',lw=lw)
     
     # Plot the connectors
-    [ax.plot(connex[m][0],connex[m][1]) for m in range(len(connex))]
+    [ax.plot(connex[m][0],connex[m][1],lw=lw) for m in range(len(connex))]
     [ax.annotate("%.2f"%(connex[m][0][1]),(connex[m][0][1],connex[m][1][1])) for m in range(len(connex))]
     # Plot Markers
-    ax.scatter(foundmon,foundmld,marker="x")
+    ax.scatter(foundmon,foundmld,msize,marker=mstyle)
     
     ax.set(xlabel='Month',
-           ylabel='Mixed Layer Depth',
+           ylabel='Mixed Layer Depth (m)',
            xlim=(1,12),
            title="Mixed Layer Depth Seasonal Cycle \n" + locstring
            )
