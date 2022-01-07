@@ -1279,7 +1279,7 @@ def qv_seasonal(lon,lat,var,
     return ax
 
 def label_sp(sp_id,case='upper',inside=True,ax=None,fig=None,x=0.0,y=1.0,
-             fontsize=12,fontfamily='sans-serif',alpha=0):
+             fontsize=12,fontfamily='sans-serif',alpha=0,labelstyle=None):
     """
     Add alphabetical labels to subplots
     from: https://matplotlib.org/stable/gallery/text_labels_and_annotations/label_subplots.html
@@ -1295,6 +1295,7 @@ def label_sp(sp_id,case='upper',inside=True,ax=None,fig=None,x=0.0,y=1.0,
         fontsize [int]             - font size
         fontfamily [str]           - font family
         alpha [numeric]            - transparency of textbox for inside label
+        labelstyle [str]           - labeling style, use %s to indicate string location "%s)"
     """
     
     
@@ -1304,7 +1305,10 @@ def label_sp(sp_id,case='upper',inside=True,ax=None,fig=None,x=0.0,y=1.0,
         label = list(string.ascii_lowercase)[sp_id]
     else:
         print("case must be 'upper' or 'lower'!" )
-    label += ")"
+        
+    if labelstyle is None:
+        labelstyle="%s)"
+    label= labelstyle % (label)
     
     if ax is None:
         ax = plt.gca()
