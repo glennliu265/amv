@@ -23,7 +23,8 @@ from cartopy.util import add_cyclic_point
 from matplotlib.ticker import LogLocator
 import matplotlib.gridspec as gridspec
 
-
+import string
+import matplotlib.transforms as mtransforms
 #%% Functions
 
 def return_mon_label(m,nletters='all'):
@@ -1277,5 +1278,43 @@ def qv_seasonal(lon,lat,var,
         ax.set_title("Month %i"%(im+1))
     return ax
 
-        
+def label_sp(sp_id,case='upper',inside=True,ax=None,x=0.0,y=1.0,
+             fontsize=12,fontfamily='sans-serif',alpha=0):
+    """
+    Add alphabetical labels to subplots
+    from: https://matplotlib.org/stable/gallery/text_labels_and_annotations/label_subplots.html
     
+    Inputs:
+        sp_id [int]                - Subplot Index for alphabet (0=A, 1=B, ...)
+        case  ['upper' or 'lower'] - Case of subplot label
+        inside [BOOL]              - True to plot inside, False to plot outside
+        ax    [mpl.axes]           - axes to plot on. default=current axes
+        x     [numeric]            - x position relative to upper left
+        y     [numeric]            - y position relative to upper left
+        fontsize [int]             - font size
+        fontfamily [str]           - font family
+        alpha [numeric]            - transparency of textbox for inside label
+    """
+    
+    
+    if case == 'upper':
+        label = list(string.ascii_uppercase)[sp_id]
+    elif case == 'lower':
+        label = list(string.ascii_lowercase)[sp_id]
+    else:
+        print("case must be 'upper' or 'lower'!" )
+    label += ")"
+    
+    if ax is None:
+        ax = plt.gca()
+    
+    if inside:
+        trans = mtransforms.ScaledTranslation(10/72, -5/72, fig.dpi_scale_trans)
+        ax.text(x, y, label, transform=ax.transAxes + trans,
+                fontsize=fontsize, verticalalignment='top', fontfamily=fontfamily,
+                bbox=dict(facecolor='1', edgecolor='none', pad=3.0,alpha=alpha))
+    else:
+        trans = mtransforms.ScaledTranslation(-20/72, 7/72, fig.dpi_scale_trans)
+        ax.text(x, y, label, transform=ax.transAxes + trans,
+                fontsize=fontsize, va='bottom', fontfamily=fontfamily)
+    return ax
