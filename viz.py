@@ -1278,7 +1278,7 @@ def qv_seasonal(lon,lat,var,
         ax.set_title("Month %i"%(im+1))
     return ax
 
-def label_sp(sp_id,case='upper',inside=True,ax=None,x=0.0,y=1.0,
+def label_sp(sp_id,case='upper',inside=True,ax=None,fig=None,x=0.0,y=1.0,
              fontsize=12,fontfamily='sans-serif',alpha=0):
     """
     Add alphabetical labels to subplots
@@ -1289,6 +1289,7 @@ def label_sp(sp_id,case='upper',inside=True,ax=None,x=0.0,y=1.0,
         case  ['upper' or 'lower'] - Case of subplot label
         inside [BOOL]              - True to plot inside, False to plot outside
         ax    [mpl.axes]           - axes to plot on. default=current axes
+        fig   [mpl.fig]            - figure to scale
         x     [numeric]            - x position relative to upper left
         y     [numeric]            - y position relative to upper left
         fontsize [int]             - font size
@@ -1307,6 +1308,8 @@ def label_sp(sp_id,case='upper',inside=True,ax=None,x=0.0,y=1.0,
     
     if ax is None:
         ax = plt.gca()
+    if fig is None:
+        fig = plt.gcf()
     
     if inside:
         trans = mtransforms.ScaledTranslation(10/72, -5/72, fig.dpi_scale_trans)
