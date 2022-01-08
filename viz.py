@@ -593,7 +593,7 @@ def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None):
     return ax,ax2
 
 def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_error=False,
-                   fill_color=None,line_color='k',grid_color='gray'):
+                   fill_color=None,line_color='k',grid_color='gray',c_zorder=1):
     """
     Add Coastlines, grid, and set extent for geoaxes
     
@@ -611,6 +611,7 @@ def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_
         Set to True to ignore error associated with gridlabeling
     fill_color : matplotlib color string
         Add continents with a given fill
+    c_zorder : layering order of the continents
     
     Returns
     -------
@@ -632,13 +633,18 @@ def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_
             
     if proj is None:
         proj = ccrs.PlateCarree()
-    ax.add_feature(cfeature.COASTLINE,color=line_color,lw=0.75)
-    ax.set_extent(bbox)
-    gl = ax.gridlines(crs=proj, draw_labels=True,
-                  linewidth=2, color=grid_color, alpha=0.5, linestyle="dotted",lw=0.75)
-    
+        
     if fill_color is not None: # Shade the land
-        ax.add_feature(cfeature.LAND,facecolor=fill_color)
+        ax.add_feature(cfeature.LAND,facecolor=fill_color,zorder=c_zorder)
+    #ax.add_feature(cfeature.COASTLINE,color=line_color,lw=0.75,zorder=0)
+    ax.coastlines(color=line_color,lw=0.75)
+    ax.set_extent(bbox)
+    
+    gl = ax.gridlines(crs=proj, draw_labels=True,
+                  linewidth=2, color=grid_color, alpha=0.5, linestyle="dotted",
+                  lw=0.75)
+    
+
     
     # Remove the degree symbol
     if ignore_error:
