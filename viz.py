@@ -644,13 +644,14 @@ def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_
                   linewidth=2, color=grid_color, alpha=0.5, linestyle="dotted",
                   lw=0.75)
     
-
-    
     # Remove the degree symbol
     if ignore_error:
+        #print("Removing Degree Symbol")
         gl.xformatter = LongitudeFormatter(zero_direction_label=False,degree_symbol='')
-        gl.yformatter = LatitudeFormatter(zero_direction_label=False,degree_symbol='')
+        gl.yformatter = LatitudeFormatter(degree_symbol='')
         #gl.yformatter = LatitudeFormatter(degree_symbol='')
+        gl.rotate_labels = False
+        
     gl.left_labels = blabels[0]
     gl.right_labels = blabels[1]
     gl.top_labels   = blabels[2]
@@ -744,6 +745,10 @@ def twin_freqaxis(ax,freq,tunit,dt,fontsize=12,mode='log-lin',xtick=None,include
         
         htax.set_xscale("log")
         htax.set_yscale("linear")
+        
+    elif mode == 'lin-log': # Lin(x) Log (y)
+        htax.set_yscale("log")
+        htax.set_xscale("linear")
         
     elif mode == 'lin-lin': # Linear (x,y)
         # Note this is probably not even needed...
@@ -863,7 +868,7 @@ def plot_freqxpower(specs,freqs,enames,ecolors,
 def plot_freqlin(specs,freqs,enames,ecolors,
                 plotdt=3600*24*365,ax=None,xtick=None,xlm=None,
                 plotconf=None,plottitle=None,alpha=None,return_ax2=False,marker=None,
-                lw=1):
+                lw=1,plotids=None,legend=True):
     """
     Linear-Linear Plot
 
@@ -893,6 +898,10 @@ def plot_freqlin(specs,freqs,enames,ecolors,
         List of alpha values. Default is 1 for all.
     lw    : Numeric
         Linewidth
+    plotids : list of int
+        Indices of which specs/freqs to plot
+    legend : BOOL
+        Set to true to include legend (default=True)
 
     Returns
     -------
@@ -913,7 +922,9 @@ def plot_freqlin(specs,freqs,enames,ecolors,
         alpha = np.ones(len(specs))
     
     # Plot spectra
-    for n in range(len(specs)):
+    if plotids is None:
+        plotids = range(len(specs))
+    for n in plotids:
         ax.plot(freqs[n]*plotdt,specs[n]/plotdt,color=ecolors[n],label=enames[n],
                     alpha=alpha[n],marker=marker,lw=lw)
         
@@ -937,8 +948,9 @@ def plot_freqlin(specs,freqs,enames,ecolors,
     
     # Set axis limits
     ax.set_xlim(xlm)
-    htax.set_xlim(xlm)  
-    ax.legend(fontsize=10,ncol=2)
+    htax.set_xlim(xlm)
+    if legend:
+        ax.legend(fontsize=10,ncol=2)
     ax.set_title(plottitle)
     
     if return_ax2:
@@ -947,7 +959,8 @@ def plot_freqlin(specs,freqs,enames,ecolors,
 # --------------
 def plot_freqlog(specs,freqs,enames,ecolors,
                 plotdt=3600*24*365,ax=None,xtick=None,xlm=None,
-                plotconf=None,plottitle=None,alpha=None,return_ax2=False):
+                plotconf=None,plottitle=None,alpha=None,return_ax2=False,lw=1,
+                plotids=None,legend=True,semilogx=False,semilogy=False):
     """
     Log-Log Plot
 
@@ -995,9 +1008,24 @@ def plot_freqlog(specs,freqs,enames,ecolors,
         alpha = np.ones(len(specs))
     
     # Plot spectra
-    for n in range(len(specs)):
-        ax.loglog(freqs[n]*plotdt,specs[n]/plotdt,color=ecolors[n],label=enames[n],
-                    alpha=alpha[n])
+    if plotids is None:
+        plotids = range(len(specs))
+    for n in plotids:
+        
+        if semilogx:
+            mode='log-lin'
+            ax.semilogx(freqs[n]*plotdt,specs[n]/plotdt,color=ecolors[n],label=enames[n],
+                        alpha=alpha[n],lw=lw)
+            
+        elif semilogy:
+            mode='lin-log'
+            ax.semilogy(freqs[n]*plotdt,specs[n]/plotdt,color=ecolors[n],label=enames[n],
+                        alpha=alpha[n],lw=lw)
+        
+        else:
+            mode='log-log'
+            ax.loglog(freqs[n]*plotdt,specs[n]/plotdt,color=ecolors[n],label=enames[n],
+                        alpha=alpha[n],lw=lw)
         
         if plotconf is not None: # Plot 95% Significance level
             ax.loglog(freqs[n]*plotdt,plotconf[n][:,1]/plotdt,label="",color=ecolors[n],ls="dashed")
@@ -1007,7 +1035,7 @@ def plot_freqlog(specs,freqs,enames,ecolors,
     ax.set_xlabel("Frequency (cycles/year)",fontsize=12)
     
     # Twin x-axis for period
-    htax = twin_freqaxis(ax,freqs[1],"Years",plotdt,mode='log-log',xtick=xtick,include_title=False)
+    htax = twin_freqaxis(ax,freqs[1],"Years",plotdt,mode=mode,xtick=xtick,include_title=False)
     
     # Set upper x-axis ticks
     xtick2 = htax.get_xticks()
@@ -1020,7 +1048,8 @@ def plot_freqlog(specs,freqs,enames,ecolors,
     # Set axis limits
     ax.set_xlim(xlm)
     htax.set_xlim(xlm)  
-    ax.legend(fontsize=10,ncol=2)
+    if legend:
+        ax.legend(fontsize=10,ncol=2)
     ax.set_title(plottitle)
     if return_ax2:
         return ax,htax
@@ -1252,7 +1281,8 @@ def qv_seasonal(lon,lat,var,
     var = [lon x lat x month]
     """
     
-    fig,axs = plt.subplots(4,3,figsize=(12,12),subplot_kw={'projection':ccrs.PlateCarree()}) # (each row is a season)
+    fig,axs = plt.subplots(4,3,figsize=(12,12),constrained_layout=True,
+                           subplot_kw={'projection':ccrs.PlateCarree()}) # (each row is a season)
     monloop = np.roll(np.arange(0,12),1) # Start with Dec. 
     
     if bbox is None:
@@ -1284,8 +1314,10 @@ def qv_seasonal(lon,lat,var,
         ax.set_title("Month %i"%(im+1))
     return ax
 
+#%%
 def label_sp(sp_id,case='upper',inside=True,ax=None,fig=None,x=0.0,y=1.0,
-             fontsize=12,fontfamily='sans-serif',alpha=0,labelstyle=None):
+             fontsize=12,fontfamily='sans-serif',alpha=0,labelstyle=None,
+             usenumber=False,fontcolor='k'):
     """
     Add alphabetical labels to subplots
     from: https://matplotlib.org/stable/gallery/text_labels_and_annotations/label_subplots.html
@@ -1302,16 +1334,19 @@ def label_sp(sp_id,case='upper',inside=True,ax=None,fig=None,x=0.0,y=1.0,
         fontfamily [str]           - font family
         alpha [numeric]            - transparency of textbox for inside label
         labelstyle [str]           - labeling style, use %s to indicate string location "%s)"
+        usenumber [bool]           - Set to true to use numeric labels (using sp_id)
     """
     
-    
-    if case == 'upper':
-        label = list(string.ascii_uppercase)[sp_id]
-    elif case == 'lower':
-        label = list(string.ascii_lowercase)[sp_id]
+    if usenumber:
+        label = str(sp_id)
     else:
-        print("case must be 'upper' or 'lower'!" )
-        
+        if case == 'upper':
+            label = list(string.ascii_uppercase)[sp_id]
+        elif case == 'lower':
+            label = list(string.ascii_lowercase)[sp_id]
+        else:
+            print("case must be 'upper' or 'lower'!" )
+    
     if labelstyle is None:
         labelstyle="%s)"
     label= labelstyle % (label)
@@ -1325,9 +1360,11 @@ def label_sp(sp_id,case='upper',inside=True,ax=None,fig=None,x=0.0,y=1.0,
         trans = mtransforms.ScaledTranslation(10/72, -5/72, fig.dpi_scale_trans)
         ax.text(x, y, label, transform=ax.transAxes + trans,
                 fontsize=fontsize, verticalalignment='top', fontfamily=fontfamily,
-                bbox=dict(facecolor='1', edgecolor='none', pad=3.0,alpha=alpha))
+                bbox=dict(facecolor='1', edgecolor='none', pad=3.0,alpha=alpha),
+                color=fontcolor)
     else:
         trans = mtransforms.ScaledTranslation(-20/72, 7/72, fig.dpi_scale_trans)
         ax.text(x, y, label, transform=ax.transAxes + trans,
-                fontsize=fontsize, va='bottom', fontfamily=fontfamily)
+                fontsize=fontsize, va='bottom', fontfamily=fontfamily,
+                color=fontcolor)
     return ax
