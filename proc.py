@@ -748,6 +748,9 @@ def xrdeseason(ds):
 def calc_clim(ts,dim,returnts=0):
     """
     Given monthly timeseries with time in axis [dim], calculate the climatology...
+    
+    Returns: climavg,tsyrmon (if returnts=1)
+    
     """
     tsshape = ts.shape
     ntime   = ts.shape[dim] 
@@ -1648,7 +1651,8 @@ def numpy_to_da(invar,time,lat,lon,varname,savenetcdf=None):
     if savenetcdf is None:
         return da
     else:
-        print("Saving netCDF to %s"%savenetcdf)
+        st = time.time()
+        print("Saving netCDF to %s in %.2fs"% (savenetcdf,time.time()-st))
         da.to_netcdf(savenetcdf,
                  encoding={varname: {'zlib': True}})
         return da
@@ -1663,10 +1667,26 @@ def cftime2str(times):
         newtimes.append(newstr)
     return np.array(newtimes)
     
+def maxabs(invar,axis=None):
+    # Return max absolute value for 1 variable
+    if axis is None:
+        invar = invar.flatten()
+        axis  = 0
+    return np.nanmax(np.abs(invar),axis=axis)
+
+
+def flipdims(invar):
+    # Reverse dim order of an n-dimensional array
+    return invar.transpose(np.flip(np.arange(len(invar.shape))))
     
-    
-    
-    
-    
-    
+#%% File Utilities
+
+def addstrtoext(name,addstr):
+    """
+    Add [addstr] to the end of a string with an extension [name.ext]
+    Result should be "name+addstr+.ext"
+    """
+    return name[:-4] + addstr + name[-4:]
+
+
     
