@@ -15,6 +15,7 @@ import calendar as cal
 from scipy import signal,stats
 from scipy.signal import butter, lfilter, freqz, filtfilt, detrend
 import os
+import time
 
 def ann_avg(ts,dim,monid=None,nmon=12):
     """
@@ -1614,7 +1615,7 @@ def calc_savg(invar,debug=False,return_str=False):
 
 #%% X-array processing
 
-def numpy_to_da(invar,time,lat,lon,varname,savenetcdf=None):
+def numpy_to_da(invar,times,lat,lon,varname,savenetcdf=None):
     """
     from cvd-12860 tutorials
     Usage: da = numpy_to_da(invar,lon,lat,time,varname)
@@ -1644,17 +1645,17 @@ def numpy_to_da(invar,time,lat,lon,varname,savenetcdf=None):
     """
     
     da = xr.DataArray(invar,
-                dims={'time':time,'lat':lat,'lon':lon},
-                coords={'time':time,'lat':lat,'lon':lon},
+                dims={'time':times,'lat':lat,'lon':lon},
+                coords={'time':times,'lat':lat,'lon':lon},
                 name = varname
                 )
     if savenetcdf is None:
         return da
     else:
         st = time.time()
-        print("Saving netCDF to %s in %.2fs"% (savenetcdf,time.time()-st))
         da.to_netcdf(savenetcdf,
                  encoding={varname: {'zlib': True}})
+        print("Saving netCDF to %s in %.2fs"% (savenetcdf,time.time()-st))
         return da
     
     
