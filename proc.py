@@ -1680,7 +1680,14 @@ def flipdims(invar):
     # Reverse dim order of an n-dimensional array
     return invar.transpose(np.flip(np.arange(len(invar.shape))))
     
-#%% File Utilities
+# def rss(invar,dim=0):
+#     """
+#     Note: Just use np.linalg.norm
+#     Takes the root sum of squares along dimension dim. Default is first dim.
+#     """
+#     return np.sqrt(np.sum(invar**2,axis=dim))
+    
+#%% File/String Utilities
 
 def addstrtoext(name,addstr):
     """
@@ -1689,5 +1696,15 @@ def addstrtoext(name,addstr):
     """
     return name[:-4] + addstr + name[-4:]
 
-
+def get_stringnum(instring,keyword,nchars=1,verbose=True):
+    """
+    Finds [keyword] in input string [instring] and grabs [nchars] after the string
+    """
+    keystart = instring.find(keyword) # Get start of word
+    numstart = keystart + len(keyword) # Start grabbing from end of keyword
+    grabstr  = instring[numstart:numstart+nchars]
+    if verbose:
+        print("Grabbed <%s> from end of <%s>" % (grabstr,instring[keystart:keystart+len(keyword)]))
+    return grabstr
+    
     
