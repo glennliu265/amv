@@ -868,7 +868,7 @@ def plot_freqxpower(specs,freqs,enames,ecolors,
 def plot_freqlin(specs,freqs,enames,ecolors,
                 plotdt=3600*24*365,ax=None,xtick=None,xlm=None,
                 plotconf=None,plottitle=None,alpha=None,return_ax2=False,marker=None,
-                lw=1,plotids=None,legend=True):
+                lw=1,plotids=None,legend=True,linearx=0):
     """
     Linear-Linear Plot
 
@@ -902,6 +902,10 @@ def plot_freqlin(specs,freqs,enames,ecolors,
         Indices of which specs/freqs to plot
     legend : BOOL
         Set to true to include legend (default=True)
+    linearx : [0,1,2]
+        0 - Set both frequency and period axis to xtks
+        1 - Keep frequency axis linear, period set to xtks
+        2 - Keep both axes linear
 
     Returns
     -------
@@ -931,27 +935,57 @@ def plot_freqlin(specs,freqs,enames,ecolors,
         if plotconf is not None: # Plot 95% Significance level
             ax.plot(freqs[n]*plotdt,plotconf[n][:,1]/plotdt,label="",color=ecolors[n],ls="dashed")
 
-    # Set Axis Labels
+    # Set Axis Labels, plot Titles
     ax.set_ylabel("Power ($(\degree C)^{2} / cpy$)",fontsize=12)
     ax.set_xlabel("Frequency (cycles/year)",fontsize=12)
-    
-    # Twin x-axis for period
-    htax = twin_freqaxis(ax,freqs[1],"Years",plotdt,mode='lin-lin',xtick=xtick,include_title=False)
-    
-    # Set upper x-axis ticks
-    xtick2 = htax.get_xticks()
-    xtkl   = ["%i" % (1/x) for x in xtick2]
-    for i in range(len(xtkl)): # Adjust ticks
-        if (1/xtick2[i] < 1) and (1/xtick2[i] > 0):
-            xtkl[i] = "%.2f" % (1/xtick2[i])
-    htax.set_xticklabels(xtkl)
-    
-    # Set axis limits
-    ax.set_xlim(xlm)
-    htax.set_xlim(xlm)
-    if legend:
-        ax.legend(fontsize=10,ncol=2)
     ax.set_title(plottitle)
+    
+    # Handle Second Axis
+    ax.set_xlim(xlm)
+    
+    if linearx == 0:
+        # Twin x-axis for period
+        htax = twin_freqaxis(ax,freqs[1],"Years",plotdt,mode='lin-lin',xtick=xtick,include_title=False)
+        
+        # Set upper x-axis ticks
+        xtick2 = htax.get_xticks()
+        xtkl   = ["%i" % (1/x) for x in xtick2]
+        for i in range(len(xtkl)): # Adjust ticks
+            if (1/xtick2[i] < 1) and (1/xtick2[i] > 0):
+                xtkl[i] = "%.2f" % (1/xtick2[i])
+        htax.set_xticklabels(xtkl)
+        
+        # Set second axis limits to match
+        htax.set_xlim(xlm)
+        if legend:
+            ax.legend(fontsize=10,ncol=2)
+    else:
+        
+        htax = ax.twiny()  # Twin axis
+        htax.set_xlim(xlm) # Match Axis Limits
+        
+        if linearx == 1:# Keep frequency axis linear
+        
+            # Set 2nd axis to xticks
+            htax.set_xticks(xtick)
+            # Calculate period from frequency, then label
+            xtkl   = ["%i" % (1/x) for x in xtick]
+            for i in range(len(xtkl)): # Adjust ticks
+                if (1/xtick[i] < 1) and (1/xtick[i] > 0):
+                    xtkl[i] = "%.2f" % (1/xtick[i])
+            htax.grid(True,ls='solid',color='gray',lw=1)
+        elif linearx == 2:
+            
+            # Set 2nd axis to values on first
+            xtick2 = ax.get_xticks()
+            htax.set_xticks(xtick2)
+            xtkl   = ["%s" % (str(1/x)) for x in xtick2]
+            for i in range(len(xtkl)): # Adjust ticks
+                if (1/xtick2[i] < 1) and (1/xtick2[i] > 0):
+                    xtkl[i] = "%.2f" % (1/xtick2[i])
+        htax.set_xticklabels(xtkl) # Set second axis tick labels
+        ax.grid(True,ls='dotted',color="k")
+            
     
     if return_ax2:
         return ax,htax
