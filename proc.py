@@ -1488,7 +1488,50 @@ def nan_inv(invar):
     
     
 
+def lp_butter(varmon,cutofftime,order):
+    """
+    Design and apply a low-pass filter (butterworth)
 
+    Parameters
+    ----------
+    varmon : 
+        Input variable to filter (monthly resolution)
+    cutofftime : INT
+        Cutoff value in months
+    order : INT
+        Order of the butterworth filter
+
+    Returns
+    -------
+    varfilt : ARRAY [time,lat,lon]
+        Filtered variable
+
+    """
+    # Input variable is assumed to be monthy with the following dimensions:
+    flag1d=False
+    if len(varmon.shape) > 1:
+        nmon,nlat,nlon = varmon.shape
+    else:
+        flag1d = True
+        nmon = varmon.shape[0]
+    
+    # Design Butterworth Lowpass Filter
+    filtfreq = nmon/cutofftime
+    nyquist  = nmon/2
+    cutoff = filtfreq/nyquist
+    b,a    = butter(order,cutoff,btype="lowpass")
+    
+    # Reshape input
+    if flag1d is False: # For 3d inputs, loop thru each point
+        varmon = varmon.reshape(nmon,nlat*nlon)
+        # Loop
+        varfilt = np.zeros((nmon,nlat*nlon)) * np.nan
+        for i in range(nlon*nlat):
+            varfilt[:,i] = filtfilt(b,a,varmon[:,i])
+        varfilt=varfilt.reshape(nmon,nlat,nlon)
+    else: # 1d input
+        varfilt = filtfilt(b,a,varmon)
+    return varfilt
 
 #%%
 
