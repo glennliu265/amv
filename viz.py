@@ -659,6 +659,27 @@ def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_
     return ax
 
 
+def label_barplots(labels,adjustx=2,adjusty=0,ax=None,rects=None,
+                   fontcolor='k',fontsize=12):
+    """
+    labels [ARRAY] : String labels for each barplot
+    adjustx [NUMERIC] : How much to move right
+    adjusty [NUMERIC] : How much to move up
+    rects [ARRAY of matplotlib.patches.Rectangle] : Barplots to label.
+    """
+    if ax is None:
+        ax    = plt.gca()
+    if rects is None:
+        rects = ax.patches
+    for rect, label in zip(rects, labels):
+        height = rect.get_height()
+        ax.text(
+            rect.get_x() + rect.get_width() / adjustx, height + adjusty,
+            label, ha="center", va="bottom",
+            color=fontcolor,fontsize=fontsize
+        )
+    return ax,rects
+    
 #%% Spectral Analysis
 def make_axtime(ax,htax,denom='year'):
     
