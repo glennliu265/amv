@@ -1423,3 +1423,30 @@ def label_sp(sp_id,case='upper',inside=True,ax=None,fig=None,x=0.0,y=1.0,
                 fontsize=fontsize, va='bottom', fontfamily=fontfamily,
                 color=fontcolor)
     return ax
+
+def reorder_legend(ax,order=None):
+    """
+    Reorder legend items based on code from:
+    https://stackoverflow.com/questions/22263807/how-is-order-of-items-in-matplotlib-legend-determined
+
+    Parameters
+    ----------
+    ax : TYPE
+        Axes containing the objects with labels
+    order : TYPE, optional
+        Desired new order (using original indices). Default is to flip.
+
+    Returns
+    -------
+    legend : TYPE
+        DESCRIPTION.
+
+    """
+    
+    handles, labels = ax.get_legend_handles_labels()
+    if order is None:
+        order = np.flip(np.arange(0,len(handles))) # Flip order
+    legend = ax.legend([handles[idx] for idx in order],[labels[idx] for idx in order])
+    return legend
+    
+    
