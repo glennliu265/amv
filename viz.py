@@ -1137,7 +1137,7 @@ def init_2rowodd(ncol,proj,figsize=(6,6),oddtop=False,debug=False):
 
     """
     
-    fig = plt.figure(figsize=figsize)
+    fig = plt.figure(figsize=figsize,constrained_layout=True)
     gs = gridspec.GridSpec(2,ncol*2)
     
     nodd = ncol*2-1

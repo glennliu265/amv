@@ -1214,7 +1214,7 @@ def detrend_poly(x,y,deg):
     ydetrend = y - model.T
     return ydetrend,model
 
-def coarsen_byavg(invar,lat,lon,deg,tol,latweight=True,verbose=True):
+def coarsen_byavg(invar,lat,lon,deg,tol,latweight=True,verbose=True,newlatlon=None,usenan=False):
     """
     Coarsen an input variable to specified resolution [deg]
     by averaging values within a search tolerance for each new grid box.
@@ -1239,6 +1239,10 @@ def coarsen_byavg(invar,lat,lon,deg,tol,latweight=True,verbose=True):
         Set to true to apply latitude weighted-average
     verbose : BOOL
         Set to true to print status
+    newlatlon : ARRAY
+        Array of desired grid output (lon, lat)
+    usenan  : BOOL
+        Set to True to use NaN operations
     
 
     Returns
@@ -1253,8 +1257,20 @@ def coarsen_byavg(invar,lat,lon,deg,tol,latweight=True,verbose=True):
     """
 
     # Make new Arrays
-    lon5 = np.arange(0,360+deg,deg)
-    lat5 = np.arange(-90,90+deg,deg)
+    if newlatlon is None:
+        lon5 = np.arange(0,360+deg,deg)
+        lat5 = np.arange(-90,90+deg,deg)
+    else:
+        lon5,lat5 = newlatlon
+        
+    # Check lon360
+    # outlonflag = False
+    # inlonflag  = False
+    # if np.any(lon5) < 0:
+    #     outlonflag = True
+    # if np.any(lon) < 0:
+    #     inlonflag = True
+    # match = outlonflag == inlonflag
     
     
     # Set up latitude weights
@@ -1281,9 +1297,15 @@ def coarsen_byavg(invar,lat,lon,deg,tol,latweight=True,verbose=True):
             
             if latweight:
                 wgtbox = wgt[lats[:,None],lons[None,:]]
-                varf = np.sum(varf/np.sum(wgtbox,(0,1)),(1,2)) # Divide by the total weight for the box
+                if usenan: # NOTE: Need to check if the NAN part is still valid...
+                    varf = np.nansum(varf/np.nansum(wgtbox,(0,1)),(1,2)) # Divide by the total weight for the box
+                else:
+                    varf = np.sum(varf/np.sum(wgtbox,(0,1)),(1,2)) # Divide by the total weight for the box
             else:
-                varf = varf.mean((1,2))
+                if usenan:
+                    varf = np.nanmean(varf,(1,2))
+                else:
+                    varf = varf.mean((1,2))
             outvar[:,a,o] = varf.copy()
             i+= 1
             msg="\rCompleted %i of %i"% (i,len(lon5)*len(lat5))
@@ -1532,6 +1554,37 @@ def lp_butter(varmon,cutofftime,order):
     else: # 1d input
         varfilt = filtfilt(b,a,varmon)
     return varfilt
+
+def calc_specvar(freq,spec,thresval,dtthres,droplast=True
+                 ,lowerthres=0,return_thresids=False):
+    """
+    Calculate variance of spectra BELOW a certain threshold
+    
+    Inputs:
+        freq     [ARRAY]   : frequencies (1/sec)
+        spec     [ARRAY]   : spectra (Power/cps) [otherdims ..., freq]
+        thresval [FLOAT]   : Threshold frequency (in units of dtthres)
+        dtthres  [FLOAT]   : Units of thresval (in seconds)
+        droplast [BOOL]    : True,start from lowest freq (left riemann sum)
+        lowerthres [FLOAT] : Low-freq limit (in units of dtthres) Default=0
+        return_thresids [BOOL] : Set to True to just return the threshold indices
+    """
+    # Get indices of frequencies less than the threshold
+    thresids = (freq*dtthres >= lowerthres) * (freq*dtthres <= thresval)
+    if return_thresids:
+        return thresids
+        
+    # Limit to values
+    specthres = spec[...,thresids]
+    freqthres = freq[thresids]
+    
+    # Compute the variance (specval*df)
+    if droplast:
+        specval    = specthres[...,:-1]#np.abs((specthres[1:] - specthres[:-1]))/dtthres
+    else:
+        specval    = specthres[...,1:]
+    df       = ((freqthres[1:] - freqthres[:-1]).mean(0))
+    return np.sum((specval*df),-1)
 
 #%%
 
