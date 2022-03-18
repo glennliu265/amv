@@ -772,14 +772,13 @@ def calc_lagcovar_nd(var1,var2,lags,basemonth,detrendopt):
     # Get total number of lags
     lagdim = len(lags)
     
-    # Get timeseries length
+    # Get timeseries length # [mon x yr x npts]
     totyr = var1.shape[1]
     npts  = var1.shape[2]
     
     # Get lag and lead sizes (in years)
     leadsize = int(np.ceil(len(np.where(lags < 0)[0])/12))
     lagsize = int(np.ceil(len(np.where(lags > 0)[0])/12))
-    
     
     # Detrend variables if option is set
     if detrendopt == 1:
@@ -1771,18 +1770,95 @@ def maxabs(invar,axis=None):
         axis  = 0
     return np.nanmax(np.abs(invar),axis=axis)
 
+def make_classes_nd(y,thresholds,exact_value=False,reverse=False,dim=0,debug=False):
+    """
+    Makes classes based on given thresholds. Loops over values in ND number of datagroups
+    and sets thresholds for each one
 
-def flipdims(invar):
-    # Reverse dim order of an n-dimensional array
-    return invar.transpose(np.flip(np.arange(len(invar.shape))))
+    Parameters
+    ----------
+    y : ARRAY
+        Labels to classify. Defaults to first dimension if y is ND
+    thresholds : ARRAY
+        1D Array of thresholds to partition the data
+    exact_value: BOOL, optional
+        Set to True to use the exact value in thresholds (rather than scaling by
+                                                          standard deviation)
+        
+    dim : INT
+        Dimension to classify over
+    Returns
+    -------
+    y_class : ARRAY [samples, datagroup, class]
+        Classified samples, where the first dimension contains the class number
+        (an integer representing each threshold)
+
+    """
+    # Make target array 2-D, and bring target dim to front (axis 0)
+    if len(y.shape) > 1:
+        print("Combining dimensions")
+        reshape_flag  = True
+        oldshape      = y.shape
+        # Move target dimension to front, and combine other dims
+        y,reorderdim    = dim2front(y,dim,combine=True,verbose=False,return_neworder=True) # [values, datagroup]
+    else:
+        y    = y[:,None]
+    npts = y.shape[1] # Last axis is the number of points
     
-# def rss(invar,dim=0):
-#     """
-#     Note: Just use np.linalg.norm
-#     Takes the root sum of squares along dimension dim. Default is first dim.
-#     """
-#     return np.sqrt(np.sum(invar**2,axis=dim))
-    
+    # Compute Thresholds for each datagroup (assume target dim = 0 here onwards)
+    nthres = len(thresholds)
+    if exact_value is False: # Scale thresholds by standard deviation
+        y_std = np.std(y,axis=0) # Get standard deviation along first axis # [npts,]
+        thresholds = np.array(thresholds)[:,None] * y_std[None,:] # [thres x npts]
+    else:
+        thresholds = np.array(thresholds)[:,None]
+        
+    y_class = np.zeros((y.shape[0],npts)) # [sample,datagroup]
+    if nthres == 1: # For single threshold cases
+        # Get the threshold
+        thres             = thresholds[0,:]
+        
+        # Get masks of values above/below
+        below_mask = y <= thres[None,:]
+        above_mask = y >  thres[None,:]
+        
+        # Assign Classes
+        y_class[below_mask] = 0
+        y_class[above_mask] = 1
+        
+    else:
+        for t in range(nthres+1): # Multi-threshold Case
+            if t < nthres:
+                thres = thresholds[t,:]
+            else:
+                thres = thresholds[-1,:]
+                
+            if reverse: # Assign class 0 to largest values
+                tassign = nthres-t
+            else:
+                tassign = t
+            
+            if t == 0: # First threshold (Less than first value)
+                mask = y <= thres[None,:]
+            elif t == nthres: # Last threshold (Greater than last value)
+                mask = y > thres[None,:]
+            else: # Intermediate values (Between current and previous values)
+                thres0 = thresholds[t-1,:]
+                mask   = (y > thres0[None,:]) * (y <= thres[None,:])
+            y_class[mask] = tassign
+            
+    if debug:
+        idt     = 22 # Plot index
+        ytest   = y[:100,idt]
+        fig,ax  = plt.subplots(1,1)
+        ax.plot(ytest,color="k")
+        for i in range(nthres):
+            ax.axhline(thresholds[i,idt],color="red",ls='dashed')
+        ax.scatter(np.arange(0,100),ytest,c=y_class[:100,idt])
+        
+    if reshape_flag:
+        y_class=restoredim(y_class,oldshape,reorderdim)
+    return y_class
 #%% File/String Utilities
 
 def addstrtoext(name,addstr):
@@ -1803,4 +1879,66 @@ def get_stringnum(instring,keyword,nchars=1,verbose=True):
         print("Grabbed <%s> from end of <%s>" % (grabstr,instring[keystart:keystart+len(keyword)]))
     return grabstr
     
+#%% Dimension Gymnastics/Wrangling
+def dim2front(x,dim,verbose=True,combine=False,flip=False,return_neworder=False):
+    """
+    Move dimension in position [dim] to the front
     
+    Parameters
+    ----------
+    
+    x [ND Array]   : Array to Reorganize
+    
+    dim    [INT]   : Target Dimension
+    
+    combine [BOOL] : Set to True to combine all dims
+    
+    flip    [BOOL] : Reverse the dimensions
+
+    Returns
+    -------
+    y [ND Array]   : Output
+
+    """
+    neworder = np.concatenate([[dim,],
+                         np.arange(0,dim),
+                         np.arange(dim+1,len(x.shape))
+                         ])
+    y = x.transpose(neworder)
+    if combine:
+        y = y.reshape(y.shape[0],np.prod(y.shape[1:]))
+    if flip:
+        y = y.transpose(np.flip(np.arange(0,len(y.shape))))
+    if verbose:
+        print("New Order is : %s"%str(neworder))
+        print("Dimensions are : %s"%str(y.shape))
+    if return_neworder:
+        return y,neworder
+    return y
+
+def restoredim(y,oldshape,reorderdim):
+    """
+    Revert y back to its oldshape, given its current
+    reordered state (from dim2front)
+    
+    Parameters
+    ----------
+    y          : ARRAY       : Array to restore 
+    oldshape   : LIST of INT : Old dimension sizes, in order
+    reorderdim : LIST of INT : Reordering of dimensions performed by dim2front
+    
+    Returns
+    -------
+    y          : ARRAY       : Array restored to the old shape
+    """
+    # Get Uncombined Size and reshape
+    newshape = [oldshape[i] for i in reorderdim]
+    y = y.reshape(newshape)
+    
+    # Now try to remap things to get the old order
+    restore_order = [newshape.index(dim) for dim in oldshape]
+    return y.transpose(restore_order) # Back to original order
+
+def flipdims(invar):
+    # Reverse dim order of an n-dimensional array
+    return invar.transpose(np.flip(np.arange(len(invar.shape))))
