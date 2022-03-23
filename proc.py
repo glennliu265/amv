@@ -16,6 +16,10 @@ from scipy import signal,stats
 from scipy.signal import butter, lfilter, freqz, filtfilt, detrend
 import os
 import time
+import scipy
+
+import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
 
 def ann_avg(ts,dim,monid=None,nmon=12):
     """
@@ -1555,7 +1559,7 @@ def lp_butter(varmon,cutofftime,order):
     return varfilt
 
 def calc_specvar(freq,spec,thresval,dtthres,droplast=True
-                 ,lowerthres=0,return_thresids=False):
+                 ,lowerthres=0,return_thresids=False,trapz=True):
     """
     Calculate variance of spectra BELOW a certain threshold
     
@@ -1567,6 +1571,7 @@ def calc_specvar(freq,spec,thresval,dtthres,droplast=True
         droplast [BOOL]    : True,start from lowest freq (left riemann sum)
         lowerthres [FLOAT] : Low-freq limit (in units of dtthres) Default=0
         return_thresids [BOOL] : Set to True to just return the threshold indices
+        trapz [BOOL] : Just use the trapezoidal integration method
     """
     # Get indices of frequencies less than the threshold
     thresids = (freq*dtthres >= lowerthres) * (freq*dtthres <= thresval)
@@ -1577,13 +1582,17 @@ def calc_specvar(freq,spec,thresval,dtthres,droplast=True
     specthres = spec[...,thresids]
     freqthres = freq[thresids]
     
-    # Compute the variance (specval*df)
-    if droplast:
-        specval    = specthres[...,:-1]#np.abs((specthres[1:] - specthres[:-1]))/dtthres
+    if trapz:
+        specsum = np.trapz(specthres,x=freqthres,axis=-1)
     else:
-        specval    = specthres[...,1:]
-    df       = ((freqthres[1:] - freqthres[:-1]).mean(0))
-    return np.sum((specval*df),-1)
+        # Compute the variance (specval*df)
+        if droplast:
+            specval    = specthres[...,:-1]#np.abs((specthres[1:] - specthres[:-1]))/dtthres
+        else:
+            specval    = specthres[...,1:]
+        df       = ((freqthres[1:] - freqthres[:-1]).mean(0))
+        specsum  = np.sum((specval*df),-1)
+    return specsum
 
 #%%
 
@@ -1942,3 +1951,121 @@ def restoredim(y,oldshape,reorderdim):
 def flipdims(invar):
     # Reverse dim order of an n-dimensional array
     return invar.transpose(np.flip(np.arange(len(invar.shape))))
+
+# ============================
+#%% Curvilinear Grid Utilities
+# ============================
+
+def sel_region_cv(tlon,tlat,invar,bbox,debug=False,return_mask=False):
+    """
+    Select region for a curvilinear/2D points. Currently tested with
+    CESM1 POP grid output
+    
+    Inputs
+    ------
+    1) tlon  : ARRAY [lat x lon]
+        Longitude values at each point (*assumed degrees East,  0-360)
+    2) tlat  : ARRAY [lat x lon]
+        Latitude values at each point
+    3) invar : ARRAY [lat x lon x otherdims]
+        Input variable to select from
+    4) bbox  : LIST [lonW,lonE,latS,latN]
+        Bounding coordinates. Can be degrees E/W for longitude
+    5) debug : BOOL (optional)
+        Set to True to plot the mask selection
+    6) return_mask : BOOL (optional)
+        Set to True to return BOOL mask of selection
+    
+    Outputs
+    -------
+    1) sellon : ARRAY [npts]
+        Longitude values of points within region
+    2) sellat : ARRAY [npts]
+        Latitude values of points within region
+    3) selvar : ARRAY [npts]
+        Data values of points within region
+    4) selmask : ARRAY [lat x lon]
+        Boolean mask, True for points within region
+    
+    """
+    
+    # Check crossings
+    for i in range(2):
+        if bbox[i] < 0:
+            bbox[i] += 360 # Switch to degrees east
+    if bbox[0] > bbox[1]:
+        cross_pm = True
+    else:
+        cross_pm = False
+
+    # Select longitude
+    if cross_pm:
+        # lonW --> 360, 0 --> lowE
+        masklon = ( (tlon >= bbox[0]) * (tlon <= 360)) + (tlon <= bbox[1])
+    else:
+        masklon = ((tlon >= bbox[0]) * (tlon <= bbox[1]))
+        
+    masklat = ((tlat >= bbox[2]) * (tlat <= bbox[3]))
+    masksel = masklon * masklat
+
+    # Plot selection
+    if debug:
+        fig,ax = plt.subplots(1,1,subplot_kw={'projection':ccrs.PlateCarree()})
+        ax.coastlines()
+        ax.scatter(tlon,tlat,0.02,alpha=0.2,color="k")
+        ax.scatter(tlon[masklon],tlat[masklon],0.02,alpha=0.2,color="r")
+        ax.scatter(tlon[masklat],tlat[masklat],0.02,alpha=0.2,color="b")
+        ax.scatter(tlon[masksel],tlat[masksel],0.02,alpha=0.8,color="y",marker="x")
+        ax.set_title("Selection Masks \n Lons (Blue) | Lats (Red) | Region (Yellow)")
+
+    # Return selected variables
+    selvar = invar[masksel,...]
+    sellon = tlon[masksel]
+    sellat = tlat[masksel]
+    if return_mask:
+        return sellon,sellat,selvar,masksel
+    return sellon,sellat,selvar
+
+def quick_interp2d(inlons,inlats,invals,outlons=None,outlats=None,method='cubic',
+                   debug=False):
+    """
+    Do quick 2-D interpolation of datapoints using scipy.interpolate.griddata.
+    Works with output from sel_region_cv
+    
+    Parameters
+    ----------
+    inlons : ARRAY [npts]
+        Longitude values of selected points
+    inlats : ARRAY [npts]
+        Latitude values of selected points
+    invals : ARRAY [npts]
+        Data values of seleted points
+    outlons : 1D-ARRAY [nlon], optional. Default is 1deg between min/max LON
+        Longitude values of desired output
+    outlats : 1D-ARRAY [nlat], optional
+        Latitude values of desired output. Default is 1deg between min/max LAT
+    method : STR, optional
+        Interpolation method for scipy.griddata. The default is 'cubic'.
+
+    Returns
+    -------
+    newx : TYPE
+        DESCRIPTION.
+    newy : TYPE
+        DESCRIPTION.
+    outvals : TYPE
+        DESCRIPTION.
+
+    """
+    
+    # Make new grid
+    if outlons is None:
+        newx = np.arange(np.nanmin(inlons),np.nanmax(inlons),1)
+    if outlats is None:
+        newy = np.arange(np.nanmin(inlats),np.nanmax(inlats),1)
+    xx,yy = np.meshgrid(newx,newy)
+    
+    # Do interpolation
+    outvals = scipy.interpolate.griddata((inlons,inlats),invals,(xx,yy),method=method,)
+
+    return newx,newy,outvals
