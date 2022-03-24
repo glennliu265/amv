@@ -1437,7 +1437,7 @@ def calc_pearsonconf(rho,conf,tails,n):
     
 def make_locstring(lon,lat):
     locfn    = "lon%i_lat%i" % (lon,lat)
-    loctitle = "Lon: %i Lat: %i" % (lon,lat)
+    loctitle = "Lon: %i, Lat: %i" % (lon,lat)
     return locfn,loctitle
 
 
