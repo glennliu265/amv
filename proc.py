@@ -501,6 +501,12 @@ def combine_dims(var,nkeep,debug=True):
     return var,vshape,dimflag
 
 
+def lon360to180_xr(ds,lonname='lon'):
+    # Based on https://stackoverflow.com/questions/53345442/about-changing-longitude-array-from-0-360-to-180-to-180-with-python-xarray
+    ds.coords[lonname] = (ds.coords[lonname] + 180) % 360 - 180
+    ds = ds.sortby(ds[lonname])
+    return ds
+
 def lon360to180(lon360,var,autoreshape=False,debug=True):
     """
     Convert Longitude from Degrees East to Degrees West 
@@ -509,6 +515,7 @@ def lon360to180(lon360,var,autoreshape=False,debug=True):
         2. var    - corresponding variable [lon x lat x time]
         3. autoreshape - BOOL, reshape variable autocmatically if size(var) > 3
     """
+    
     
     # Reshape to combine dimensions
     dimflag = False 
@@ -554,16 +561,15 @@ def lon180to360(lon180,var,autoreshape=False,debug=True):
 
 def find_nan(data,dim):
     """
-    For a 2D array, remove any point if there is a nan in dimension [dim]
+    For a 2D array, remove any point if there is a nan in dimension [dim].
     
     Inputs:
-        1) data: 2d array, which will be summed along last dimension
-        2) dim: dimension to sum along. 0 or 1
+        1) data   : 2d array, which will be summed along last dimension
+        2) dim    : dimension to sum along. 0 or 1.
     Outputs:
-        1) okdata: data with nan points removed
-        2) knan: boolean array with indices of nan points
-        3) okpts: indices for non-nan points
-
+        1) okdata : data with nan points removed
+        2) knan   : boolean array with indices of nan points
+        3) okpts  : indices for non-nan points
     """
     
     # Sum along select dimension
@@ -1405,7 +1411,7 @@ def remove_ss_sinusoid(ts,t=None,dt=12,semiannual=True,Winv=None):
 
 def calc_pearsonconf(rho,conf,tails,n):
     """
-    rho   : pearson r
+    rho   : pearson r [npts]
     conf  : confidence level
     tails : 1 or 2 tailed
     n     : Sample size
@@ -1466,7 +1472,7 @@ def calc_conflag(ac,conf,tails,n):
 
     Parameters
     ----------
-    ac : ARRAY [nlags]
+    ac : ARRAY [nlags,npts]
         Autocorrelation values by lag
     conf : NUMERIC
         Confidence level (ex. 0.95)
@@ -1477,15 +1483,26 @@ def calc_conflag(ac,conf,tails,n):
 
     Returns
     -------
-    cflags : ARRAY [nlags]
+    cflags : ARRAY [nlags x 2 (upper/lower) x npts]
         Confidence interval for each lag
 
     """
-    cflags = np.zeros((len(ac),2))
-    for l in range(len(ac)):
-        rhoin = ac[l]
-        cfout = calc_pearsonconf(rhoin,conf,tails,n)
-        cflags[l,:] = cfout
+    ND = False
+    if len(ac.shape) > 1:
+        ND = True
+    
+    if ND:
+        nlags,npts = ac.shape
+        cflags = np.zeros((nlags,2,npts)) # [Lag x Conf x Npts]
+        
+    else:
+        nlags = len(ac)
+        cflags = np.zeros((nlags,2)) # [Lag x Conf]
+    
+    for l in range(nlags):
+        rhoin = ac[l,...]
+        cfout = calc_pearsonconf(rhoin,conf,tails,n) # [conf x npts]
+        cflags[l,...] = cfout
     return cflags
 
 
