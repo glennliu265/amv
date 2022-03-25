@@ -927,7 +927,7 @@ def pearsonr_2d(A,B,dim,returnsig=0,p=0.05,tails=2,dof='auto'):
 def ttest_rho(p,tails,dof):
     """
     Perform T-Test, given pearsonr, p (0.05), and tails (1 or 2), and degrees
-    of freedom
+    of freedom. The latter dof can be N-D
     
     Edit 12/01/2021, removed rho since it is not used
     
@@ -936,7 +936,15 @@ def ttest_rho(p,tails,dof):
     ptilde = p/tails
     
     # Get threshold critical value
-    critval = stats.t.ppf(1-ptilde,dof)
+    if type(dof) is np.ndarray: # Loop for each point
+        oldshape = dof.shape
+        dof = dof.reshape(np.prod(oldshape))
+        critval = np.zeros(dof.shape)
+        for i in range(len(dof)): 
+            critval[i] = stats.t.ppf(1-ptilde,dof[i])
+        critval = critval.reshape(oldshape)
+    else:
+        critval = stats.t.ppf(1-ptilde,dof)
     
     # Get critical correlation threshold
     corrthres = np.sqrt(1/ ((dof/np.power(critval,2))+1))
