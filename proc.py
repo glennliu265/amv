@@ -321,7 +321,7 @@ def eof_simple(pattern,N_mode,remove_timemean):
     return eofs, pcs, varexp
 
 
-def calc_lagcovar(var1,var2,lags,basemonth,detrendopt):
+def calc_lagcovar(var1,var2,lags,basemonth,detrendopt,yr_mask=None,debug=True):
     """
     Calculate lag-lead relationship between two monthly time series with the
     form [mon x yr]. Lag 0 is set by basemonth
@@ -338,9 +338,12 @@ def calc_lagcovar(var1,var2,lags,basemonth,detrendopt):
         3) lags: lags and leads to include
         4) basemonth: lag 0 month
         5) detrendopt: 1 for linear detrend of both variables
+        6) yr_mask : ARRAY of indices for selected years
+        7) debug : Print check messages
     
     Outputs:
         1) corr_ts: lag-lead correlation values of size [lags]
+        2) yr_count : print the count of years
     
     Dependencies:
         numpy as np
@@ -354,10 +357,34 @@ def calc_lagcovar(var1,var2,lags,basemonth,detrendopt):
     # Get timeseries length
     totyr = var1.shape[1]
     
+    # Get total number of year crossings from lag
+    endmonth = basemonth + lagdim-1
+    nlagyr   = int(np.ceil(endmonth/12)) #  Ignore zero lag (-1)
+    
+    if debug:
+        print("Lags spans %i mon (%i yrs) starting from mon %i" % (endmonth,nlagyr,basemonth))
+        
+    # Get Indices for each year
+    if yr_mask is not None:
+        # Drop any indices that are larger than the limit
+        # nlagyr-1 accounts for the base year...
+        # totyr-1 accounts for indexing
+        yr_mask_clean = np.array([yr for yr in yr_mask if (yr+nlagyr-1) < totyr])
+        
+        if debug:
+            n_drop = np.setdiff1d(yr_mask,yr_mask_clean)
+            print("Dropped the following years: %s" % str(n_drop))
+        
+        yr_ids  = [] # Indices to 
+        for yr in range(nlagyr):
+            
+            # Apply year-lag to index
+            yr_ids.append(yr_mask_clean + yr)
+    
+    
     # Get lag and lead sizes (in years)
     leadsize = int(np.ceil(len(np.where(lags < 0)[0])/12))
     lagsize = int(np.ceil(len(np.where(lags > 0)[0])/12))
-    
     
     # Detrend variables if option is set
     if detrendopt == 1:
@@ -365,8 +392,11 @@ def calc_lagcovar(var1,var2,lags,basemonth,detrendopt):
         var2 = signal.detrend(var2,1,type='linear')
     
     # Get base timeseries to perform the autocorrelation on
-    base_ts = np.arange(0+leadsize,totyr-lagsize)
-    varbase = var1[basemonth-1,base_ts]
+    if yr_mask is not None:
+        varbase = var1[basemonth-1,yr_ids[0]] # Anomalies from starting year
+    else: # Use old indexing approach
+        base_ts = np.arange(0+leadsize,totyr-lagsize)
+        varbase = var1[basemonth-1,base_ts]
         
     # Preallocate Variable to store correlations
     corr_ts = np.zeros(lagdim)
@@ -386,21 +416,27 @@ def calc_lagcovar(var1,var2,lags,basemonth,detrendopt):
             modswitch = i+1   # Add year on lag = modswitch
             
         if addyr == 1 and i == modswitch:
-            #print('adding year on '+ str(i))
+            if debug:
+                print('adding year on '+ str(i))
             addyr = 0         # Reset counter
             nxtyr = nxtyr + 1 # Shift window forward
             
         # Index the other variable
-        lag_ts = np.arange(0+nxtyr,len(varbase)+nxtyr)
-        varlag = var2[lagm-1,lag_ts]
-        
+        if yr_mask is not None:
+            varlag = var2[lagm-1,yr_ids[nxtyr]]
+            if debug:
+                print("For lag %i (m=%i), first (last) indexed year is %i (%i) " % (i,lagm,yr_ids[nxtyr][0],yr_ids[nxtyr][-1]))
+        else:
+            lag_ts = np.arange(0+nxtyr,len(varbase)+nxtyr)
+            varlag = var2[lagm-1,lag_ts]
+            if debug:
+                print("For lag %i (m=%i), lag_ts is between %i and %i" % (i,lagm,lag_ts[0],lag_ts[-1]))
+            
         # Calculate correlation
         corr_ts[i] = stats.pearsonr(varbase,varlag)[0]
-            
-        # if lagm == basemonth:
-        #     print(i)
-        #     print(corr_ts[i])
-                      
+    
+    if yr_mask is not None:
+        return corr_ts,len(yr_ids[-1]) # Return count of years as well
     return corr_ts
 
 
@@ -815,7 +851,7 @@ def calc_lagcovar_nd(var1,var2,lags,basemonth,detrendopt):
         if lagm == 0:
             lagm = 12
             addyr = 1         # Flag to add to nxtyr
-            modswitch = i+1   # Add year on lag = modswitch
+            modswitch = i+1   # Add year on next lag = modswitch
             
         if addyr == 1 and i == modswitch:
             addyr = 0         # Reset counter
