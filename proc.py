@@ -1872,6 +1872,7 @@ def make_classes_nd(y,thresholds,exact_value=False,reverse=False,dim=0,debug=Fal
         # Move target dimension to front, and combine other dims
         y,reorderdim    = dim2front(y,dim,combine=True,verbose=False,return_neworder=True) # [values, datagroup]
     else:
+        reshape_flag = False
         y    = y[:,None]
     npts = y.shape[1] # Last axis is the number of points
     
@@ -1918,7 +1919,8 @@ def make_classes_nd(y,thresholds,exact_value=False,reverse=False,dim=0,debug=Fal
             y_class[mask] = tassign
             
     if debug:
-        idt     = 22 # Plot index
+        idt = np.random.choice(y.shape[1])
+        #idt     = 22 # Plot index (random)
         ytest   = y[:100,idt]
         fig,ax  = plt.subplots(1,1)
         ax.plot(ytest,color="k")
@@ -1929,6 +1931,59 @@ def make_classes_nd(y,thresholds,exact_value=False,reverse=False,dim=0,debug=Fal
     if reshape_flag:
         y_class=restoredim(y_class,oldshape,reorderdim)
     return y_class
+
+def checkpoint(checkpoints,invar,debug=True):
+    """
+    Groups values of invar between values specified in checkpoints and
+    returns a list where each element is the indices of the group
+
+    Parameters
+    ----------
+    checkpoints : ARRAY
+        1-D Array of checkpoint/threshold values. Checks (z-1 < x <= z)
+    invar : ARRAY
+        1-D Array of values to check
+    debug : TYPE, optional
+        True to print messages (default)
+
+    Returns
+    -------
+    ids_all : TYPE
+        Indices of invar for each group
+
+    """
+    
+    ids_all = []
+    for z in range(len(checkpoints)+1):
+        if z == 0: # <= First value
+            if debug:
+                print("Looking for indices <= %i"% (checkpoints[z]))
+            ids = np.where(invar <= checkpoints[z])[0]
+            
+        elif z == len(checkpoints): # > Last value
+            if debug:
+                print("Looking for indices > %i"% (checkpoints[z-1]))
+            ids = np.where(invar > checkpoints[z-1])[0]
+            if len(ids)==0:
+                continue
+            else:
+                print("Found %s"% str(np.array(invar)[ids]))
+                ids_all.append(ids)
+            return ids_all # Exit on last value
+        else: # Check values between z-1, z
+            ids = np.where((invar > checkpoints[z-1]) & (invar <= checkpoints[z]))[0]
+            if debug and (z%100 == 0) or (z < 10) or (z>len(checkpoints)-10):
+                print("Looking for indices %i < x <= %i" % (checkpoints[z-1],checkpoints[z]))
+        
+        
+        if len(ids)==0:
+            continue
+        else:
+            if debug and (z%100 == 0) or (z < 10) or (z>len(checkpoints)-10):
+                print("Found %s"% str(np.array(invar)[ids]))
+            ids_all.append(ids)
+    return ids_all
+
 #%% File/String Utilities
 
 def addstrtoext(name,addstr):
