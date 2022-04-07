@@ -638,7 +638,7 @@ def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_
         ax.add_feature(cfeature.LAND,facecolor=fill_color,zorder=c_zorder)
     #ax.add_feature(cfeature.COASTLINE,color=line_color,lw=0.75,zorder=0)
     ax.coastlines(color=line_color,lw=0.75)
-    ax.set_extent(bbox)
+    ax.set_extent(bbox,proj)
     
     gl = ax.gridlines(crs=proj, draw_labels=True,
                   linewidth=2, color=grid_color, alpha=0.5, linestyle="dotted",
