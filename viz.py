@@ -21,6 +21,7 @@ from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 import cartopy.crs as ccrs
 from cartopy.util import add_cyclic_point
 from matplotlib.ticker import LogLocator
+import matplotlib.ticker as mticker
 import matplotlib.gridspec as gridspec
 
 import string
@@ -527,7 +528,7 @@ def summarize_params(lat,lon,params,synth=False):
     plt.tight_layout()
     return fig,ax
 
-def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None):
+def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None,usegrid=True):
     """
     Function to initialize autocorrelation plot with months on top,
     lat on the bottom
@@ -555,9 +556,9 @@ def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None):
     """
     if ax is None:
         ax = plt.gca()
+    
     # Tile Months for plotting
-
-    mons3=('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec')
+    mons3     = ('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec')
     mons3tile = np.tile(np.array(mons3),int(np.floor(len(lags)/12))) 
     mons3tile = np.concatenate([np.roll(mons3tile,-kmonth),[mons3[kmonth]]])
     
@@ -585,7 +586,8 @@ def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None):
         ax.set_title(title)
     ax.set_xlabel("Lags (Months)")
     ax.set_ylabel("Correlation")
-    ax.grid(True,linestyle='dotted')
+    if usegrid:
+        ax.grid(True,linestyle='dotted')
     plt.tight_layout()
     
     if loopvar is not None:
@@ -593,7 +595,8 @@ def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None):
     return ax,ax2
 
 def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_error=False,
-                   fill_color=None,line_color='k',grid_color='gray',c_zorder=1):
+                   fill_color=None,line_color='k',grid_color='gray',c_zorder=1,
+                   fix_lon=False,fix_lat=False):
     """
     Add Coastlines, grid, and set extent for geoaxes
     
@@ -651,6 +654,12 @@ def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_
         gl.yformatter = LatitudeFormatter(degree_symbol='')
         #gl.yformatter = LatitudeFormatter(degree_symbol='')
         gl.rotate_labels = False
+    
+    if fix_lon:
+        gl.xlocator = mticker.FixedLocator(fix_lon)
+    if fix_lat:
+        gl.ylocator = mticker.FixedLocator(fix_lat)
+        
         
     gl.left_labels = blabels[0]
     gl.right_labels = blabels[1]
@@ -741,7 +750,7 @@ def make_axtime(ax,htax,denom='year'):
     return ax,htax
 
 
-def twin_freqaxis(ax,freq,tunit,dt,fontsize=12,mode='log-lin',xtick=None,include_title=True):
+def twin_freqaxis(ax,freq,tunit,dt,fontsize=12,mode='log-lin',xtick=None,include_title=True,usegrid=True):
     # Set top axis for linear-log plots, in terms of cycles/sec
     
     # Make top axis
@@ -779,8 +788,9 @@ def twin_freqaxis(ax,freq,tunit,dt,fontsize=12,mode='log-lin',xtick=None,include
     elif mode == 'log-log':
         htax.set_xscale("log")
         htax.set_yscale("log")
-        
-    ax.grid(True,ls='dotted')
+    
+    if usegrid:
+        ax.grid(True,ls='dotted')
     if include_title:
         htax.set_xlabel("Period (%s)"%tunit,fontsize=fontsize)
     
@@ -889,7 +899,7 @@ def plot_freqxpower(specs,freqs,enames,ecolors,
 def plot_freqlin(specs,freqs,enames,ecolors,
                 plotdt=3600*24*365,ax=None,xtick=None,xlm=None,
                 plotconf=None,plottitle=None,alpha=None,return_ax2=False,marker=None,
-                lw=1,plotids=None,legend=True,linearx=0):
+                lw=1,plotids=None,legend=True,linearx=0,usegrid=True):
     """
     Linear-Linear Plot
 
@@ -966,7 +976,8 @@ def plot_freqlin(specs,freqs,enames,ecolors,
     
     if linearx == 0:
         # Twin x-axis for period
-        htax = twin_freqaxis(ax,freqs[1],"Years",plotdt,mode='lin-lin',xtick=xtick,include_title=False)
+        htax = twin_freqaxis(ax,freqs[1],"Years",plotdt,mode='lin-lin',
+                             xtick=xtick,include_title=False,usegrid=usegrid)
         
         # Set upper x-axis ticks
         xtick2 = htax.get_xticks()
@@ -994,7 +1005,7 @@ def plot_freqlin(specs,freqs,enames,ecolors,
             for i in range(len(xtkl)): # Adjust ticks
                 if (1/xtick[i] < 1) and (1/xtick[i] > 0):
                     xtkl[i] = "%.2f" % (1/xtick[i])
-            htax.grid(True,ls='solid',color='gray',lw=1)
+            htax.grid(True,ls='dotted',lw=1)
         elif linearx == 2:
             
             # Set 2nd axis to values on first
@@ -1005,7 +1016,8 @@ def plot_freqlin(specs,freqs,enames,ecolors,
                 if (1/xtick2[i] < 1) and (1/xtick2[i] > 0):
                     xtkl[i] = "%.2f" % (1/xtick2[i])
         htax.set_xticklabels(xtkl) # Set second axis tick labels
-        ax.grid(True,ls='dotted',color="k")
+        if usegrid:
+            ax.grid(True,ls='dotted',color="k")
             
     
     if return_ax2:
@@ -1371,7 +1383,7 @@ def qv_seasonal(lon,lat,var,
 
 #%%
 def label_sp(sp_id,case='upper',inside=True,ax=None,fig=None,x=0.0,y=1.0,
-             fontsize=12,fontfamily='sans-serif',alpha=0,labelstyle=None,
+             fontsize=12,fontfamily='sans-serif',alpha=1,labelstyle=None,
              usenumber=False,fontcolor='k'):
     """
     Add alphabetical labels to subplots
