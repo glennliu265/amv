@@ -442,9 +442,11 @@ def calc_lagcovar(var1,var2,lags,basemonth,detrendopt,yr_mask=None,debug=True,
         #print("Lag %i Mean is %i ")
         
         # Calculate correlation
-        if spearman:
+        if spearman == 1:
             corr_ts[i] = stats.spearmanr(varbase,varlag)[0]
             #corr_ts[i] = stats.kendalltau(varbase,varlag)[0]
+        elif spearman == 2:
+            corr_ts[i] = stats.kendalltau(varbase,varlag)[0]
         else:
             corr_ts[i] = stats.pearsonr(varbase,varlag)[0]
         varlags.append(varlag)
