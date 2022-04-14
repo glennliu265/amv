@@ -321,7 +321,8 @@ def eof_simple(pattern,N_mode,remove_timemean):
     return eofs, pcs, varexp
 
 
-def calc_lagcovar(var1,var2,lags,basemonth,detrendopt,yr_mask=None,debug=True):
+def calc_lagcovar(var1,var2,lags,basemonth,detrendopt,yr_mask=None,debug=True,
+                  return_values=False,spearman=False):
     """
     Calculate lag-lead relationship between two monthly time series with the
     form [mon x yr]. Lag 0 is set by basemonth
@@ -340,10 +341,13 @@ def calc_lagcovar(var1,var2,lags,basemonth,detrendopt,yr_mask=None,debug=True):
         5) detrendopt: 1 for linear detrend of both variables
         6) yr_mask : ARRAY of indices for selected years
         7) debug : Print check messages
+        8) return_values [BOOL] : Return the lagged values and base values
     
     Outputs:
         1) corr_ts: lag-lead correlation values of size [lags]
         2) yr_count : print the count of years
+        3) varbase : [yrs] Values of monthly anomalies for reference month
+        4) varlags : [lag][yrs] Monthly anomalies for each lag month
     
     Dependencies:
         numpy as np
@@ -406,6 +410,7 @@ def calc_lagcovar(var1,var2,lags,basemonth,detrendopt,yr_mask=None,debug=True):
     addyr = 0
     modswitch = 0
     
+    varlags = [] # Save for returning later
     for i in lags:
 
         lagm = (basemonth + i)%12
@@ -432,9 +437,20 @@ def calc_lagcovar(var1,var2,lags,basemonth,detrendopt,yr_mask=None,debug=True):
             if debug:
                 print("For lag %i (m=%i), lag_ts is between %i and %i" % (i,lagm,lag_ts[0],lag_ts[-1]))
             
+        #varbase = varbase - varbase.mean()
+        #varlag  = varlag - varlag.mean()
+        #print("Lag %i Mean is %i ")
+        
         # Calculate correlation
-        corr_ts[i] = stats.pearsonr(varbase,varlag)[0]
-    
+        if spearman:
+            corr_ts[i] = stats.spearmanr(varbase,varlag)[0]
+            #corr_ts[i] = stats.kendalltau(varbase,varlag)[0]
+        else:
+            corr_ts[i] = stats.pearsonr(varbase,varlag)[0]
+        varlags.append(varlag)
+        
+    if return_values:
+        return corr_ts,varbase,varlags
     if yr_mask is not None:
         return corr_ts,len(yr_ids[-1]) # Return count of years as well
     return corr_ts
@@ -628,6 +644,43 @@ def find_nan(data,dim):
         okdata = data[okpts]
         
     return okdata,knan,okpts
+
+def remap_nan(lon,lat,okdata,okpts,lonfirst=True):
+    """
+    Remaps [okdata] with combined spatial dimension 
+    into original [lon x lat] dimensions
+
+    Parameters
+    ----------
+    lon : ARRAY [lon,]
+        Lon values
+    lat : ARRAY [lat,]
+        Lat values
+    okdata : ARRAY [space, otherdims]
+        Values to remap
+    okpts : ARRAY [space]
+        Indices where the original values belonged
+    lonfirst : TYPE, BOOL
+        Unfold to Lon x Lat (as opposed to Lat x Lon). The default is True.
+
+    Returns
+    -------
+    None.
+    """
+    
+    nlon      = len(lon)
+    nlat      = len(lat)
+    otherdims = okdata.shape[1:]
+    newshape  = (nlon*nlat,) +  otherdims
+    if lonfirst:
+        unfold    = (nlon,nlat,) +  otherdims
+    else:
+        unfold    = (nlat,nlon,) +  otherdims
+    
+    outvar = np.zeros(newshape)*np.nan
+    outvar[okpts,...] = okdata
+    outvar = outvar.reshape(unfold)
+    return outvar
 
 def year2mon(ts):
     """
@@ -1866,7 +1919,8 @@ def make_classes_nd(y,thresholds,exact_value=False,reverse=False,dim=0,debug=Fal
     """
     # Make target array 2-D, and bring target dim to front (axis 0)
     if len(y.shape) > 1:
-        print("Combining dimensions")
+        if debug:
+            print("Combining dimensions")
         reshape_flag  = True
         oldshape      = y.shape
         # Move target dimension to front, and combine other dims
