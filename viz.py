@@ -15,6 +15,8 @@ from amv import proc
 import cmocean
 from tqdm import tqdm
 
+import colorcet as cc
+
 import matplotlib.pyplot as plt
 import cartopy.feature as cfeature
 from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
@@ -23,6 +25,8 @@ from cartopy.util import add_cyclic_point
 from matplotlib.ticker import LogLocator
 import matplotlib.ticker as mticker
 import matplotlib.gridspec as gridspec
+
+import matplotlib.patheffects as PathEffects
 
 import string
 import matplotlib.transforms as mtransforms
@@ -207,7 +211,8 @@ def plot_annavg(var,units,figtitle,ax=None,ymax=None,stats='mon'):
 
     return ax
 
-def viz_kprev(h,kprev,locstring="",ax=None,lw=1,msize=25,mstyle="x"):
+def viz_kprev(h,kprev,locstring="",ax=None,lw=1,msize=25,mstyle="x",
+              cmap=None,fill_style='full',txtalpha=1,usetitle=True):
     
     """
     Quick visualization of mixed layer cycle (h)
@@ -221,13 +226,27 @@ def viz_kprev(h,kprev,locstring="",ax=None,lw=1,msize=25,mstyle="x"):
         4) lw = linewidths
         5) msize = markersize
         6) mstyle = markerstyle
+        7) cmap = colors of the lines/markers
+        8) fill_style = marker fill style
+        9) txtalpha = Alpha of text background/highlight
     
     """
     if ax is None:
         ax = plt.gca()
         
     # Create Connector lines ([entrainmon,detrainmon],[MLD,MLD])
-    connex = [((im+1,kprev[im]),(h[im],h[im])) for im in range(12) if kprev[im] != 0]
+    connex = [([im+1,kprev[im]],[h[im],h[im]]) for im in range(12) if kprev[im] != 0]
+    
+    # Set colormap
+    if cmap is None:
+        cmap = cc.glasbey[:len(connex)]
+    else:
+        cmap = cmap[:len(connex)]
+        
+    
+    for m in range(len(connex)):
+        if connex[m][0][0] < connex[m][0][1]: # The first point comes before last point
+            connex[m][0][0] += 12 # Shift 1 year ahead
     
     # Indicate entraining months
     foundmon = kprev[kprev!=0]
@@ -242,19 +261,32 @@ def viz_kprev(h,kprev,locstring="",ax=None,lw=1,msize=25,mstyle="x"):
     plt.style.use('seaborn-bright')
     
     # Plot the MLD cycle
-    ax.plot(plotmon,plotmld,color='k',label='MLD Cycle',lw=lw)
+    ax.plot(plotmon,plotmld,color='k',label='MLD Cycle',lw=lw,zorder=1)
     
     # Plot the connectors
-    [ax.plot(connex[m][0],connex[m][1],lw=lw) for m in range(len(connex))]
-    [ax.annotate("%.2f"%(connex[m][0][1]),(connex[m][0][1],connex[m][1][1])) for m in range(len(connex))]
-    # Plot Markers
-    ax.scatter(foundmon,foundmld,msize,marker=mstyle)
+    lns  = [ax.plot(connex[m][0],connex[m][1],
+                    lw=lw,color=cmap[m],zorder=-1) for m in range(len(connex))]
+    clrs = [ln[0].get_color() for ln in lns] 
     
+    # Plot markers
+    pts  = [ax.plot(foundmon[m],foundmld[m],
+                    markersize=msize,marker=mstyle,color=clrs[m],fillstyle=fill_style,
+                    linestyle='None',zorder=5) for m in range(len(connex))]
+    
+    # Plot Annotations
+    txts = [ax.annotate("%.2f" %(connex[m][0][1]),(connex[m][0][1],connex[m][1][1]),
+                 zorder=9) for m in range(len(connex))]
+    for txt in txts:
+        txt.set_path_effects([PathEffects.withStroke(linewidth=2.5,foreground="w",alpha=txtalpha)])
+        
+    # Labeling
     ax.set(xlabel='Month',
            ylabel='Mixed Layer Depth (m)',
            xlim=(1,12),
-           title="Mixed Layer Depth Seasonal Cycle \n" + locstring
+           
            )
+    if usetitle:
+        ax.set_title("Mixed Layer Depth Seasonal Cycle at " + locstring)
 
     ax.set_xticks(range(1,14,1))
     
