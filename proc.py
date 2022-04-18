@@ -1810,9 +1810,10 @@ def get_posneg_sigma(varr,idxin,sigma=1,normalize=True,return_id=False):
     return varrp,varrn,varrz
 
 
-def calc_savg(invar,debug=False,return_str=False):
+def calc_savg(invar,debug=False,return_str=False,axis=-1):
     """
     Calculate Seasonal Average of input with time in the last dimension
+    (or specify axis with axis=N)
     
     Inputs:
         1) invar : ARRAY[...,time], N-D monthly variable where time is the last axis
@@ -1822,11 +1823,13 @@ def calc_savg(invar,debug=False,return_str=False):
         1) savgs : LIST of ARRAYS, [winter, spring, summer, fall]
         2) snames : LIST of STR, season names, (returns if return_str is true)
     """
+    
     snames = ("DJF"   ,"MAM"  ,"JJA"  ,"SON")
     sids   = ([11,0,1],[2,3,4],[5,6,7],[8,9,10])
     savgs = []
     for s in range(4):
-        savgs.append(np.nanmean(invar[...,sids[s]],-1)) # Take mean along last dimension
+        
+        savgs.append(np.nanmean(np.take(invar,sids[s],axis=axis),axis)) # Take mean along last dimension
         if debug:
             print(savgs[s].shape)
     if return_str:
@@ -1888,12 +1891,41 @@ def cftime2str(times):
         newtimes.append(newstr)
     return np.array(newtimes)
     
-def maxabs(invar,axis=None):
-    # Return max absolute value for 1 variable
+def maxabs(invar,axis=None,keep_sign=False,debug=False):
+    
+    # Return max absolute value for 1 variable. Keep sign if set.
+    # Default is flatten and use first axis
     if axis is None:
         invar = invar.flatten()
         axis  = 0
-    return np.nanmax(np.abs(invar),axis=axis)
+        
+    outvar = np.nanmax(np.abs(invar),axis=axis) # Get the amplitude
+    if keep_sign:
+        idmax = np.nanargmax(np.abs(invar),axis=axis)
+        if debug:
+            test = np.take_along_axis(np.abs(invar), np.expand_dims(idmax, axis=0), axis=0).squeeze()
+            print("Difference is: %f" % (np.nanmax(np.abs((outvar-test).flatten()))))
+        signs = np.take_along_axis(np.sign(invar), np.expand_dims(idmax, axis=0), axis=0).squeeze()
+        outvar *= signs
+    return outvar
+
+def minabs(invar,axis=None,keep_sign=False,debug=False):
+    
+    # Return min absolute value for 1 variable. Keep sign if set.
+    # Default is flatten and use first axis
+    if axis is None:
+        invar = invar.flatten()
+        axis  = 0
+        
+    outvar = np.nanmin(np.abs(invar),axis=axis) # Get the amplitude
+    if keep_sign:
+        idmax = np.nanargmin(np.abs(invar),axis=axis)
+        if debug:
+            test = np.take_along_axis(np.abs(invar), np.expand_dims(idmax, axis=0), axis=0).squeeze()
+            print("Difference is: %f" % (np.nanmax(np.abs((outvar-test).flatten()))))
+        signs = np.take_along_axis(np.sign(invar), np.expand_dims(idmax, axis=0), axis=0).squeeze()
+        outvar *= signs
+    return outvar
 
 def make_classes_nd(y,thresholds,exact_value=False,reverse=False,dim=0,debug=False):
     """
@@ -2241,3 +2273,38 @@ def quick_interp2d(inlons,inlats,invals,outlons=None,outlats=None,method='cubic'
     outvals = scipy.interpolate.griddata((inlons,inlats),invals,(xx,yy),method=method,)
 
     return newx,newy,outvals
+
+def make_ar1(r1,sigma,simlen,t0=0,savenoise=False,usenoise=None):
+    """
+    Create AR1 timeseries given the lag 1 corr-coef [r1],
+    the amplitude of noise (sigma), and simluation length.
+    
+    Adapted from slutil.return_ar1_model() on 2022.04.12
+
+    Parameters
+    ----------
+    r1        [FLOAT] : Lag 1 correlation coefficient
+    sigma     [FLOAT] : Noise amplitude (will be squared)
+    simlen    [INT]   : Simulation Length
+    t0        [FLOAT] : Starting value (optional, default is 0.)
+    savenoise [BOOL]  : Output noise timeseries as well
+    usenoise  [ARRAY] : Use provided noise timeseries
+
+    Returns
+    -------
+    rednoisemodel : [ARRAY: (simlen,)] : AR1 model
+    noisets       : [ARRAY: (simlen,)] : Used noise timeseries
+    """
+    # Create Noise
+    if usenoise is None:
+        noisets       = np.random.normal(0,1,simlen)
+        noisets       *= (sigma**2) # Scale by sigma^2
+    else:
+        noisets = usenoise
+    # Integrate Model
+    rednoisemodel = np.zeros(simlen) * t0 # Multiple by initial value
+    for t in range(1,simlen):
+        rednoisemodel[t] = r1 * rednoisemodel[t-1] + noisets[t]
+    if savenoise:
+        return rednoisemodel,noisets
+    return rednoisemodel
