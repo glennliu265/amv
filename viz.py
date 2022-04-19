@@ -213,7 +213,6 @@ def plot_annavg(var,units,figtitle,ax=None,ymax=None,stats='mon'):
 
 def viz_kprev(h,kprev,locstring="",ax=None,lw=1,msize=25,mstyle="x",
               cmap=None,fill_style='full',txtalpha=1,usetitle=True):
-    
     """
     Quick visualization of mixed layer cycle (h)
     and the corresponding detrainment index found using the
@@ -231,6 +230,7 @@ def viz_kprev(h,kprev,locstring="",ax=None,lw=1,msize=25,mstyle="x",
         9) txtalpha = Alpha of text background/highlight
     
     """
+    
     if ax is None:
         ax = plt.gca()
         
@@ -1315,7 +1315,7 @@ def return_clevels(cmax,cstep,lstep=None):
 #         return ax
 
 
-def plot_mask(lon,lat,mask,reverse=False,color="k",marker="o",markersize=1.5,ax=None):
+def plot_mask(lon,lat,mask,reverse=False,color="k",marker="o",markersize=1.5,ax=None,proj=None):
     
     """
     Plot stippling based on a mask
@@ -1331,6 +1331,8 @@ def plot_mask(lon,lat,mask,reverse=False,color="k",marker="o",markersize=1.5,ax=
     Solution from: https://matplotlib.org/stable/gallery/images_contours_and_fields/contour_corner_mask.html
     
     """
+    if proj is None:
+        proj = ccrs.PlateCarree()
     # Get current axis
     if ax is None:
         ax = plt.gca()
@@ -1347,7 +1349,7 @@ def plot_mask(lon,lat,mask,reverse=False,color="k",marker="o",markersize=1.5,ax=
     # Make meshgrid and plot masked array
     yy,xx = np.meshgrid(lat,lon)
     smap = ax.plot(np.ma.array(xx,mask=mask),yy,
-                   c=color,marker=marker,markersize=markersize,ls="")
+                   c=color,marker=marker,markersize=markersize,ls="",transform=proj)
     return smap 
 
 
@@ -1493,4 +1495,9 @@ def reorder_legend(ax,order=None):
     legend = ax.legend([handles[idx] for idx in order],[labels[idx] for idx in order])
     return legend
     
-    
+def add_ylabel(label,ax=None,x=-0.10,y=0.5):
+    if ax is None:
+        ax = plt.gca()
+    txt = ax.text(x, y, label, va='bottom', ha='center',rotation='vertical',
+            rotation_mode='anchor',transform=ax.transAxes)
+    return txt
