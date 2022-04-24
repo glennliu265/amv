@@ -560,7 +560,8 @@ def summarize_params(lat,lon,params,synth=False):
     plt.tight_layout()
     return fig,ax
 
-def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None,usegrid=True):
+def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None,
+                usegrid=True,tickfreq=None):
     """
     Function to initialize autocorrelation plot with months on top,
     lat on the bottom
@@ -594,6 +595,7 @@ def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None,usegrid=True)
     mons3tile = np.tile(np.array(mons3),int(np.floor(len(lags)/12))) 
     mons3tile = np.concatenate([np.roll(mons3tile,-kmonth),[mons3[kmonth]]])
     
+    
     # Set up second axis
     ax2 = ax.twiny()
     ax2.set_xticks(xticks)
@@ -622,13 +624,30 @@ def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None,usegrid=True)
         ax.grid(True,linestyle='dotted')
     plt.tight_layout()
     
+    # Adjust ticks if option is set
+    if tickfreq is not None:
+        lbl_new_mon = []
+        lbl_new     = []
+        for i in range(len(xticks)):
+            
+            ilag = xticks[i]
+            
+            if i%tickfreq == 0:
+                lbl_new_mon.append(mons3tile[ilag])
+                lbl_new.append(lags[ilag])
+            else:
+                lbl_new_mon.append("")
+                lbl_new.append("")
+        ax.set_xticklabels(lbl_new)
+        ax2.set_xticklabels(lbl_new_mon)
+    
     if loopvar is not None:
         return ax,ax2,ax3
     return ax,ax2
 
 def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_error=False,
                    fill_color=None,line_color='k',grid_color='gray',c_zorder=1,
-                   fix_lon=False,fix_lat=False):
+                   fix_lon=False,fix_lat=False,fontsize=12):
     """
     Add Coastlines, grid, and set extent for geoaxes
     
@@ -697,6 +716,10 @@ def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_
     gl.right_labels = blabels[1]
     gl.top_labels   = blabels[2]
     gl.bottom_labels = blabels[3]
+    
+    # Set Fontsize
+    gl.xlabel_style = {'size':fontsize}
+    gl.ylabel_style = {'size':fontsize}
     return ax
 
 
