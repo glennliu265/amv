@@ -2310,17 +2310,27 @@ def make_ar1(r1,sigma,simlen,t0=0,savenoise=False,usenoise=None):
     return rednoisemodel
 
 
-def patterncorr(map1,map2):
+def patterncorr(map1,map2,verbose=True):
     # From Taylor 2001,Eqn. 1, Ignore Area Weights
     # Calculate pattern correation between two 2d variables (lat x lon)
     
     
     # Get Non NaN values, Flatten, Array Size
+    nan1 = ~np.isnan(map1) 
+    nan2 = ~np.isnan(map2)
+    if np.any(nan1 != nan2):
+        if verbose:
+            print("Warning, both maps have different NaN points." + "\n" +
+                  "Calculation will only include points that are non-NaN in both.")
+        nanboth = nan1*nan2
+        nan1 = nanboth
+        nan2 = nanboth
+    
     map1ok = map1.copy()
-    map1ok = map1ok[~np.isnan(map1ok)].flatten()
+    map1ok = map1ok[nan1].flatten()
     map2ok = map2.copy()
-    map2ok = map2ok[~np.isnan(map2ok)].flatten()
-    N = len(map1ok)
+    map2ok = map2ok[nan2].flatten()
+    N      = len(map1ok)
     
     # Anomalize
     map1a = map1ok - map1ok.mean()
