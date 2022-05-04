@@ -2308,3 +2308,26 @@ def make_ar1(r1,sigma,simlen,t0=0,savenoise=False,usenoise=None):
     if savenoise:
         return rednoisemodel,noisets
     return rednoisemodel
+
+
+def patterncorr(map1,map2):
+    # From Taylor 2001,Eqn. 1, Ignore Area Weights
+    # Calculate pattern correation between two 2d variables (lat x lon)
+    
+    
+    # Get Non NaN values, Flatten, Array Size
+    map1ok = map1.copy()
+    map1ok = map1ok[~np.isnan(map1ok)].flatten()
+    map2ok = map2.copy()
+    map2ok = map2ok[~np.isnan(map2ok)].flatten()
+    N = len(map1ok)
+    
+    # Anomalize
+    map1a = map1ok - map1ok.mean()
+    map2a = map2ok - map2ok.mean()
+    std1  = np.std(map1ok)
+    std2  = np.std(map2ok)
+    
+    # calculate
+    R = 1/N*np.sum(map1a*map2a)/(std1*std2)
+    return R
