@@ -1338,7 +1338,8 @@ def return_clevels(cmax,cstep,lstep=None):
 #         return ax
 
 
-def plot_mask(lon,lat,mask,reverse=False,color="k",marker="o",markersize=1.5,ax=None,proj=None):
+def plot_mask(lon,lat,mask,reverse=False,color="k",marker="o",markersize=1.5,
+              ax=None,proj=None,geoaxes=False):
     
     """
     Plot stippling based on a mask
@@ -1355,7 +1356,10 @@ def plot_mask(lon,lat,mask,reverse=False,color="k",marker="o",markersize=1.5,ax=
     
     """
     if proj is None:
-        proj = ccrs.PlateCarree()
+        if geoaxes:
+            proj = ccrs.PlateCarree()
+        else:
+            proj = None
     # Get current axis
     if ax is None:
         ax = plt.gca()
@@ -1368,11 +1372,15 @@ def plot_mask(lon,lat,mask,reverse=False,color="k",marker="o",markersize=1.5,ax=
         newcopy[mask == True]  = False
         newcopy[mask == False] = True
         mask      = newcopy.copy()
-        
+    
     # Make meshgrid and plot masked array
     yy,xx = np.meshgrid(lat,lon)
-    smap = ax.plot(np.ma.array(xx,mask=mask),yy,
-                   c=color,marker=marker,markersize=markersize,ls="",transform=proj)
+    if geoaxes:
+        smap = ax.plot(np.ma.array(xx,mask=mask),yy,
+                       c=color,marker=marker,markersize=markersize,ls="",transform=proj)
+    else:
+        smap = ax.plot(np.ma.array(xx,mask=mask),yy,
+                       c=color,marker=marker,markersize=markersize,ls="")
     return smap 
 
 
@@ -1524,3 +1532,30 @@ def add_ylabel(label,ax=None,x=-0.10,y=0.5):
     txt = ax.text(x, y, label, va='bottom', ha='center',rotation='vertical',
             rotation_mode='anchor',transform=ax.transAxes)
     return txt
+
+#%% Hvplot Functions
+
+# Some Custom Functions
+def set_hvrange(hobj,vlims,dim=-1,debug=False):
+    """ 
+    Takes holoview object [hobj] and adjusts the colorbar limits [vlims=(vmin,vmax)]
+    Searches for the dimension in position [dim]. (for Bokeh backend)
+    """
+    vmin,vmax  = vlims
+    remapdim   = hobj.dimensions()[dim]
+    if debug:
+        print("Remapping dimension %s" % remapdim)
+    remapdim.range = (vmin,vmax)
+    return hobj
+
+def make_gv(da,vname=None):
+    """
+    Convert dataarray to geoviews object. Looks for first variable [vname] if vname is not specified.
+    """
+    if vname is None:
+        vname = list(da.data_vars)[0]
+    vdims   = [vname,]        # Declare plot variable 
+    kdims   = list(da.coords) # Declare x,y
+    dataset = gv.Dataset(da, kdims=kdims, vdims=vdims) # Make geoviews dataset object
+    return dataset
+
