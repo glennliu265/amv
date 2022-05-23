@@ -1539,6 +1539,10 @@ def make_locstring(lon,lat):
     loctitle = "Lon: %i, Lat: %i" % (lon,lat)
     return locfn,loctitle
 
+def make_locstring_bbox(bbox):
+    locfn       = "lon%ito%i_lat%ito%i" % (bbox[0],bbox[1],bbox[2],bbox[3])
+    loctitle    = "Lon: %i to %i, Lat: %i to %i" % (bbox[0],bbox[1],bbox[2],bbox[3])
+    return locfn,loctitle
 
 def makedir(expdir):
     """
@@ -2091,7 +2095,6 @@ def get_stringnum(instring,keyword,nchars=1,verbose=True):
     if verbose:
         print("Grabbed <%s> from end of <%s>" % (grabstr,instring[keystart:keystart+len(keyword)]))
     return grabstr
-    
 #%% Dimension Gymnastics/Wrangling
 def dim2front(x,dim,verbose=True,combine=False,flip=False,return_neworder=False):
     """
