@@ -1177,7 +1177,7 @@ def plot_freqlog(specs,freqs,enames,ecolors,
         return ax,htax
     return ax
 
-def init_2rowodd(ncol,proj,figsize=(6,6),oddtop=False,debug=False):
+def init_2rowodd(ncol,proj=None,figsize=(6,6),oddtop=False,debug=False):
     """
     Initialize a 2-row subplot where
     the bottom row has the smaller number of plots
@@ -1533,29 +1533,46 @@ def add_ylabel(label,ax=None,x=-0.10,y=0.5):
             rotation_mode='anchor',transform=ax.transAxes)
     return txt
 
-#%% Hvplot Functions
-
-# Some Custom Functions
-def set_hvrange(hobj,vlims,dim=-1,debug=False):
-    """ 
-    Takes holoview object [hobj] and adjusts the colorbar limits [vlims=(vmin,vmax)]
-    Searches for the dimension in position [dim]. (for Bokeh backend)
+def prep_monlag_labels(kmonth,lagtick,label_interval,useblank=True):
     """
-    vmin,vmax  = vlims
-    remapdim   = hobj.dimensions()[dim]
-    if debug:
-        print("Remapping dimension %s" % remapdim)
-    remapdim.range = (vmin,vmax)
-    return hobj
+    Add month labels below the lag for autocorrelation plots
 
-def make_gv(da,vname=None):
-    """
-    Convert dataarray to geoviews object. Looks for first variable [vname] if vname is not specified.
-    """
-    if vname is None:
-        vname = list(da.data_vars)[0]
-    vdims   = [vname,]        # Declare plot variable 
-    kdims   = list(da.coords) # Declare x,y
-    dataset = gv.Dataset(da, kdims=kdims, vdims=vdims) # Make geoviews dataset object
-    return dataset
+    Parameters
+    ----------
+    kmonth : Int
+        DESCRIPTION.
+    lagtick : TYPE
+        DESCRIPTION.
+    label_interval : TYPE
+        DESCRIPTION.
+    useblank : TYPE, optional
+        DESCRIPTION. The default is True.
 
+    Returns
+    -------
+    mon_labels : TYPE
+        DESCRIPTION.
+
+    """
+    
+    
+    mon_labels = []
+    kmonth_seen = []
+    mons3       = [return_mon_label(m,nletters=3) for m in np.arange(1,13)]
+    
+    for t,tk in enumerate(lagtick):
+        if tk%label_interval == 0:
+            monlbl = [(kmonth+tk)%12]
+            if monlbl in kmonth_seen:
+                lbl = tk
+            else:
+                lbl = "%i\n %s" % (tk,mons3[(kmonth+tk)%12])
+                #kmonth_seen.append(monlbl) # Uncomment this to only plot first feb/aug
+            #print(lbl)
+        else:
+            if useblank:
+                lbl = ""
+            else:
+                lbl = tk
+        mon_labels.append(lbl)
+    return mon_labels
