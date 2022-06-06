@@ -269,7 +269,6 @@ def area_avg(data,bbox,lon,lat,wgt):
     
     return data_aa
 
-
 def eof_simple(pattern,N_mode,remove_timemean):
     """
     Simple EOF function based on script by Yu-Chiao
@@ -798,11 +797,10 @@ def regress2ts(var,ts,normalizeall=0,method=1,nanwarn=1):
         # # Find indices of nan pts and non-nan (ok) pts
         # nanpts = np.isnan(sumvar)
         # okpts  = np.invert(nanpts)
-    
+        
         # # Drop nan pts and reshape again to separate space and time dimensions
         # var_ok = var[okpts,:]
         #var[np.isnan(var)] = 0
-        
         
         # Perform regression
         #var_reg = np.matmul(np.ma.anomalies(var,axis=1),np.ma.anomalies(ts,axis=0))/len(ts)
@@ -811,9 +809,6 @@ def regress2ts(var,ts,normalizeall=0,method=1,nanwarn=1):
         
         # Reshape to match lon x lat dim
         var_reg = np.reshape(var_reg,(londim,latdim))
-    
-    
-    
     
     # 2nd method is looping point by point
     elif method == 2:
@@ -2078,12 +2073,13 @@ def checkpoint(checkpoints,invar,debug=True):
 
 #%% File/String Utilities
 
-def addstrtoext(name,addstr):
+def addstrtoext(name,addstr,adjust=0):
     """
     Add [addstr] to the end of a string with an extension [name.ext]
     Result should be "name+addstr+.ext"
+    -4: 3 letter extension. -3: 2 letter extension
     """
-    return name[:-4] + addstr + name[-4:]
+    return name[:-(4+adjust)] + addstr + name[-(4+adjust):]
 
 def get_stringnum(instring,keyword,nchars=1,verbose=True):
     """
@@ -2344,3 +2340,13 @@ def patterncorr(map1,map2,verbose=True):
     # calculate
     R = 1/N*np.sum(map1a*map2a)/(std1*std2)
     return R
+
+def calc_T2(rho,axis=0):
+    """
+    Calculate Decorrelation Timescale (DelSole 2001)
+    Inputs:
+    rho  : [ARRAY] Autocorrelation Function [lags x otherdims]
+    axis : [INT], optional, Axis to sum along (default = 0)
+    """
+    return (1+2*np.nansum(rho**2,axis=axis))
+    
