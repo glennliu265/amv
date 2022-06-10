@@ -517,6 +517,20 @@ def find_latlon(lonf,latf,lon,lat):
     
     return klon,klat
 
+def find_tlatlon(ds,lonf,latf):
+
+    # Get minimum index of flattened array
+    kmin      = np.argmin( (np.abs(ds.TLONG-lonf) + np.abs(ds.TLAT-latf)).values)
+    klat,klon = np.unravel_index(kmin,ds.TLAT.shape)
+    
+    # Print found coordinates
+    foundlat = ds.TLAT.isel(nlat=klat,nlon=klon).values
+    foundlon = ds.TLONG.isel(nlat=klat,nlon=klon).values
+    print("Closest lon to %.2f was %.2f" % (lonf,foundlon))
+    print("Closest lat to %.2f was %.2f" % (latf,foundlat))
+    
+    return ds.isel(nlon=klon,nlat=klat)
+
 def combine_dims(var,nkeep,debug=True):
     """
     Keep first n dimensions of var, and 
