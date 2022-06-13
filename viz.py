@@ -1407,7 +1407,8 @@ def init_blabels():
 
 def qv_seasonal(lon,lat,var,
                 add_coast=True,cmap="inferno",
-                bbox=None,anom=False,vmax=None):
+                bbox=None,anom=False,vmax=None,
+                contour=False,cints=None):
     """
     Quickly Plot the seasonal cycle of a 2d variable
     var = [lon x lat x month]
@@ -1432,18 +1433,36 @@ def qv_seasonal(lon,lat,var,
             blabel[3] = 1
             
         if add_coast:
-            ax      = add_coast_grid(ax,bbox=bbox,blabels=blabel)
+            ax      = add_coast_grid(ax,bbox=bbox,blabels=blabel,fill_color="gray")
         
         plotvar = var[:,:,im].T
         
         if anom:
             if vmax is None: # Find maximum value in dataset
                 vmax = np.nanmax(np.abs(plotvar.flatten()))
-            pcm = ax.pcolormesh(lon,lat,plotvar,cmap=cmocean.cm.balance,vmin=-vmax,vmax=vmax)
+                
+            if contour:
+                pcm = ax.contourf(lon,lat,plotvar,cmap=cmocean.cm.balance,levels=np.linspace(-vmax,vmax,10))
+            else:
+                pcm = ax.pcolormesh(lon,lat,plotvar,cmap=cmocean.cm.balance,vmin=-vmax,vmax=vmax)
         else:
-            pcm = ax.pcolormesh(lon,lat,plotvar,cmap=cmap)
-        fig.colorbar(pcm,ax=ax)
-        ax.set_title("Month %i"%(im+1))
+            if contour:
+                if cints is None:
+                    pcm = ax.contourf(lon,lat,plotvar,cmap=cmap)
+                else:
+                    pcm = ax.contourf(lon,lat,plotvar,cmap=cmap,levels=cints)
+            else:
+                pcm = ax.pcolormesh(lon,lat,plotvar,cmap=cmap)
+        if cints is None:
+            fig.colorbar(pcm,ax=ax)
+        
+        #ax.set_title("Month %i"%(im+1))
+        ax = label_sp("Mon%02i" % (im+1),ax=ax,
+                      usenumber=True,labelstyle="%s",alpha=0.80,fontsize=14)
+        
+    if cints is not None:
+        fig.colorbar(pcm,ax=axs.flatten(),fraction=0.025,pad=0.01)
+        
     return ax
 
 #%%
