@@ -1047,6 +1047,8 @@ def ttest_rho(p,tails,dof):
         critval = stats.t.ppf(1-ptilde,dof)
     
     # Get critical correlation threshold
+    if type(dof) is np.ndarray:
+        dof = dof.reshape(oldshape)
     corrthres = np.sqrt(1/ ((dof/np.power(critval,2))+1))
     return corrthres
     
