@@ -2128,6 +2128,9 @@ def dim2front(x,dim,verbose=True,combine=False,flip=False,return_neworder=False)
     y [ND Array]   : Output
 
     """
+    if dim <0:
+        dim = len(x.shape) + dim
+        
     neworder = np.concatenate([[dim,],
                          np.arange(0,dim),
                          np.arange(dim+1,len(x.shape))
@@ -2366,3 +2369,66 @@ def calc_T2(rho,axis=0):
     """
     return (1+2*np.nansum(rho**2,axis=axis))
     
+def calc_remidx_simple(ac,kmonth,monthdim=-2,lagdim=-1,
+                       minref=6,maxref=12,tolerance=3,debug=False):
+    
+    # Select appropriate month
+    ac_in          = np.take(ac,np.array([kmonth,]),axis=monthdim).squeeze()
+    
+    # Compute the number of years involved (month+lags)/12
+    nyrs           = int(np.floor((ac_in.shape[-1] + kmonth) /12))
+    
+    # Move lagdim to the front
+    ac_in,neworder = dim2front(ac_in,lagdim,return_neworder=True)
+    
+    # Make an array
+    #remidx     = np.zeros((nyrs,),ac_in.shape[1:])    # [year x otherdims]
+    maxmincorr = np.zeros((2,nyrs,)+ac_in.shape[1:])  # [max/min x year x otherdims]
+    
+    if debug:
+        maxids = []
+        minids = []
+    for yr in range(nyrs):
+        
+        # Get indices of target lags
+        minid = np.arange(minref-tolerance,minref+tolerance+1,1) + (yr*12)
+        maxid = np.arange(maxref-tolerance,maxref+tolerance+1,1) + (yr*12)
+        
+        # Drop indices greater than max lag
+        maxlag = (ac_in.shape[0]-1)
+        minid  = minid[minid<=maxlag]
+        maxid  = maxid[maxid<=maxlag]
+        
+        if debug:
+            print("For yr %i"% yr)
+            print("\t Min Ids are %i to %i" % (minid[0],minid[-1]))
+            print("\t Max Ids are %i to %i" % (maxid[0],maxid[-1]))
+        
+        # Find minimum
+        mincorr  = np.min(np.take(ac_in,minid,axis=0),axis=0)
+        maxcorr  = np.max(np.take(ac_in,maxid,axis=0),axis=0)
+        
+        maxmincorr[0,yr,...] = mincorr.copy()
+        maxmincorr[1,yr,...] = maxcorr.copy()
+        #remreidx[yr,...]     = (maxcorr - mincorr).copy()
+        
+        if debug:
+            maxids.append(maxid)
+            minids.append(minid)
+        
+        # if debug:
+        #     ploti = 0
+        #     fig,ax = plt.subplots(1,1)
+        #     acplot = ac_in.reshape(np.concatenate([maxlag,],ac_in.shape[1:].prod()))
+            
+        #     # Plot the autocorrelation function
+        #     ax.plot(np.arange(0,maxlag),acplot[:,ploti])
+            
+        #     # Plot the search indices
+        #     ax.scatter(minid,acplot[minid,ploti],marker="x")
+        #     ax.scatter(maxid,acplot[maxid,ploti],marker="+")
+            
+            
+    if debug:
+        return maxmincorr,maxids,minids
+    return maxmincorr
