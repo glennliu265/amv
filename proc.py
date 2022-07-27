@@ -91,8 +91,6 @@ def regress_2d(A,B,nanwarn=1,verbose=True):
             Aanom = A - np.nanmean(A,axis=a_axis)[:,None]
             Banom = B - np.nanmean(B,axis=b_axis)
             
-        
-            
         # 2D matrix is B [N x M]
         elif len(A.shape) < len(B.shape):
             
@@ -115,7 +113,6 @@ def regress_2d(A,B,nanwarn=1,verbose=True):
         # Calculate Beta
         beta = Aanom @ Banom / denom
             
-        
         b = (np.nansum(B,axis=b_axis) - beta * np.nansum(A,axis=a_axis))/A.shape[a_axis]
     else:
         # 2D Matrix is in A [MxN]
@@ -124,16 +121,13 @@ def regress_2d(A,B,nanwarn=1,verbose=True):
             # Tranpose A so that A = [MxN]
             if A.shape[1] != B.shape[0]:
                 A = A.T
-            
-            
+                
             a_axis = 1
             b_axis = 0
             
             # Compute anomalies along appropriate axis
             Aanom = A - np.mean(A,axis=a_axis)[:,None]
             Banom = B - np.mean(B,axis=b_axis)
-            
-        
             
         # 2D matrix is B [N x M]
         elif len(A.shape) < len(B.shape):
@@ -625,6 +619,14 @@ def lon180to360(lon180,var,autoreshape=False,debug=True):
     
     return lon360,var
 
+
+def lon360to180_ds(ds,lonname='longitude'):
+    """Same as above but for datasets. Copied from stackexchange
+    https://stackoverflow.com/questions/53121089/regridding-coordinates-with-python-xarray
+    """
+    newcoord = {lonname : ((ds[lonname] + 180) % 360) - 180}
+    ds = ds.assign_coords(newcoord).sortby(lonname)
+    return ds
 
 def find_nan(data,dim):
     """
