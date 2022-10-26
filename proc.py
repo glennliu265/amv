@@ -2090,7 +2090,6 @@ def checkpoint(checkpoints,invar,debug=True):
     return ids_all
 
 #%% File/String Utilities
-
 def addstrtoext(name,addstr,adjust=0):
     """
     Add [addstr] to the end of a string with an extension [name.ext]
@@ -2110,6 +2109,7 @@ def get_stringnum(instring,keyword,nchars=1,verbose=True):
         print("Grabbed <%s> from end of <%s>" % (grabstr,instring[keystart:keystart+len(keyword)]))
     return grabstr
 #%% Dimension Gymnastics/Wrangling
+
 def dim2front(x,dim,verbose=True,combine=False,flip=False,return_neworder=False):
     """
     Move dimension in position [dim] to the front
@@ -2434,3 +2434,49 @@ def calc_remidx_simple(ac,kmonth,monthdim=-2,lagdim=-1,
     if debug:
         return maxmincorr,maxids,minids
     return maxmincorr
+
+
+def get_topN(arr,N,bot=False,sort=False,absval=False):
+    """
+    Get the indices for the top N values of an array.
+    Searches along the last dimension. Option to sort output.
+    Set [bot]=True for the bottom 5 values
+    
+    Parameters
+    ----------
+    arr : TYPE
+        Input array with partition/search dimension as the last axis
+    N : INT
+        Top or bottom N values to find
+    bot : BOOL, optional
+        Set to True to find bottom N values. The default is False.
+    sort : BOOL, optional
+        Set to True to sort output. The default is False.
+    absval : BOOL, optional
+        Set to True to apply abs. value before sorting. The default is False.
+        
+    Returns
+    -------
+    ids : ARRAY
+        Indices of found values
+    """
+    
+    if absval:
+        arr = np.abs(arr)
+    if bot is True:
+        ids = np.argpartition(arr,N,axis=-1)[...,:N]
+    else:
+        ids = np.argpartition(arr,-N,axis=-1)[...,-N:]
+         # Parition up to k, and take first k elements
+    if sort:
+        if bot:
+            return ids[np.argsort(arr[ids])] # Least to greatest
+        else:
+            return ids[np.argsort(-arr[ids])] # Greatest to least
+    return ids
+        
+    
+    
+
+
+
