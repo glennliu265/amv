@@ -17,7 +17,6 @@ from scipy.signal import butter, lfilter, freqz, filtfilt, detrend
 import os
 import time
 import scipy
-
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 
@@ -232,7 +231,6 @@ def area_avg(data,bbox,lon,lat,wgt):
         
         # Make Meshgrid
         _,yy = np.meshgrid(lon[kw:ke+1],lat[ks:kn+1])
-        
         
         # Calculate Area Weights (cosine of latitude)
         if wgt == 1:
@@ -628,13 +626,14 @@ def lon360to180_ds(ds,lonname='longitude'):
     ds = ds.assign_coords(newcoord).sortby(lonname)
     return ds
 
-def find_nan(data,dim):
+def find_nan(data,dim,val=None):
     """
     For a 2D array, remove any point if there is a nan in dimension [dim].
     
     Inputs:
         1) data   : 2d array, which will be summed along last dimension
         2) dim    : dimension to sum along. 0 or 1.
+        3) val    : value to search for (default is NaN)
     Outputs:
         1) okdata : data with nan points removed
         2) knan   : boolean array with indices of nan points
@@ -649,7 +648,10 @@ def find_nan(data,dim):
     
     
     # Find non nan pts
-    knan  = np.isnan(datasum)
+    if val is None:
+        knan  = np.isnan(datasum)
+    else:
+        knan  = (datasum == val)
     okpts = np.invert(knan)
     
     if len(data.shape) > 1:
@@ -786,8 +788,8 @@ def detrend_dim(invar,dim):
     return dtvar,linmod,beta,intercept
 
 
-def regress2ts(var,ts,normalizeall=0,method=1,nanwarn=1):
-    
+def regress2ts(var,ts,normalizeall=0,method=1,nanwarn=1,verbose=True):
+    # var = [lon x lat x time], ts = [time]
     
     # Anomalize and normalize the data (time series is assumed to have been normalized)
     if normalizeall == 1:
@@ -796,15 +798,21 @@ def regress2ts(var,ts,normalizeall=0,method=1,nanwarn=1):
         var = (var - varmean[:,:,None]) /varstd[:,:,None]
         
     # Get variable shapes
-    londim = var.shape[0]
-    latdim = var.shape[1]
+    if len(var.shape) > 2:
+        reshapeflag = True
+        if verbose:
+            print("Lon and lat are uncombined!")
+        londim = var.shape[0]
+        latdim = var.shape[1]
+    else:
+        reshapeflag=False
     
     # 1st method is matrix multiplication
     if method == 1:
         
         # Combine the spatial dimensions 
-
-        var = np.reshape(var,(londim*latdim,var.shape[2]))
+        if len(var.shape)>2:
+            var = np.reshape(var,(londim*latdim,var.shape[2]))
         
         
         # Find Nan Points
@@ -814,7 +822,7 @@ def regress2ts(var,ts,normalizeall=0,method=1,nanwarn=1):
         # nanpts = np.isnan(sumvar)
         # okpts  = np.invert(nanpts)
         
-        # # Drop nan pts and reshape again to separate space and time dimensions
+        # # Drop nan pt flons and reshape again to separate space and time dimensions
         # var_ok = var[okpts,:]
         #var[np.isnan(var)] = 0
         
@@ -824,7 +832,8 @@ def regress2ts(var,ts,normalizeall=0,method=1,nanwarn=1):
         
         
         # Reshape to match lon x lat dim
-        var_reg = np.reshape(var_reg,(londim,latdim))
+        if reshapeflag:
+            var_reg = np.reshape(var_reg,(londim,latdim))
     
     # 2nd method is looping point by point
     elif method == 2:
