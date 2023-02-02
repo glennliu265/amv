@@ -2504,7 +2504,7 @@ def addstrtoext(name,addstr,adjust=0):
     """
     return name[:-(4+adjust)] + addstr + name[-(4+adjust):]
 
-def get_stringnum(instring,keyword,nchars=1,verbose=True):
+def get_stringnum(instring,keyword,nchars=1,verbose=True,return_pos=False):
     """
     Finds [keyword] in input string [instring] and grabs [nchars] after the string
     """
@@ -2512,7 +2512,11 @@ def get_stringnum(instring,keyword,nchars=1,verbose=True):
     numstart = keystart + len(keyword) # Start grabbing from end of keyword
     grabstr  = instring[numstart:numstart+nchars]
     if verbose:
-        print("Grabbed <%s> from end of <%s>" % (grabstr,instring[keystart:keystart+len(keyword)]))
+        print("Grabbed <%s> from end of <%s> at position %i" % (grabstr,
+                                                                instring[keystart:keystart+len(keyword)],
+                                                                numstart))
+    if return_pos:
+        return grabstr,numstart
     return grabstr
 
 
