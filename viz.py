@@ -1,44 +1,92 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-# Scripts for visualization
-Created on Wed Jul 29 18:02:18 2020
+    -----------------------
+    |||  Visualization  ||| ****************************************************
+    -----------------------
+        General functions for visualizing data. Mostly works with matplotlib and cartopy.
+        
+    Created on Wed Jul 29 18:02:18 2020
+    @author: gliu
+    
+        ~ Labeling
+    reorder_legend      : Reorder items in a legend
+    add_ylabel          : Add y label (for subplots or geoaxis)
+    label_barplots      : Add text labels to bar plots (can be inside bar)
+    return_mon_label    : Return month labels for a given month
+    set_xlim_auto       : Automatically set x-limits to x-tick max/min
+    
+        ~ Subplot Management
+    init_2rowodd        : Center row with odd or even subplots
+    label_sp            : Add text label to each subplot
+    
+        ~ Cartopy/Mapping
+    init_map            : Quickly initialize a map for plotting
+    plot_box            : Plot bounding box
+    add_coast_grid      : Add land and gridlines (with fill)
+    init_fig            : Initialize a figure with geoaxis
+    init_blabels        : Initialize dict indicating bounding box labels
 
-@author: gliu
+        ~ Time Series/1-D Plots
+    quickstatslabel     : Quickly generate label of mean ,stdev ,and maximum for a figure title/text
+    quickstats          : Yields nanmean, nanstd, and and absolute max of a timeseries
+    plot_anavg          : Plot the seasonal cycle and annual average
+    ensemble_plot       : Plot timeseries with max/min and mean of ensemble members
+    plot_mean_stdev     : Plot mean and +/- stdev
+
+        ~ Power Spectra/Spectral Analysis
+    twin_freqaxis       : Twin x-axis on top and label with periods
+    make_axtime         : Label twinned axis with text markers (Millenniun, Century, etc.)
+    add_yrlines         : Add lines at particular frequencies/periods
+    plot_freqxpower     : Quick Frequency x Power plot  (log x   , linear y)
+    plot_freqlin        : Linear Frequency x Power plot (linear x, linear y)
+    plot_freqlog        : Log-Log plot                  (log x   , log y)
+
+        ~ Spatial/2-D Plots/Contours
+    plot_contoursign    : Contour line plot with solid as positive and dashed as negative
+    return_clevels      : Return contouring steps
+    plot_mask           : Plot stippling based on mask given
+
+        ~ Specialized/Misc.
+    viz_kprev           : Visualize mixed-layer cycle with detrainment times (stochmod)
+    summarize_params    : 3-panel plot of MLD, Damping, and Forcing at a point (stochmod)
+    plot_AMV            : Visualize AMV time series with red/blue fill
+    plot_AMV_spatial    : Visualize AMV Pattern
+    init_acplot         : Initialized monthly lagged autocorrelation plot
+    prep_monlag_labels  : Add month laevls below lag for autocorrelation plots
+
+        ~ Quick Visualization (qv) series
+    qv_seasonal         : Plot the seasonal cycle of 2D variable
 """
-
-## Dependencies
-import numpy as np
+# Import
 import sys
-sys.path.append("/Users/gliu/Downloads/02_Research/01_Projects/01_AMV/00_Commons/03_Scripts/")
-from amv import proc
 import cmocean
-from tqdm import tqdm
+import string
 
+import numpy as np
 import colorcet as cc
-
 import matplotlib.pyplot as plt
-import cartopy.feature as cfeature
-from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
+import matplotlib.transforms as mtransforms
 import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+
+from tqdm import tqdm
 from cartopy.util import add_cyclic_point
+from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 from matplotlib.ticker import LogLocator
 import matplotlib.ticker as mticker
 import matplotlib.gridspec as gridspec
-
 import matplotlib.patheffects as PathEffects
 
-import string
-import matplotlib.transforms as mtransforms
+# Custom Functions
+sys.path.append("/Users/gliu/Downloads/02_Research/01_Projects/01_AMV/00_Commons/03_Scripts/")
+from amv import proc
 #%% Functions
-
 def return_mon_label(m,nletters='all'):
     """
     Return month labels for a given month m
-    
-    inputs
+    Inputs
     ------
-    
     1) m : INT
         Number of the month
     2) nletters INT or 'all'
@@ -47,12 +95,10 @@ def return_mon_label(m,nletters='all'):
     """
     mons = ["January","February","March","April","May","June",
             "July","August","September","October","November","December"]
-    
     if nletters == 'all':
         return mons[m-1]
     else:
         return mons[m-1][:nletters]
-
 
 def quickstatslabel(ts,fmt="%.2f"):
     """ Quickly generate label of mean ,stdev ,and maximum for a figure title/text
@@ -68,36 +114,25 @@ def quickstats(ts):
     tmax  = np.nanmax(np.abs(ts))
     return tmean,tstd,tmax
 
-
-def init_map(bbox,crs=ccrs.PlateCarree(),ax=None):
+def init_map(bbox,crs=ccrs.PlateCarree(),ax=None,return_gl=False):
     """
     Quickly initialize a map for plotting
     """
-    # Create Figure/axes
-    #fig = plt.gcf() 
-    
-    #ax = fig.add_subplot(1,1,1,projection=ccrs.PlateCarree())
     if ax is None:
         ax = plt.gca()
-    #ax = plt.axes(projection=ccrs.PlateCarree())
-        
-    
     ax.set_extent(bbox,crs)
     
     # Add Filled Coastline
     ax.add_feature(cfeature.COASTLINE)
     #ax.add_feature(cfeature.LAND,facecolor='k',zorder=-1)
     
-    
     # Add Gridlines
     gl = ax.gridlines(draw_labels=True,linewidth=0.5,color='gray',linestyle=':')
     gl.top_labels = gl.right_labels = False
-    
-
-    
     gl.xformatter = LongitudeFormatter(degree_symbol='')
     gl.yformatter = LatitudeFormatter(degree_symbol='')
-    
+    if return_gl:
+        return ax,gl
     return ax
 
 def ensemble_plot(var,dim,ax=None,color='k',ysymmetric=1,ialpha=0.1,plotrange=1,returnlegend=True,returnline=False,plotindv=True):
@@ -109,46 +144,34 @@ def ensemble_plot(var,dim,ax=None,color='k',ysymmetric=1,ialpha=0.1,plotrange=1,
     """
     if ax is None:
         ax = plt.gca()
-    
     # Move ensemble dimension the back [time x dim]
     if dim == 0:
         var = var.T
-    
-    tper = np.arange(0,var.shape[0]) # Preallocate time array
-    nens = var.shape[1]
-    
-    tmax = np.around(np.nanmax(np.abs(var)))
-    
+    tper   = np.arange(0,var.shape[0]) # Preallocate time array
+    nens   = var.shape[1]
+    tmax   = np.around(np.nanmax(np.abs(var)))
     maxens = np.nanmax(var,1)
     minens = np.nanmin(var,1)
-    
-    
-    
     # Plot for each ensemble member
     if plotindv==True:
         for e in range(nens):
             ax.plot(tper,var[:,e],color=color,alpha=ialpha)
-        
         # Plot 1 more line for labeling and add to collection
         ln1 = ax.plot(tper,var[:,-1],color=color,alpha=ialpha,label='Indv. Member')
         lns = ln1
-    
     # Plot ens average
     ln2 = ax.plot(tper,np.nanmean(var,1),color=color,linewidth=1.5,label="Ens. Avg.")
     if plotindv==True: # Add ensemble mean toline ollection
         lns += ln2
     else:
         lns = ln2
-    
     # Plot maximum and minimum values
     if plotrange == 1:
         ln3 = ax.plot(tper,maxens,color=color,linestyle="dashed",linewidth=0.5,label="Max/Min")
         ax.plot(tper,minens,color=color,linestyle="dashed",linewidth=0.5)
         lns += ln3
-    
     if ysymmetric == 1:
         ax.set_ylim([-1*tmax,tmax])
-        
     # Set Legend
     if returnlegend==True:
         labs = [l.get_label() for l in lns]
@@ -163,6 +186,7 @@ def ensemble_plot(var,dim,ax=None,color='k',ysymmetric=1,ialpha=0.1,plotrange=1,
 
 def plot_annavg(var,units,figtitle,ax=None,ymax=None,stats='mon'):
     """
+    
     Inputs:
         1) var = monthly variable (1D array)
         2) ax  = axis (defaut, get current axis)
@@ -1538,7 +1562,6 @@ def reorder_legend(ax,order=None):
         DESCRIPTION.
 
     """
-    
     handles, labels = ax.get_legend_handles_labels()
     if order is None:
         order = np.flip(np.arange(0,len(handles))) # Flip order
@@ -1573,8 +1596,6 @@ def prep_monlag_labels(kmonth,lagtick,label_interval,useblank=True):
         DESCRIPTION.
 
     """
-    
-    
     mon_labels = []
     kmonth_seen = []
     mons3       = [return_mon_label(m,nletters=3) for m in np.arange(1,13)]
@@ -1597,3 +1618,62 @@ def prep_monlag_labels(kmonth,lagtick,label_interval,useblank=True):
     return mon_labels
 
 
+def set_xlim_auto(ax,xticks):
+    """ Automatically set x-limits to limits of xticks """
+    ax.set_xlim([xticks[0],xticks[-1]])
+    return None
+
+def plot_mean_stdev(invar,axis,
+                    ax=None,x_vals=None,
+                    stdev=1,
+                    return_lines=False,
+                    alpha=0.1,
+                    color="k"):
+    """
+    
+    Plots meanline and N-standard deviations for a timeseries on the current (or given)
+    axes
+
+    Parameters
+    ----------
+    invar           (ARR)            : Timeseries to visualize 
+    axis            (INT)            : Axis to take the mean/stdev along
+    ax              (mpl.axes)       : Axes to plot on, default=current axes, optional
+    x_vals          (ARR)            : Corresponding x-values, default is 0 to invar.shape[axis], optional
+    stdev           (FLOAT)          : Number of stdevs to plot, optional
+    return_lines    (BOOL)           : Set to True to return line objects, optional
+    alpha           (FLOAT)          : Transparency of stdev shading. Default is 0.1, optional
+    color           (STR)            : Color of the lines and region. Default is "k", optional
+
+    Returns
+    -------
+    mu              (ARR)            : Mean of [invar] along [axis]
+    sigma           (ARR)            : Standard deviation of [invar] along [axis]
+    mean_line       (mpl.obj)        : (if return_line=True), Matplotlib object of mean line
+    shaded_region   (mpl.obj)        : (if return_line=True), Matplotlib object of shadded region
+
+    """
+    
+    # Get unspecified arguments
+    if ax is None:
+        ax        = plt.gca() 
+    if x_vals is None:
+        x_vals    = np.arange(0,invar.shape[axis])
+    
+    # Calculate mean/stdev
+    mu            = np.nanmean(invar,axis)
+    sigma         = np.nanstd(invar,axis) * stdev
+    
+    # Plot
+    mean_line     = ax.plot(x_vals,mu,
+                            color=color,
+                            zorder= -9)
+    shaded_region = ax.fill_between(x_vals,mu-sigma,mu+sigma,
+                                    alpha=alpha,color=color,
+                                    zorder=1)
+    if return_lines:
+        return mu,sigma,mean_line,shaded_region
+    else:
+        return mu,sigma
+    
+    
