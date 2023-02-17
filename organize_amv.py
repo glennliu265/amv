@@ -163,17 +163,5 @@ Functions:
     get_monstr          : Get Array containing strings of first N letters of each month
     addstrtoext         : Append string to end of file, before the extension
     get_stringnum       : Search for starting positive of keyword in a string
-    
-    
-    
-    
-    
-    
-    
-    
-   
-   
-   
-   
 
 """

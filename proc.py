@@ -29,13 +29,11 @@ import cartopy.crs as ccrs
 #%% ~ Convenience Functions
 
 def maxabs(invar,axis=None,keep_sign=False,debug=False):
-    
     # Return max absolute value for 1 variable. Keep sign if set.
     # Default is flatten and use first axis
     if axis is None:
         invar = invar.flatten()
         axis  = 0
-        
     outvar = np.nanmax(np.abs(invar),axis=axis) # Get the amplitude
     if keep_sign:
         idmax = np.nanargmax(np.abs(invar),axis=axis)
@@ -47,13 +45,11 @@ def maxabs(invar,axis=None,keep_sign=False,debug=False):
     return outvar
 
 def minabs(invar,axis=None,keep_sign=False,debug=False):
-    
     # Return min absolute value for 1 variable. Keep sign if set.
     # Default is flatten and use first axis
     if axis is None:
         invar = invar.flatten()
         axis  = 0
-        
     outvar = np.nanmin(np.abs(invar),axis=axis) # Get the amplitude
     if keep_sign:
         idmax = np.nanargmin(np.abs(invar),axis=axis)
@@ -70,13 +66,11 @@ def nan_inv(invar):
 
     Parameters
     ----------
-    invar : ARRAY
-        BOOLEAN Array with NaNs
+    invar (ARRAY) : BOOLEAN Array with NaNs
 
     Returns
     -------
-    inverted : ARRAY
-        Inverted Boolean Array
+    inverted (ARRAY) : Inverted Boolean Array
     """
     vshape = invar.shape
     inverted  = np.zeros((vshape)) * np.nan
@@ -120,11 +114,9 @@ def ann_avg(ts,dim,monid=None,nmon=12):
     return annavg
 
 def area_avg(data,bbox,lon,lat,wgt):
-    
     """
     Function to find the area average of [data] within bounding box [bbox], 
     based on wgt type (see inputs)
-    
     Inputs:
         1) data: target array [lon x lat x otherdims]
         2) bbox: bounding box [lonW, lonE, latS, latN]
@@ -144,7 +136,7 @@ def area_avg(data,bbox,lon,lat,wgt):
 
     """
     # Check order of longitude
-   # vshape = data.shape
+    # vshape = data.shape
     #nlon = lon.shape[0]
     #nlat = lat.shape[0]
     
@@ -154,7 +146,6 @@ def area_avg(data,bbox,lon,lat,wgt):
     ks = np.abs(lat - bbox[2]).argmin()
     kn = np.abs(lat - bbox[3]).argmin()
     
-        
     # Select the region
     sel_data = data[kw:ke+1,ks:kn+1,:]
     
@@ -656,6 +647,9 @@ def regress_2d(A,B,nanwarn=1,verbose=True):
     bothND = False # By default, assume both A and B are not 2-D.
     # Note: need to rewrite function such that this wont be a concern...
     
+    # Accounting for the fact that I dont check for equal dimensions below..
+    #B = B.squeeze()
+    #A = A.squeeze() Commented out below because I still need to fix some things
     # Compute using nan functions (slower)
     if np.any(np.isnan(A)) or np.any(np.isnan(B)):
         if nanwarn == 1:
@@ -697,7 +691,7 @@ def regress_2d(A,B,nanwarn=1,verbose=True):
         
         # Calculate Beta
         beta = Aanom @ Banom / denom
-            
+        
         b = (np.nansum(B,axis=b_axis) - beta * np.nansum(A,axis=a_axis))/A.shape[a_axis]
     else:
         # 2D Matrix is in A [MxN]
@@ -2341,15 +2335,11 @@ def dim2front(x,dim,verbose=True,combine=False,flip=False,return_neworder=False)
     
     Parameters
     ----------
-    
-    x [ND Array]   : Array to Reorganize
-    
-    dim    [INT]   : Target Dimension
-    
+    x    [NDARRAY] : Array to Reorganize
+    dim      [INT] : Target Dimension
     combine [BOOL] : Set to True to combine all dims
-    
     flip    [BOOL] : Reverse the dimensions
-
+    
     Returns
     -------
     y [ND Array]   : Output
@@ -2398,7 +2388,7 @@ def restoredim(y,oldshape,reorderdim):
     return y.transpose(restore_order) # Back to original order
 
 def flipdims(invar):
-    # Reverse dim order of an n-dimensional array
+    """ Reverse dim order of an n-dimensional array"""
     return invar.transpose(np.flip(np.arange(len(invar.shape))))
 """
 ---------------------
@@ -2488,13 +2478,13 @@ def makedir(expdir):
         os.makedirs(expdir)
     else:
         print(expdir+" was found!")
+    return None
         
 def get_monstr(nletters=None):
     """
     Get Array containing strings of first 3 letters of reach month
     """
-    mons = [cal.month_name[i][:nletters] for i in np.arange(1,13,1)]
-    return mons
+    return [cal.month_name[i][:nletters] for i in np.arange(1,13,1)]
  
 def addstrtoext(name,addstr,adjust=0):
     """
@@ -2518,5 +2508,3 @@ def get_stringnum(instring,keyword,nchars=1,verbose=True,return_pos=False):
     if return_pos:
         return grabstr,numstart
     return grabstr
-
-
