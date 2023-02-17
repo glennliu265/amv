@@ -82,6 +82,12 @@ import matplotlib.patheffects as PathEffects
 sys.path.append("/Users/gliu/Downloads/02_Research/01_Projects/01_AMV/00_Commons/03_Scripts/")
 from amv import proc
 #%% Functions
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~
+#%% Labeling
+# ~~~~~~~~~~~~~~~~~~~~~~
+
 def return_mon_label(m,nletters='all'):
     """
     Return month labels for a given month m
@@ -100,19 +106,191 @@ def return_mon_label(m,nletters='all'):
     else:
         return mons[m-1][:nletters]
 
-def quickstatslabel(ts,fmt="%.2f"):
-    """ Quickly generate label of mean ,stdev ,and maximum for a figure title/text
-    """   
-    statsstring = "( Mean:%.2e | Stdev:%.2e | Max:%.2e )" % (np.nanmean(ts),np.nanstd(ts),np.nanmax(np.abs(ts)))
-    return statsstring
-
-def quickstats(ts):
-    """ Yields nanmean, nanstd, and and absolute max of a timeseries
+def label_barplots(labels,adjustx=2,adjusty=0,ax=None,rects=None,
+                   fontcolor='k',fontsize=12):
     """
-    tmean = np.nanmean(ts)
-    tstd  = np.nanstd(ts)
-    tmax  = np.nanmax(np.abs(ts))
-    return tmean,tstd,tmax
+    labels [ARRAY] : String labels for each barplot
+    adjustx [NUMERIC] : How much to move right
+    adjusty [NUMERIC] : How much to move up
+    rects [ARRAY of matplotlib.patches.Rectangle] : Barplots to label.
+    """
+    if ax is None:
+        ax    = plt.gca()
+    if rects is None:
+        rects = ax.patches
+    for rect, label in zip(rects, labels):
+        height = rect.get_height()
+        ax.text(
+            rect.get_x() + rect.get_width() / adjustx, height + adjusty,
+            label, ha="center", va="bottom",
+            color=fontcolor,fontsize=fontsize
+        )
+    return ax,rects
+
+def set_xlim_auto(ax,xticks):
+    """ Automatically set x-limits to limits of xticks """
+    ax.set_xlim([xticks[0],xticks[-1]])
+    return None
+
+def reorder_legend(ax,order=None):
+    """
+    Reorder legend items based on code from:
+    https://stackoverflow.com/questions/22263807/how-is-order-of-items-in-matplotlib-legend-determined
+
+    Parameters
+    ----------
+    ax : TYPE
+        Axes containing the objects with labels
+    order : TYPE, optional
+        Desired new order (using original indices). Default is to flip.
+
+    Returns
+    -------
+    legend : TYPE
+        DESCRIPTION.
+
+    """
+    handles, labels = ax.get_legend_handles_labels()
+    if order is None:
+        order = np.flip(np.arange(0,len(handles))) # Flip order
+    legend = ax.legend([handles[idx] for idx in order],[labels[idx] for idx in order])
+    return legend
+    
+def add_ylabel(label,ax=None,x=-0.10,y=0.5):
+    if ax is None:
+        ax = plt.gca()
+    txt = ax.text(x, y, label, va='bottom', ha='center',rotation='vertical',
+            rotation_mode='anchor',transform=ax.transAxes)
+    return txt
+
+# ~~~~~~~~~~~~~~~~~~~~~~
+#%% Subplot Management
+# ~~~~~~~~~~~~~~~~~~~~~~
+def init_2rowodd(ncol,proj=None,figsize=(6,6),oddtop=False,debug=False):
+    """
+    Initialize a 2-row subplot where
+    the bottom row has the smaller number of plots
+    source: https://www.tutorialguruji.com/python/matplotlib-allign-uneven-number-of-subplots/
+
+    Parameters
+    ----------
+    ncol : INT
+        Number of columns (even). Last row will contain ncol-1 subplots
+
+    proj : Cartopy Projection
+        Projection to set the subplots as
+        
+    figsize : INT (Length x Height)
+        Figure Size
+        
+    oddtop : BOOL
+        Set to True to make odd row on top
+
+    Returns
+    -------
+    axs : LIST of matplotlib axes
+        Flattened list containing subplots
+
+    """
+    
+    fig = plt.figure(figsize=figsize,constrained_layout=True)
+    gs = gridspec.GridSpec(2,ncol*2)
+    
+    nodd = ncol*2-1
+    
+    axs = []
+    for i in range(ncol*2-1):
+        
+        
+        if oddtop: # Shorter row on top
+            if i < ncol-1: 
+                rowid   = 0     # Top row
+                startid = i*2+1 # Start on 1
+                stopid  = i*2+3 # Stop 2 subplots later
+                msg = "for %i <= %i --> gs[0,%i:%i]" % (i,ncol-1,startid,stopid)
+            else:
+                rowid   = 1              # Bot Row
+                startid = 2*(i-ncol)+2   # Start from 0 (+2 since i-ncol = -2)
+                stopid  = 2*(i-ncol)+4   # End 2 plots later
+                msg = "for %i > %i --> gs[1,%i:%i]" % (i,ncol,startid,stopid)
+        else: # Shorter row on bottom
+            if i < ncol:
+                rowid = 0
+                startid = 2 * i
+                stopid  = 2 * i + 2
+                msg = "for %i < %i --> gs[0,%i:%i]" % (i,ncol,startid,stopid)
+            else:
+                rowid = 1
+                startid = 2 * i - nodd
+                stopid  = 2 * i + 2 - nodd
+                msg = "for %i >= %i --> gs[1,%i:%i]" % (i,ncol,startid,stopid)
+        
+        ax = plt.subplot(gs[rowid,startid:stopid],projection=proj)
+        
+        if debug:
+            
+            print(msg)
+            
+        axs.append(ax)
+    return fig,axs
+
+def label_sp(sp_id,case='upper',inside=True,ax=None,fig=None,x=0.0,y=1.0,
+             fontsize=12,fontfamily='sans-serif',alpha=1,labelstyle=None,
+             usenumber=False,fontcolor='k'):
+    """
+    Add alphabetical labels to subplots
+    from: https://matplotlib.org/stable/gallery/text_labels_and_annotations/label_subplots.html
+    
+    Inputs:
+        sp_id [int]                - Subplot Index for alphabet (0=A, 1=B, ...)
+        case  ['upper' or 'lower'] - Case of subplot label
+        inside [BOOL]              - True to plot inside, False to plot outside
+        ax    [mpl.axes]           - axes to plot on. default=current axes
+        fig   [mpl.fig]            - figure to scale
+        x     [numeric]            - x position relative to upper left
+        y     [numeric]            - y position relative to upper left
+        fontsize [int]             - font size
+        fontfamily [str]           - font family
+        alpha [numeric]            - transparency of textbox for inside label
+        labelstyle [str]           - labeling style, use %s to indicate string location "%s)"
+        usenumber [bool]           - Set to true to use numeric labels (using sp_id)
+    """
+    
+    if usenumber:
+        label = str(sp_id)
+    else:
+        if case == 'upper':
+            label = list(string.ascii_uppercase)[sp_id]
+        elif case == 'lower':
+            label = list(string.ascii_lowercase)[sp_id]
+        else:
+            print("case must be 'upper' or 'lower'!" )
+    
+    if labelstyle is None:
+        labelstyle="%s)"
+    label= labelstyle % (label)
+    
+    if ax is None:
+        ax = plt.gca()
+    if fig is None:
+        fig = plt.gcf()
+    
+    if inside:
+        trans = mtransforms.ScaledTranslation(10/72, -5/72, fig.dpi_scale_trans)
+        ax.text(x, y, label, transform=ax.transAxes + trans,
+                fontsize=fontsize, verticalalignment='top', fontfamily=fontfamily,
+                bbox=dict(facecolor='1', edgecolor='none', pad=3.0,alpha=alpha),
+                color=fontcolor)
+    else:
+        trans = mtransforms.ScaledTranslation(-20/72, 7/72, fig.dpi_scale_trans)
+        ax.text(x, y, label, transform=ax.transAxes + trans,
+                fontsize=fontsize, va='bottom', fontfamily=fontfamily,
+                color=fontcolor)
+    return ax
+
+# ~~~~~~~~~~~~~~~~~~~~~~
+#%% Cartopy/Mapping
+# ~~~~~~~~~~~~~~~~~~~~~~
 
 def init_map(bbox,crs=ccrs.PlateCarree(),ax=None,return_gl=False):
     """
@@ -135,295 +313,7 @@ def init_map(bbox,crs=ccrs.PlateCarree(),ax=None,return_gl=False):
         return ax,gl
     return ax
 
-def ensemble_plot(var,dim,ax=None,color='k',ysymmetric=1,ialpha=0.1,plotrange=1,returnlegend=True,returnline=False,plotindv=True):
-    """
-    
-    plotrange [BOOL] - Set to true to plot max and minimum values
-    returnlegend [BOOL] - set to true to return the legend
-    returnline [BOOL] - set to True to return the ens average line object
-    """
-    if ax is None:
-        ax = plt.gca()
-    # Move ensemble dimension the back [time x dim]
-    if dim == 0:
-        var = var.T
-    tper   = np.arange(0,var.shape[0]) # Preallocate time array
-    nens   = var.shape[1]
-    tmax   = np.around(np.nanmax(np.abs(var)))
-    maxens = np.nanmax(var,1)
-    minens = np.nanmin(var,1)
-    # Plot for each ensemble member
-    if plotindv==True:
-        for e in range(nens):
-            ax.plot(tper,var[:,e],color=color,alpha=ialpha)
-        # Plot 1 more line for labeling and add to collection
-        ln1 = ax.plot(tper,var[:,-1],color=color,alpha=ialpha,label='Indv. Member')
-        lns = ln1
-    # Plot ens average
-    ln2 = ax.plot(tper,np.nanmean(var,1),color=color,linewidth=1.5,label="Ens. Avg.")
-    if plotindv==True: # Add ensemble mean toline ollection
-        lns += ln2
-    else:
-        lns = ln2
-    # Plot maximum and minimum values
-    if plotrange == 1:
-        ln3 = ax.plot(tper,maxens,color=color,linestyle="dashed",linewidth=0.5,label="Max/Min")
-        ax.plot(tper,minens,color=color,linestyle="dashed",linewidth=0.5)
-        lns += ln3
-    if ysymmetric == 1:
-        ax.set_ylim([-1*tmax,tmax])
-    # Set Legend
-    if returnlegend==True:
-        labs = [l.get_label() for l in lns]
-        ax.legend(lns,labs,loc=0,ncol=2)
-    elif returnline == True:
-        if len(lns) > 1:
-            if plotindv==True:
-                return ax,lns[1] # Get 2nd line
-            return ax,lns[0] # Get 1st line
-        return ax,ln2
-    return ax
 
-def plot_annavg(var,units,figtitle,ax=None,ymax=None,stats='mon'):
-    """
-    
-    Inputs:
-        1) var = monthly variable (1D array)
-        2) ax  = axis (defaut, get current axis)
-        3) units = ylabel 
-        4) figtitle = title of figure
-        5) ymax = ylimits (default is None)
-        6) stats = 'mon' or 'ann' to indicate stats calc
-    
-    Dependencies
-    
-        numpy as np
-        matplotlib.pyplot as plt
-        quickstatslabel from amv.viz
-        ann_avg from amv.proc
-    
-    """
-    if ax is None:
-        ax = plt.gca()
-    
-    # Make time variables
-    tper = np.arange(0,len(var),1)
-    yper = np.arange(0,len(var),12)
-    
-    # Ann Avg
-    varann = proc.ann_avg(var,0)
-    
-    if stats == "mon":
-        statlabel=quickstatslabel(var)
-    elif stats == "ann":
-        statlabel=quickstatslabel(varann)
-    
-    # Plot and add legend
-    ax.plot(tper,var)
-    ax.plot(yper,varann,color='k',label='Ann. Avg')
-    ax.legend()
-    
-    # Set axis labels
-    ax.set_xlabel("Months")
-    ax.set_ylabel(units)
-    ax.set_title("%s %s" % (figtitle,statlabel))
-    
-    # Set ymax
-    if ymax is not None:
-        ax.set_ylim([-1*ymax,ymax])
-        ax.set_yticks(np.linspace(-1*ymax,ymax,4))
-
-    return ax
-
-def viz_kprev(h,kprev,locstring="",ax=None,lw=1,msize=25,mstyle="x",
-              cmap=None,fill_style='full',txtalpha=1,usetitle=True):
-    """
-    Quick visualization of mixed layer cycle (h)
-    and the corresponding detrainment index found using the
-    kprev function in scm (or prep_mld scripts)
-    
-    Inputs:
-        1) h - MLD cycle (array of size 12)
-        2) kprev - Detraining months (array of size 12)
-        3) string indicate location (Lon/Lat)
-        4) lw = linewidths
-        5) msize = markersize
-        6) mstyle = markerstyle
-        7) cmap = colors of the lines/markers
-        8) fill_style = marker fill style
-        9) txtalpha = Alpha of text background/highlight
-    
-    """
-    
-    if ax is None:
-        ax = plt.gca()
-        
-    # Create Connector lines ([entrainmon,detrainmon],[MLD,MLD])
-    connex = [([im+1,kprev[im]],[h[im],h[im]]) for im in range(12) if kprev[im] != 0]
-    
-    # Set colormap
-    if cmap is None:
-        cmap = cc.glasbey[:len(connex)]
-    else:
-        cmap = cmap[:len(connex)]
-        
-    
-    for m in range(len(connex)):
-        if connex[m][0][0] < connex[m][0][1]: # The first point comes before last point
-            connex[m][0][0] += 12 # Shift 1 year ahead
-    
-    # Indicate entraining months
-    foundmon = kprev[kprev!=0]
-    foundmld = h[kprev!=0]
-    
-    # Append month to the end
-    plotmon = np.arange(1,14,1)
-    plotmld = np.concatenate((h,[h[0]]))
-    
-    # Start Plot
-    #fig,ax = plt.subplots(1,1,figsize=(6,4))
-    plt.style.use('seaborn-bright')
-    
-    # Plot the MLD cycle
-    ax.plot(plotmon,plotmld,color='k',label='MLD Cycle',lw=lw,zorder=1)
-    
-    # Plot the connectors
-    lns  = [ax.plot(connex[m][0],connex[m][1],
-                    lw=lw,color=cmap[m],zorder=-1) for m in range(len(connex))]
-    clrs = [ln[0].get_color() for ln in lns] 
-    
-    # Plot markers
-    pts  = [ax.plot(foundmon[m],foundmld[m],
-                    markersize=msize,marker=mstyle,color=clrs[m],fillstyle=fill_style,
-                    linestyle='None',zorder=5) for m in range(len(connex))]
-    
-    # Plot Annotations
-    txts = [ax.annotate("%.2f" %(connex[m][0][1]),(connex[m][0][1],connex[m][1][1]),
-                 zorder=9) for m in range(len(connex))]
-    for txt in txts:
-        txt.set_path_effects([PathEffects.withStroke(linewidth=2.5,foreground="w",alpha=txtalpha)])
-        
-    # Labeling
-    ax.set(xlabel='Month',
-           ylabel='Mixed Layer Depth (m)',
-           xlim=(1,12),
-           
-           )
-    if usetitle:
-        ax.set_title("Mixed Layer Depth Seasonal Cycle at " + locstring)
-
-    ax.set_xticks(range(1,14,1))
-    
-    return ax
-
-
-def plot_AMV(amv,ax=None):
-    
-    """
-    Plot amv time series
-    
-    Dependencies:
-        
-    matplotlib.pyplot as plt
-    numpy as np
-    """
-    if ax is None:
-        ax = plt.gca()
-    
-    
-    htimefull = np.arange(len(amv))
-    
-    ax.plot(htimefull,amv,color='k')
-    ax.fill_between(htimefull,0,amv,where=amv>0,facecolor='red',interpolate=True,alpha=0.5)
-    ax.fill_between(htimefull,0,amv,where=amv<0,facecolor='blue',interpolate=True,alpha=0.5)
-    
-    return ax
-
-def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0,labels=True,fmt="%.1f",clabelBG=False,fontsize=10,returncbar=False,
-                     omit_cbar=False):
-    
-    fig = plt.gcf()
-    
-    if ax is None:
-        ax = plt.gca()
-        ax = plt.axes(projection=ccrs.PlateCarree())
-        
-    # Add cyclic point to avoid the gap
-    var,lon1 = add_cyclic_point(var,coord=lon)
-    
-    # Set  extent
-    ax.set_extent(bbox)
-    
-    # Add filled coastline
-    ax.add_feature(cfeature.LAND,color=[0.4,0.4,0.4])
-    
-    if len(cint) == 1:
-        # Automaticall set contours to max values
-        cmax = np.nanmax(np.abs(var))
-        cmax = np.round(cmax,decimals=2)
-        cint = np.linspace(cmax*-1,cmax,9)
-    
-    if pcolor == 0:
-
-        # Draw contours
-        cs = ax.contourf(lon1,lat,var,cint,cmap=cmap,extend='both')
-        
-        cs.cmap.set_over('red')
-        cs.cmap.set_under('blue')
-    
-    
-        # Negative contours
-        cln = ax.contour(lon1,lat,var,
-                    cint[cint<0],
-                    linestyles='dashed',
-                    colors='k',
-                    linewidths=0.5,
-                    transform=ccrs.PlateCarree())
-    
-        # Positive Contours
-        clp = ax.contour(lon1,lat,var,
-                    cint[cint>=0],
-                    colors='k',
-                    linewidths=0.5,
-                    transform=ccrs.PlateCarree())    
-                          
-        if labels is True:
-            clabelsn= ax.clabel(cln,colors=None,fmt=fmt,fontsize=fontsize)
-            clabelsp= ax.clabel(clp,colors=None,fmt=fmt,fontsize=fontsize)
-            
-            # if clabelBG is True:
-            #     [txt.set_backgroundcolor('white') for txt in clabelsn]
-            #     [txt.set_backgroundcolor('white') for txt in clabelsp]
-    else:
-        
-        cs = ax.pcolormesh(lon1,lat,var,vmin = cint[0],vmax=cint[-1],cmap=cmap)
-        
-                                
-                
-    # Add Gridlines
-    gl = ax.gridlines(draw_labels=True,linewidth=0.75,color='gray',linestyle=':')
-    gl.top_labels = gl.right_labels = False
-    gl.xformatter = LongitudeFormatter(degree_symbol='')
-    gl.yformatter = LatitudeFormatter(degree_symbol='')
-    gl.xlabel_style={'size':fontsize}
-    gl.ylabel_style={'size':fontsize}
-    
-    # Colorvar
-    if omit_cbar is True:
-        return ax,cs
-    
-    if len(clab) == 1:
-        cbar= fig.colorbar(cs,ax=ax,fraction=0.046, pad=0.04,format=fmt)
-        cbar.ax.tick_params(labelsize=fontsize)
-    else:
-        cbar = fig.colorbar(cs,ax=ax,ticks=clab,fraction=0.046, pad=0.04,format=fmt,shrink=0.95)
-        cbar.ax.tick_params(labelsize=fontsize)
-    
-    #cbar.ax.set_yticklabels(['{:.0f}'.format(x) for x in cint], fontsize=10, weight='bold')
-    
-    if returncbar:
-        return ax,cbar
-    return ax
 
 def plot_box(bbox,ax=None,return_line=False,leglab="Bounding Box",
              color='k',linestyle='solid',linewidth=1,proj=ccrs.PlateCarree()):
@@ -464,210 +354,6 @@ def plot_box(bbox,ax=None,return_line=False,leglab="Bounding Box",
         return ax,linesample
     return ax
 
-
-def plot_contoursign(var,lon,lat,cint,ax=None,bbox=None,clab=True,clab_fmt="%.1f",lw=1,add_cyc=False):
-    """
-    Plot contours, with solid as positive and dashed as negative values
-    Inputs:
-        1) varin [Array: lat x lon] - Input Variable
-        2) lon [Array: lon] - Longitude values (tested with 360, should work with 180)
-        3) lat [Array: lat] - Latitude values
-        4) cint [Array: levels] - contour levels (negative and positive)
-        Optional Arguments
-            5) ax [geoaxes] - Axes to plot on
-            6) bbox [Array: lonW,lonE,latS,latN] - Region to plot
-            7) clab [Bool] - Option to include contour labels
-            8) clab_fmt [Str] - String formatting option
-            9) lw [Float] - Contour Linewidths 
-    
-    """
-    # Get current axis if none is assigned
-    if ax is None:
-        ax = plt.gca()
-    
-
-    #Set Plotting boundaries/extent
-    if bbox != None:
-        ax.set_extent(bbox)
-    
-    # # Add cyclic point to remove blank meridian
-    if add_cyc is True:
-        var,lon = add_cyclic_point(var,lon) 
-
-    # Negative contours
-    cln = ax.contour(lon,lat,var,
-                cint[cint<0],
-                linestyles='dashed',
-                colors='k',
-                linewidths=lw)
-        
-    # Positive Contours
-    clp = ax.contour(lon,lat,var,
-                cint[cint>=0],
-                colors='k',
-                linewidths=lw,
-                transform=ccrs.PlateCarree())
-    if clab is True:
-        # Add Label
-        plt.clabel(cln,fmt=clab_fmt,fontsize=8)
-        plt.clabel(clp,fmt=clab_fmt,fontsize=8)
-    
-    return ax
-
-def summarize_params(lat,lon,params,synth=False):
-    """
-    Creates a quick 3-panel plot of Damping, MLD, and Forcing
-    at a single point
-
-    Parameters
-    ----------
-    lat : ARRAY
-        Latitudes
-    lon : ARRAY
-        Longitudes
-    params : Tuple
-        Contains the output of scm.get_data, specifically:
-            [lon_index,lat_index],damping,mld,dentrain_month,forcing           
-    synth: Tuple
-        Contains synthetic data for
-            [damping,mld,forcing]
-
-    Returns
-    -------
-    fig,ax (matplotlib objects)
-    """
-    alpha = 1
-    if synth is not False:
-        alpha = 0.25
-        
-    # Initialized Figure
-    xtks = np.arange(1,13,1)
-    locstring = "LON: %.1f, LAT: %.1f" % (lon[params[0][0]],lat[params[0][1]]) 
-    fig,axs = plt.subplots(3,1,figsize=(4,6),sharex=True)
-    
-    # Plot Damping
-    ax = axs[0]
-    ax.plot(xtks,params[1],color='r',alpha=alpha,label="Seasonal Mean")
-    ax.set_ylabel("Damping $(W/m^{2})$")
-    ax.set_xticks(xtks)
-    ax.grid(True,linestyle='dotted')
-    if synth is not False:
-        ax.plot(xtks,synth[0],color='r',label="Model Input")
-        ax.legend(fontsize=8)
-    
-    # Plot MLD
-    ax = axs[1] 
-    if synth is not False: # Don't Plot Kprev for constant MLD
-        ax.plot(xtks,params[2],alpha=alpha,color='b',label="Seasonal Mean")
-        ax.plot(xtks,synth[1],color='b',label="Model Input")
-        ax.legend(fontsize=8)
-    else:
-        ax=viz_kprev(params[2],params[3],ax=ax)
-    ax.set_xticks(xtks)
-    ax.set_title("")
-    ax.set_ylabel("Mixed-Layer Depth (m)")
-    ax.grid(True,linestyle='dotted')
-    
-    # Plot Forcing
-    ax = axs[2]
-    
-    ax.plot(xtks,params[4],color='k',label="Seasonal Mean",alpha=alpha)
-    ax.set_ylabel("Forcing $(W/m^{2})$")
-    ax.set_xticks(xtks)
-    ax.grid(True,linestyle='dotted')
-    fmax = np.abs(params[4]).max()
-    if synth is not False:
-        ax.plot(xtks,synth[2],color='k',label="Model Input")
-        ax.legend(fontsize=8)
-    ax.set_ylim([-fmax,fmax])
-    plt.suptitle(locstring)
-    plt.tight_layout()
-    return fig,ax
-
-def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None,
-                usegrid=True,tickfreq=None):
-    """
-    Function to initialize autocorrelation plot with months on top,
-    lat on the bottom
-    
-    Parameters
-    ----------
-    kmonth : INT
-        Index of Month corresponding to lag=0.
-    xticks : ARRAY
-        Lags that will be shown
-    lags : ARRAY
-        Lags to visulize
-    ax : matplotlib object, optional
-        Axis to plot on
-    title : STR, optional
-        Title of plot. The default is "SST Autocorrelation, Lag 0 = Month.
-    loopvar: ARRAY [12,], optional
-        Monthly variable to tile and plot in the background
-    
-    Returns
-    -------
-    ax,ax2, and ax3 if loopvar is not None : matplotlib object
-        Axis with plot
-
-    """
-    if ax is None:
-        ax = plt.gca()
-    
-    # Tile Months for plotting
-    mons3     = ('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec')
-    mons3tile = np.tile(np.array(mons3),int(np.floor(len(lags)/12))) 
-    mons3tile = np.concatenate([np.roll(mons3tile,-kmonth),[mons3[kmonth]]])
-    
-    
-    # Set up second axis
-    ax2 = ax.twiny()
-    ax2.set_xticks(xticks)
-    ax2.set_xticklabels(mons3tile[xticks], rotation = 45)
-    ax2.set_axisbelow(True)
-    ax2.grid(zorder=0,alpha=0)
-    ax2.set_xlim(xticks[[0,-1]])
-    
-    # Plot second variable if option is set
-    if loopvar is not None:
-        ax3 = ax.twinx()
-        loopvar = proc.tilebylag(kmonth,loopvar,lags)
-        ax3.plot(lags,loopvar,color='gray',linestyle='dashed')
-        ax3.tick_params(axis='y',labelcolor='gray')
-        ax3.grid(False)
-    
-    ax.set_xticks(xticks)
-    ax.set_xlim([xticks[0],xticks[-1]])
-    if title is None:
-        ax.set_title("SST Autocorrelation, Lag 0 = %s" % (mons3[kmonth]))
-    else:
-        ax.set_title(title)
-    ax.set_xlabel("Lags (Months)")
-    ax.set_ylabel("Correlation")
-    if usegrid:
-        ax.grid(True,linestyle='dotted')
-    plt.tight_layout()
-    
-    # Adjust ticks if option is set
-    if tickfreq is not None:
-        lbl_new_mon = []
-        lbl_new     = []
-        for i in range(len(xticks)):
-            
-            ilag = xticks[i]
-            
-            if i%tickfreq == 0:
-                lbl_new_mon.append(mons3tile[ilag])
-                lbl_new.append(lags[ilag])
-            else:
-                lbl_new_mon.append("")
-                lbl_new.append("")
-        ax.set_xticklabels(lbl_new)
-        ax2.set_xticklabels(lbl_new_mon)
-    
-    if loopvar is not None:
-        return ax,ax2,ax3
-    return ax,ax2
 
 def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_error=False,
                    fill_color=None,line_color='k',grid_color='gray',c_zorder=1,
@@ -746,29 +432,198 @@ def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_
     gl.ylabel_style = {'size':fontsize}
     return ax
 
+def init_fig(nrow,ncol,proj=ccrs.PlateCarree(),figsize=(8,6),
+             sharex=False,sharey=False):
+    fig,ax=plt.subplots(nrow,ncol,figsize=figsize,
+                        sharex=sharex,sharey=sharey,
+                        subplot_kw={'projection':proj})
+    return fig,ax
 
-def label_barplots(labels,adjustx=2,adjusty=0,ax=None,rects=None,
-                   fontcolor='k',fontsize=12):
+
+def init_blabels():
     """
-    labels [ARRAY] : String labels for each barplot
-    adjustx [NUMERIC] : How much to move right
-    adjusty [NUMERIC] : How much to move up
-    rects [ARRAY of matplotlib.patches.Rectangle] : Barplots to label.
+    Initialize bounding box labels with keys
+    'left','right','upper','lower' with all values set to False
+    """
+    return {'left':0,'right':0,'upper':0,'lower':0}
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~
+#%% Time Series/1-D Plot
+# ~~~~~~~~~~~~~~~~~~~~~~
+
+def quickstatslabel(ts,fmt="%.2f"):
+    """ Quickly generate label of mean ,stdev ,and maximum for a figure title/text
+    """   
+    statsstring = "( Mean:%.2e | Stdev:%.2e | Max:%.2e )" % (np.nanmean(ts),np.nanstd(ts),np.nanmax(np.abs(ts)))
+    return statsstring
+
+def quickstats(ts):
+    """ Yields nanmean, nanstd, and and absolute max of a timeseries
+    """
+    tmean = np.nanmean(ts)
+    tstd  = np.nanstd(ts)
+    tmax  = np.nanmax(np.abs(ts))
+    return tmean,tstd,tmax
+
+def plot_annavg(var,units,figtitle,ax=None,ymax=None,stats='mon'):
+    """
+    
+    Inputs:
+        1) var = monthly variable (1D array)
+        2) ax  = axis (defaut, get current axis)
+        3) units = ylabel 
+        4) figtitle = title of figure
+        5) ymax = ylimits (default is None)
+        6) stats = 'mon' or 'ann' to indicate stats calc
+    
+    Dependencies
+    
+        numpy as np
+        matplotlib.pyplot as plt
+        quickstatslabel from amv.viz
+        ann_avg from amv.proc
+    
     """
     if ax is None:
-        ax    = plt.gca()
-    if rects is None:
-        rects = ax.patches
-    for rect, label in zip(rects, labels):
-        height = rect.get_height()
-        ax.text(
-            rect.get_x() + rect.get_width() / adjustx, height + adjusty,
-            label, ha="center", va="bottom",
-            color=fontcolor,fontsize=fontsize
-        )
-    return ax,rects
+        ax = plt.gca()
     
-#%% Spectral Analysis
+    # Make time variables
+    tper = np.arange(0,len(var),1)
+    yper = np.arange(0,len(var),12)
+    
+    # Ann Avg
+    varann = proc.ann_avg(var,0)
+    
+    if stats == "mon":
+        statlabel=quickstatslabel(var)
+    elif stats == "ann":
+        statlabel=quickstatslabel(varann)
+    
+    # Plot and add legend
+    ax.plot(tper,var)
+    ax.plot(yper,varann,color='k',label='Ann. Avg')
+    ax.legend()
+    
+    # Set axis labels
+    ax.set_xlabel("Months")
+    ax.set_ylabel(units)
+    ax.set_title("%s %s" % (figtitle,statlabel))
+    
+    # Set ymax
+    if ymax is not None:
+        ax.set_ylim([-1*ymax,ymax])
+        ax.set_yticks(np.linspace(-1*ymax,ymax,4))
+
+    return ax
+
+
+def ensemble_plot(var,dim,ax=None,color='k',ysymmetric=1,ialpha=0.1,plotrange=1,returnlegend=True,returnline=False,plotindv=True):
+    """
+    
+    plotrange [BOOL] - Set to true to plot max and minimum values
+    returnlegend [BOOL] - set to true to return the legend
+    returnline [BOOL] - set to True to return the ens average line object
+    """
+    if ax is None:
+        ax = plt.gca()
+    # Move ensemble dimension the back [time x dim]
+    if dim == 0:
+        var = var.T
+    tper   = np.arange(0,var.shape[0]) # Preallocate time array
+    nens   = var.shape[1]
+    tmax   = np.around(np.nanmax(np.abs(var)))
+    maxens = np.nanmax(var,1)
+    minens = np.nanmin(var,1)
+    # Plot for each ensemble member
+    if plotindv==True:
+        for e in range(nens):
+            ax.plot(tper,var[:,e],color=color,alpha=ialpha)
+        # Plot 1 more line for labeling and add to collection
+        ln1 = ax.plot(tper,var[:,-1],color=color,alpha=ialpha,label='Indv. Member')
+        lns = ln1
+    # Plot ens average
+    ln2 = ax.plot(tper,np.nanmean(var,1),color=color,linewidth=1.5,label="Ens. Avg.")
+    if plotindv==True: # Add ensemble mean toline ollection
+        lns += ln2
+    else:
+        lns = ln2
+    # Plot maximum and minimum values
+    if plotrange == 1:
+        ln3 = ax.plot(tper,maxens,color=color,linestyle="dashed",linewidth=0.5,label="Max/Min")
+        ax.plot(tper,minens,color=color,linestyle="dashed",linewidth=0.5)
+        lns += ln3
+    if ysymmetric == 1:
+        ax.set_ylim([-1*tmax,tmax])
+    # Set Legend
+    if returnlegend==True:
+        labs = [l.get_label() for l in lns]
+        ax.legend(lns,labs,loc=0,ncol=2)
+    elif returnline == True:
+        if len(lns) > 1:
+            if plotindv==True:
+                return ax,lns[1] # Get 2nd line
+            return ax,lns[0] # Get 1st line
+        return ax,ln2
+    return ax
+
+def plot_mean_stdev(invar,axis,
+                    ax=None,x_vals=None,
+                    stdev=1,
+                    return_lines=False,
+                    alpha=0.1,
+                    color="k"):
+    """
+    
+    Plots meanline and N-standard deviations for a timeseries on the current (or given)
+    axes
+
+    Parameters
+    ----------
+    invar           (ARR)            : Timeseries to visualize 
+    axis            (INT)            : Axis to take the mean/stdev along
+    ax              (mpl.axes)       : Axes to plot on, default=current axes, optional
+    x_vals          (ARR)            : Corresponding x-values, default is 0 to invar.shape[axis], optional
+    stdev           (FLOAT)          : Number of stdevs to plot, optional
+    return_lines    (BOOL)           : Set to True to return line objects, optional
+    alpha           (FLOAT)          : Transparency of stdev shading. Default is 0.1, optional
+    color           (STR)            : Color of the lines and region. Default is "k", optional
+
+    Returns
+    -------
+    mu              (ARR)            : Mean of [invar] along [axis]
+    sigma           (ARR)            : Standard deviation of [invar] along [axis]
+    mean_line       (mpl.obj)        : (if return_line=True), Matplotlib object of mean line
+    shaded_region   (mpl.obj)        : (if return_line=True), Matplotlib object of shadded region
+
+    """
+    
+    # Get unspecified arguments
+    if ax is None:
+        ax        = plt.gca() 
+    if x_vals is None:
+        x_vals    = np.arange(0,invar.shape[axis])
+    
+    # Calculate mean/stdev
+    mu            = np.nanmean(invar,axis)
+    sigma         = np.nanstd(invar,axis) * stdev
+    
+    # Plot
+    mean_line     = ax.plot(x_vals,mu,
+                            color=color,
+                            zorder= -9)
+    shaded_region = ax.fill_between(x_vals,mu-sigma,mu+sigma,
+                                    alpha=alpha,color=color,
+                                    zorder=1)
+    if return_lines:
+        return mu,sigma,mean_line,shaded_region
+    else:
+        return mu,sigma
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#%% Power Spectra/Spectral Analysis
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 def make_axtime(ax,htax,denom='year'):
     
     # Units in Seconds
@@ -889,7 +744,6 @@ def add_yrlines(ax,dt=1,label=False):
         ax.axvline(vv,color='k',ls='dashed',label=vll[v],lw=0.75)
     return ax
 
-#%% Quick Spectra Analysis Plots
 
 def plot_freqxpower(specs,freqs,enames,ecolors,
                     plotdt=3600*24*365,ax=None,xtick=None,xlm=None,
@@ -1201,75 +1055,102 @@ def plot_freqlog(specs,freqs,enames,ecolors,
         return ax,htax
     return ax
 
-def init_2rowodd(ncol,proj=None,figsize=(6,6),oddtop=False,debug=False):
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#%% Spatial/2-D Plots/Contours
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+def plot_contoursign(var,lon,lat,cint,ax=None,bbox=None,clab=True,clab_fmt="%.1f",lw=1,add_cyc=False):
     """
-    Initialize a 2-row subplot where
-    the bottom row has the smaller number of plots
-    source: https://www.tutorialguruji.com/python/matplotlib-allign-uneven-number-of-subplots/
-
-    Parameters
-    ----------
-    ncol : INT
-        Number of columns (even). Last row will contain ncol-1 subplots
-
-    proj : Cartopy Projection
-        Projection to set the subplots as
-        
-    figsize : INT (Length x Height)
-        Figure Size
-        
-    oddtop : BOOL
-        Set to True to make odd row on top
-
-    Returns
-    -------
-    axs : LIST of matplotlib axes
-        Flattened list containing subplots
-
+    Plot contours, with solid as positive and dashed as negative values
+    Inputs:
+        1) varin [Array: lat x lon] - Input Variable
+        2) lon [Array: lon] - Longitude values (tested with 360, should work with 180)
+        3) lat [Array: lat] - Latitude values
+        4) cint [Array: levels] - contour levels (negative and positive)
+        Optional Arguments
+            5) ax [geoaxes] - Axes to plot on
+            6) bbox [Array: lonW,lonE,latS,latN] - Region to plot
+            7) clab [Bool] - Option to include contour labels
+            8) clab_fmt [Str] - String formatting option
+            9) lw [Float] - Contour Linewidths 
+    
     """
+    # Get current axis if none is assigned
+    if ax is None:
+        ax = plt.gca()
     
-    fig = plt.figure(figsize=figsize,constrained_layout=True)
-    gs = gridspec.GridSpec(2,ncol*2)
-    
-    nodd = ncol*2-1
-    
-    axs = []
-    for i in range(ncol*2-1):
-        
-        
-        if oddtop: # Shorter row on top
-            if i < ncol-1: 
-                rowid   = 0     # Top row
-                startid = i*2+1 # Start on 1
-                stopid  = i*2+3 # Stop 2 subplots later
-                msg = "for %i <= %i --> gs[0,%i:%i]" % (i,ncol-1,startid,stopid)
-            else:
-                rowid   = 1              # Bot Row
-                startid = 2*(i-ncol)+2   # Start from 0 (+2 since i-ncol = -2)
-                stopid  = 2*(i-ncol)+4   # End 2 plots later
-                msg = "for %i > %i --> gs[1,%i:%i]" % (i,ncol,startid,stopid)
-        else: # Shorter row on bottom
-            if i < ncol:
-                rowid = 0
-                startid = 2 * i
-                stopid  = 2 * i + 2
-                msg = "for %i < %i --> gs[0,%i:%i]" % (i,ncol,startid,stopid)
-            else:
-                rowid = 1
-                startid = 2 * i - nodd
-                stopid  = 2 * i + 2 - nodd
-                msg = "for %i >= %i --> gs[1,%i:%i]" % (i,ncol,startid,stopid)
-        
-        ax = plt.subplot(gs[rowid,startid:stopid],projection=proj)
-        
-        if debug:
-            
-            print(msg)
-            
-        axs.append(ax)
-    return fig,axs
 
+    #Set Plotting boundaries/extent
+    if bbox != None:
+        ax.set_extent(bbox)
+    
+    # # Add cyclic point to remove blank meridian
+    if add_cyc is True:
+        var,lon = add_cyclic_point(var,lon) 
 
+    # Negative contours
+    cln = ax.contour(lon,lat,var,
+                cint[cint<0],
+                linestyles='dashed',
+                colors='k',
+                linewidths=lw)
+        
+    # Positive Contours
+    clp = ax.contour(lon,lat,var,
+                cint[cint>=0],
+                colors='k',
+                linewidths=lw,
+                transform=ccrs.PlateCarree())
+    if clab is True:
+        # Add Label
+        plt.clabel(cln,fmt=clab_fmt,fontsize=8)
+        plt.clabel(clp,fmt=clab_fmt,fontsize=8)
+    
+    return ax
+
+def plot_mask(lon,lat,mask,reverse=False,color="k",marker="o",markersize=1.5,
+              ax=None,proj=None,geoaxes=False):
+    
+    """
+    Plot stippling based on a mask
+    
+    1) lon     [ARRAY] : Longitude values
+    2) lat     [ARRAY] : Latitude values
+    3) mask    [ARRAY] : (Lon,Lat) Mask (True = Where to plot Stipple)
+    4) reverse [BOOL]  : Set to True to reverse the mask values
+    5) color [STR] : matplotlib color
+    6) marker [STR] : matplotlib markerstyle
+    7) markersize [STR] : matplotlib markersize
+
+    Solution from: https://matplotlib.org/stable/gallery/images_contours_and_fields/contour_corner_mask.html
+    
+    """
+    if proj is None:
+        if geoaxes:
+            proj = ccrs.PlateCarree()
+        else:
+            proj = None
+    # Get current axis
+    if ax is None:
+        ax = plt.gca()
+        
+    # Invert Mask
+    if reverse:
+        # Inversion doesnt work with NaNs...
+        nlon,nlat = mask.shape
+        newcopy   = np.zeros((nlon,nlat)) * np.nan
+        newcopy[mask == True]  = False
+        newcopy[mask == False] = True
+        mask      = newcopy.copy()
+    
+    # Make meshgrid and plot masked array
+    yy,xx = np.meshgrid(lat,lon)
+    if geoaxes:
+        smap = ax.plot(np.ma.array(xx,mask=mask),yy,
+                       c=color,marker=marker,markersize=markersize,ls="",transform=proj)
+    else:
+        smap = ax.plot(np.ma.array(xx,mask=mask),yy,
+                       c=color,marker=marker,markersize=markersize,ls="")
+    return smap 
 
 def return_clevels(cmax,cstep,lstep=None):
     # cmax : Contour limit
@@ -1281,6 +1162,478 @@ def return_clevels(cmax,cstep,lstep=None):
         return clevels
     clabels   = np.arange(-cmax,cmax+lstep,lstep)
     return clevels, clabels
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#%% Specialized/Misc.
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def viz_kprev(h,kprev,locstring="",ax=None,lw=1,msize=25,mstyle="x",
+              cmap=None,fill_style='full',txtalpha=1,usetitle=True):
+    """
+    Quick visualization of mixed layer cycle (h)
+    and the corresponding detrainment index found using the
+    kprev function in scm (or prep_mld scripts)
+    
+    Inputs:
+        1) h - MLD cycle (array of size 12)
+        2) kprev - Detraining months (array of size 12)
+        3) string indicate location (Lon/Lat)
+        4) lw = linewidths
+        5) msize = markersize
+        6) mstyle = markerstyle
+        7) cmap = colors of the lines/markers
+        8) fill_style = marker fill style
+        9) txtalpha = Alpha of text background/highlight
+    
+    """
+    
+    if ax is None:
+        ax = plt.gca()
+        
+    # Create Connector lines ([entrainmon,detrainmon],[MLD,MLD])
+    connex = [([im+1,kprev[im]],[h[im],h[im]]) for im in range(12) if kprev[im] != 0]
+    
+    # Set colormap
+    if cmap is None:
+        cmap = cc.glasbey[:len(connex)]
+    else:
+        cmap = cmap[:len(connex)]
+        
+    
+    for m in range(len(connex)):
+        if connex[m][0][0] < connex[m][0][1]: # The first point comes before last point
+            connex[m][0][0] += 12 # Shift 1 year ahead
+    
+    # Indicate entraining months
+    foundmon = kprev[kprev!=0]
+    foundmld = h[kprev!=0]
+    
+    # Append month to the end
+    plotmon = np.arange(1,14,1)
+    plotmld = np.concatenate((h,[h[0]]))
+    
+    # Start Plot
+    #fig,ax = plt.subplots(1,1,figsize=(6,4))
+    plt.style.use('seaborn-bright')
+    
+    # Plot the MLD cycle
+    ax.plot(plotmon,plotmld,color='k',label='MLD Cycle',lw=lw,zorder=1)
+    
+    # Plot the connectors
+    lns  = [ax.plot(connex[m][0],connex[m][1],
+                    lw=lw,color=cmap[m],zorder=-1) for m in range(len(connex))]
+    clrs = [ln[0].get_color() for ln in lns] 
+    
+    # Plot markers
+    pts  = [ax.plot(foundmon[m],foundmld[m],
+                    markersize=msize,marker=mstyle,color=clrs[m],fillstyle=fill_style,
+                    linestyle='None',zorder=5) for m in range(len(connex))]
+    
+    # Plot Annotations
+    txts = [ax.annotate("%.2f" %(connex[m][0][1]),(connex[m][0][1],connex[m][1][1]),
+                 zorder=9) for m in range(len(connex))]
+    for txt in txts:
+        txt.set_path_effects([PathEffects.withStroke(linewidth=2.5,foreground="w",alpha=txtalpha)])
+        
+    # Labeling
+    ax.set(xlabel='Month',
+           ylabel='Mixed Layer Depth (m)',
+           xlim=(1,12),
+           
+           )
+    if usetitle:
+        ax.set_title("Mixed Layer Depth Seasonal Cycle at " + locstring)
+
+    ax.set_xticks(range(1,14,1))
+    
+    return ax
+
+
+def plot_AMV(amv,ax=None):
+    
+    """
+    Plot amv time series
+    
+    Dependencies:
+        
+    matplotlib.pyplot as plt
+    numpy as np
+    """
+    if ax is None:
+        ax = plt.gca()
+    
+    
+    htimefull = np.arange(len(amv))
+    
+    ax.plot(htimefull,amv,color='k')
+    ax.fill_between(htimefull,0,amv,where=amv>0,facecolor='red',interpolate=True,alpha=0.5)
+    ax.fill_between(htimefull,0,amv,where=amv<0,facecolor='blue',interpolate=True,alpha=0.5)
+    
+    return ax
+
+
+def plot_AMV_spatial(var,lon,lat,bbox,cmap,cint=[0,],clab=[0,],ax=None,pcolor=0,labels=True,fmt="%.1f",clabelBG=False,fontsize=10,returncbar=False,
+                     omit_cbar=False):
+    
+    fig = plt.gcf()
+    
+    if ax is None:
+        ax = plt.gca()
+        ax = plt.axes(projection=ccrs.PlateCarree())
+        
+    # Add cyclic point to avoid the gap
+    var,lon1 = add_cyclic_point(var,coord=lon)
+    
+    # Set  extent
+    ax.set_extent(bbox)
+    
+    # Add filled coastline
+    ax.add_feature(cfeature.LAND,color=[0.4,0.4,0.4])
+    
+    if len(cint) == 1:
+        # Automaticall set contours to max values
+        cmax = np.nanmax(np.abs(var))
+        cmax = np.round(cmax,decimals=2)
+        cint = np.linspace(cmax*-1,cmax,9)
+    
+    if pcolor == 0:
+
+        # Draw contours
+        cs = ax.contourf(lon1,lat,var,cint,cmap=cmap,extend='both')
+        
+        cs.cmap.set_over('red')
+        cs.cmap.set_under('blue')
+    
+    
+        # Negative contours
+        cln = ax.contour(lon1,lat,var,
+                    cint[cint<0],
+                    linestyles='dashed',
+                    colors='k',
+                    linewidths=0.5,
+                    transform=ccrs.PlateCarree())
+    
+        # Positive Contours
+        clp = ax.contour(lon1,lat,var,
+                    cint[cint>=0],
+                    colors='k',
+                    linewidths=0.5,
+                    transform=ccrs.PlateCarree())    
+                          
+        if labels is True:
+            clabelsn= ax.clabel(cln,colors=None,fmt=fmt,fontsize=fontsize)
+            clabelsp= ax.clabel(clp,colors=None,fmt=fmt,fontsize=fontsize)
+            
+            # if clabelBG is True:
+            #     [txt.set_backgroundcolor('white') for txt in clabelsn]
+            #     [txt.set_backgroundcolor('white') for txt in clabelsp]
+    else:
+        
+        cs = ax.pcolormesh(lon1,lat,var,vmin = cint[0],vmax=cint[-1],cmap=cmap)
+        
+                                
+                
+    # Add Gridlines
+    gl = ax.gridlines(draw_labels=True,linewidth=0.75,color='gray',linestyle=':')
+    gl.top_labels = gl.right_labels = False
+    gl.xformatter = LongitudeFormatter(degree_symbol='')
+    gl.yformatter = LatitudeFormatter(degree_symbol='')
+    gl.xlabel_style={'size':fontsize}
+    gl.ylabel_style={'size':fontsize}
+    
+    # Colorvar
+    if omit_cbar is True:
+        return ax,cs
+    
+    if len(clab) == 1:
+        cbar= fig.colorbar(cs,ax=ax,fraction=0.046, pad=0.04,format=fmt)
+        cbar.ax.tick_params(labelsize=fontsize)
+    else:
+        cbar = fig.colorbar(cs,ax=ax,ticks=clab,fraction=0.046, pad=0.04,format=fmt,shrink=0.95)
+        cbar.ax.tick_params(labelsize=fontsize)
+    
+    #cbar.ax.set_yticklabels(['{:.0f}'.format(x) for x in cint], fontsize=10, weight='bold')
+    
+    if returncbar:
+        return ax,cbar
+    return ax
+
+
+def summarize_params(lat,lon,params,synth=False):
+    """
+    Creates a quick 3-panel plot of Damping, MLD, and Forcing
+    at a single point
+
+    Parameters
+    ----------
+    lat : ARRAY
+        Latitudes
+    lon : ARRAY
+        Longitudes
+    params : Tuple
+        Contains the output of scm.get_data, specifically:
+            [lon_index,lat_index],damping,mld,dentrain_month,forcing           
+    synth: Tuple
+        Contains synthetic data for
+            [damping,mld,forcing]
+
+    Returns
+    -------
+    fig,ax (matplotlib objects)
+    """
+    alpha = 1
+    if synth is not False:
+        alpha = 0.25
+        
+    # Initialized Figure
+    xtks = np.arange(1,13,1)
+    locstring = "LON: %.1f, LAT: %.1f" % (lon[params[0][0]],lat[params[0][1]]) 
+    fig,axs = plt.subplots(3,1,figsize=(4,6),sharex=True)
+    
+    # Plot Damping
+    ax = axs[0]
+    ax.plot(xtks,params[1],color='r',alpha=alpha,label="Seasonal Mean")
+    ax.set_ylabel("Damping $(W/m^{2})$")
+    ax.set_xticks(xtks)
+    ax.grid(True,linestyle='dotted')
+    if synth is not False:
+        ax.plot(xtks,synth[0],color='r',label="Model Input")
+        ax.legend(fontsize=8)
+    
+    # Plot MLD
+    ax = axs[1] 
+    if synth is not False: # Don't Plot Kprev for constant MLD
+        ax.plot(xtks,params[2],alpha=alpha,color='b',label="Seasonal Mean")
+        ax.plot(xtks,synth[1],color='b',label="Model Input")
+        ax.legend(fontsize=8)
+    else:
+        ax=viz_kprev(params[2],params[3],ax=ax)
+    ax.set_xticks(xtks)
+    ax.set_title("")
+    ax.set_ylabel("Mixed-Layer Depth (m)")
+    ax.grid(True,linestyle='dotted')
+    
+    # Plot Forcing
+    ax = axs[2]
+    
+    ax.plot(xtks,params[4],color='k',label="Seasonal Mean",alpha=alpha)
+    ax.set_ylabel("Forcing $(W/m^{2})$")
+    ax.set_xticks(xtks)
+    ax.grid(True,linestyle='dotted')
+    fmax = np.abs(params[4]).max()
+    if synth is not False:
+        ax.plot(xtks,synth[2],color='k',label="Model Input")
+        ax.legend(fontsize=8)
+    ax.set_ylim([-fmax,fmax])
+    plt.suptitle(locstring)
+    plt.tight_layout()
+    return fig,ax
+
+
+
+def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None,
+                usegrid=True,tickfreq=None):
+    """
+    Function to initialize autocorrelation plot with months on top,
+    lat on the bottom
+    
+    Parameters
+    ----------
+    kmonth : INT
+        Index of Month corresponding to lag=0.
+    xticks : ARRAY
+        Lags that will be shown
+    lags : ARRAY
+        Lags to visulize
+    ax : matplotlib object, optional
+        Axis to plot on
+    title : STR, optional
+        Title of plot. The default is "SST Autocorrelation, Lag 0 = Month.
+    loopvar: ARRAY [12,], optional
+        Monthly variable to tile and plot in the background
+    
+    Returns
+    -------
+    ax,ax2, and ax3 if loopvar is not None : matplotlib object
+        Axis with plot
+
+    """
+    if ax is None:
+        ax = plt.gca()
+    
+    # Tile Months for plotting
+    mons3     = ('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec')
+    mons3tile = np.tile(np.array(mons3),int(np.floor(len(lags)/12))) 
+    mons3tile = np.concatenate([np.roll(mons3tile,-kmonth),[mons3[kmonth]]])
+    
+    
+    # Set up second axis
+    ax2 = ax.twiny()
+    ax2.set_xticks(xticks)
+    ax2.set_xticklabels(mons3tile[xticks], rotation = 45)
+    ax2.set_axisbelow(True)
+    ax2.grid(zorder=0,alpha=0)
+    ax2.set_xlim(xticks[[0,-1]])
+    
+    # Plot second variable if option is set
+    if loopvar is not None:
+        ax3 = ax.twinx()
+        loopvar = proc.tilebylag(kmonth,loopvar,lags)
+        ax3.plot(lags,loopvar,color='gray',linestyle='dashed')
+        ax3.tick_params(axis='y',labelcolor='gray')
+        ax3.grid(False)
+    
+    ax.set_xticks(xticks)
+    ax.set_xlim([xticks[0],xticks[-1]])
+    if title is None:
+        ax.set_title("SST Autocorrelation, Lag 0 = %s" % (mons3[kmonth]))
+    else:
+        ax.set_title(title)
+    ax.set_xlabel("Lags (Months)")
+    ax.set_ylabel("Correlation")
+    if usegrid:
+        ax.grid(True,linestyle='dotted')
+    plt.tight_layout()
+    
+    # Adjust ticks if option is set
+    if tickfreq is not None:
+        lbl_new_mon = []
+        lbl_new     = []
+        for i in range(len(xticks)):
+            
+            ilag = xticks[i]
+            
+            if i%tickfreq == 0:
+                lbl_new_mon.append(mons3tile[ilag])
+                lbl_new.append(lags[ilag])
+            else:
+                lbl_new_mon.append("")
+                lbl_new.append("")
+        ax.set_xticklabels(lbl_new)
+        ax2.set_xticklabels(lbl_new_mon)
+    
+    if loopvar is not None:
+        return ax,ax2,ax3
+    return ax,ax2
+
+def prep_monlag_labels(kmonth,lagtick,label_interval,useblank=True):
+    """
+    Add month labels below the lag for autocorrelation plots
+
+    Parameters
+    ----------
+    kmonth : Int
+        DESCRIPTION.
+    lagtick : TYPE
+        DESCRIPTION.
+    label_interval : TYPE
+        DESCRIPTION.
+    useblank : TYPE, optional
+        DESCRIPTION. The default is True.
+
+    Returns
+    -------
+    mon_labels : TYPE
+        DESCRIPTION.
+
+    """
+    mon_labels = []
+    kmonth_seen = []
+    mons3       = [return_mon_label(m,nletters=3) for m in np.arange(1,13)]
+    
+    for t,tk in enumerate(lagtick):
+        if tk%label_interval == 0:
+            monlbl = [(kmonth+tk)%12]
+            if monlbl in kmonth_seen:
+                lbl = tk
+            else:
+                lbl = "%i\n %s" % (tk,mons3[(kmonth+tk)%12])
+                #kmonth_seen.append(monlbl) # Uncomment this to only plot first feb/aug
+            #print(lbl)
+        else:
+            if useblank:
+                lbl = ""
+            else:
+                lbl = tk
+        mon_labels.append(lbl)
+    return mon_labels
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#%% Quick Visualization (qv) series
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def qv_seasonal(lon,lat,var,
+                add_coast=True,cmap="inferno",
+                bbox=None,anom=False,vmax=None,
+                contour=False,cints=None):
+    """
+    Quickly Plot the seasonal cycle of a 2d variable
+    var = [lon x lat x month]
+    """
+    
+    fig,axs = plt.subplots(4,3,figsize=(12,12),constrained_layout=True,
+                           subplot_kw={'projection':ccrs.PlateCarree()}) # (each row is a season)
+    monloop = np.roll(np.arange(0,12),1) # Start with Dec. 
+    
+    if bbox is None:
+        bbox =[lon[0],lon[-1],lat[0],lat[-1]]
+    
+    for i,im in tqdm(enumerate(monloop)):
+        
+        ax      = axs.flatten()[i]
+        
+        # Set labels
+        blabel = [0,0,0,0]
+        if i%3 == 0:
+            blabel[0] = 1
+        if i>8:
+            blabel[3] = 1
+            
+        if add_coast:
+            ax      = add_coast_grid(ax,bbox=bbox,blabels=blabel,fill_color="gray")
+        
+        plotvar = var[:,:,im].T
+        
+        if anom:
+            if vmax is None: # Find maximum value in dataset
+                vmax = np.nanmax(np.abs(plotvar.flatten()))
+                
+            if contour:
+                pcm = ax.contourf(lon,lat,plotvar,cmap=cmocean.cm.balance,levels=np.linspace(-vmax,vmax,10))
+            else:
+                pcm = ax.pcolormesh(lon,lat,plotvar,cmap=cmocean.cm.balance,vmin=-vmax,vmax=vmax)
+        else:
+            if contour:
+                if cints is None:
+                    pcm = ax.contourf(lon,lat,plotvar,cmap=cmap)
+                else:
+                    pcm = ax.contourf(lon,lat,plotvar,cmap=cmap,levels=cints)
+            else:
+                pcm = ax.pcolormesh(lon,lat,plotvar,cmap=cmap)
+        if cints is None:
+            fig.colorbar(pcm,ax=ax)
+        
+        #ax.set_title("Month %i"%(im+1))
+        ax = label_sp("Mon%02i" % (im+1),ax=ax,
+                      usenumber=True,labelstyle="%s",alpha=0.80,fontsize=14)
+        
+    if cints is not None:
+        fig.colorbar(pcm,ax=axs.flatten(),fraction=0.025,pad=0.01)
+        
+    return ax
+    
+#%% Spectral Analysis
+
+
+#%% Quick Spectra Analysis Plots
+
+
+
+
+
+
+
+
 
 # def plotmap(ax=None,bbox=None,proj=None,clon=0,figsize=(12,8),land_color=None,blabels=[1,0,0,1]):
 #     """
@@ -1362,318 +1715,27 @@ def return_clevels(cmax,cstep,lstep=None):
 #         return ax
 
 
-def plot_mask(lon,lat,mask,reverse=False,color="k",marker="o",markersize=1.5,
-              ax=None,proj=None,geoaxes=False):
-    
-    """
-    Plot stippling based on a mask
-    
-    1) lon     [ARRAY] : Longitude values
-    2) lat     [ARRAY] : Latitude values
-    3) mask    [ARRAY] : (Lon,Lat) Mask (True = Where to plot Stipple)
-    4) reverse [BOOL]  : Set to True to reverse the mask values
-    5) color [STR] : matplotlib color
-    6) marker [STR] : matplotlib markerstyle
-    7) markersize [STR] : matplotlib markersize
-
-    Solution from: https://matplotlib.org/stable/gallery/images_contours_and_fields/contour_corner_mask.html
-    
-    """
-    if proj is None:
-        if geoaxes:
-            proj = ccrs.PlateCarree()
-        else:
-            proj = None
-    # Get current axis
-    if ax is None:
-        ax = plt.gca()
-        
-    # Invert Mask
-    if reverse:
-        # Inversion doesnt work with NaNs...
-        nlon,nlat = mask.shape
-        newcopy   = np.zeros((nlon,nlat)) * np.nan
-        newcopy[mask == True]  = False
-        newcopy[mask == False] = True
-        mask      = newcopy.copy()
-    
-    # Make meshgrid and plot masked array
-    yy,xx = np.meshgrid(lat,lon)
-    if geoaxes:
-        smap = ax.plot(np.ma.array(xx,mask=mask),yy,
-                       c=color,marker=marker,markersize=markersize,ls="",transform=proj)
-    else:
-        smap = ax.plot(np.ma.array(xx,mask=mask),yy,
-                       c=color,marker=marker,markersize=markersize,ls="")
-    return smap 
 
 
 
 
-def init_fig(nrow,ncol,proj=ccrs.PlateCarree(),figsize=(8,6),
-             sharex=False,sharey=False):
-    fig,ax=plt.subplots(nrow,ncol,figsize=figsize,
-                        sharex=sharex,sharey=sharey,
-                        subplot_kw={'projection':proj})
-    return fig,ax
 
-
-def init_blabels():
-    """
-    Initialize bounding box labels with keys
-    'left','right','upper','lower' with all values set to False
-    """
-    return {'left':0,'right':0,'upper':0,'lower':0}
     
     
     
 # %% Exploratory plots (qv module?)
 
-def qv_seasonal(lon,lat,var,
-                add_coast=True,cmap="inferno",
-                bbox=None,anom=False,vmax=None,
-                contour=False,cints=None):
-    """
-    Quickly Plot the seasonal cycle of a 2d variable
-    var = [lon x lat x month]
-    """
-    
-    fig,axs = plt.subplots(4,3,figsize=(12,12),constrained_layout=True,
-                           subplot_kw={'projection':ccrs.PlateCarree()}) # (each row is a season)
-    monloop = np.roll(np.arange(0,12),1) # Start with Dec. 
-    
-    if bbox is None:
-        bbox =[lon[0],lon[-1],lat[0],lat[-1]]
-    
-    for i,im in tqdm(enumerate(monloop)):
-        
-        ax      = axs.flatten()[i]
-        
-        # Set labels
-        blabel = [0,0,0,0]
-        if i%3 == 0:
-            blabel[0] = 1
-        if i>8:
-            blabel[3] = 1
-            
-        if add_coast:
-            ax      = add_coast_grid(ax,bbox=bbox,blabels=blabel,fill_color="gray")
-        
-        plotvar = var[:,:,im].T
-        
-        if anom:
-            if vmax is None: # Find maximum value in dataset
-                vmax = np.nanmax(np.abs(plotvar.flatten()))
-                
-            if contour:
-                pcm = ax.contourf(lon,lat,plotvar,cmap=cmocean.cm.balance,levels=np.linspace(-vmax,vmax,10))
-            else:
-                pcm = ax.pcolormesh(lon,lat,plotvar,cmap=cmocean.cm.balance,vmin=-vmax,vmax=vmax)
-        else:
-            if contour:
-                if cints is None:
-                    pcm = ax.contourf(lon,lat,plotvar,cmap=cmap)
-                else:
-                    pcm = ax.contourf(lon,lat,plotvar,cmap=cmap,levels=cints)
-            else:
-                pcm = ax.pcolormesh(lon,lat,plotvar,cmap=cmap)
-        if cints is None:
-            fig.colorbar(pcm,ax=ax)
-        
-        #ax.set_title("Month %i"%(im+1))
-        ax = label_sp("Mon%02i" % (im+1),ax=ax,
-                      usenumber=True,labelstyle="%s",alpha=0.80,fontsize=14)
-        
-    if cints is not None:
-        fig.colorbar(pcm,ax=axs.flatten(),fraction=0.025,pad=0.01)
-        
-    return ax
+
 
 #%%
-def label_sp(sp_id,case='upper',inside=True,ax=None,fig=None,x=0.0,y=1.0,
-             fontsize=12,fontfamily='sans-serif',alpha=1,labelstyle=None,
-             usenumber=False,fontcolor='k'):
-    """
-    Add alphabetical labels to subplots
-    from: https://matplotlib.org/stable/gallery/text_labels_and_annotations/label_subplots.html
-    
-    Inputs:
-        sp_id [int]                - Subplot Index for alphabet (0=A, 1=B, ...)
-        case  ['upper' or 'lower'] - Case of subplot label
-        inside [BOOL]              - True to plot inside, False to plot outside
-        ax    [mpl.axes]           - axes to plot on. default=current axes
-        fig   [mpl.fig]            - figure to scale
-        x     [numeric]            - x position relative to upper left
-        y     [numeric]            - y position relative to upper left
-        fontsize [int]             - font size
-        fontfamily [str]           - font family
-        alpha [numeric]            - transparency of textbox for inside label
-        labelstyle [str]           - labeling style, use %s to indicate string location "%s)"
-        usenumber [bool]           - Set to true to use numeric labels (using sp_id)
-    """
-    
-    if usenumber:
-        label = str(sp_id)
-    else:
-        if case == 'upper':
-            label = list(string.ascii_uppercase)[sp_id]
-        elif case == 'lower':
-            label = list(string.ascii_lowercase)[sp_id]
-        else:
-            print("case must be 'upper' or 'lower'!" )
-    
-    if labelstyle is None:
-        labelstyle="%s)"
-    label= labelstyle % (label)
-    
-    if ax is None:
-        ax = plt.gca()
-    if fig is None:
-        fig = plt.gcf()
-    
-    if inside:
-        trans = mtransforms.ScaledTranslation(10/72, -5/72, fig.dpi_scale_trans)
-        ax.text(x, y, label, transform=ax.transAxes + trans,
-                fontsize=fontsize, verticalalignment='top', fontfamily=fontfamily,
-                bbox=dict(facecolor='1', edgecolor='none', pad=3.0,alpha=alpha),
-                color=fontcolor)
-    else:
-        trans = mtransforms.ScaledTranslation(-20/72, 7/72, fig.dpi_scale_trans)
-        ax.text(x, y, label, transform=ax.transAxes + trans,
-                fontsize=fontsize, va='bottom', fontfamily=fontfamily,
-                color=fontcolor)
-    return ax
-
-def reorder_legend(ax,order=None):
-    """
-    Reorder legend items based on code from:
-    https://stackoverflow.com/questions/22263807/how-is-order-of-items-in-matplotlib-legend-determined
-
-    Parameters
-    ----------
-    ax : TYPE
-        Axes containing the objects with labels
-    order : TYPE, optional
-        Desired new order (using original indices). Default is to flip.
-
-    Returns
-    -------
-    legend : TYPE
-        DESCRIPTION.
-
-    """
-    handles, labels = ax.get_legend_handles_labels()
-    if order is None:
-        order = np.flip(np.arange(0,len(handles))) # Flip order
-    legend = ax.legend([handles[idx] for idx in order],[labels[idx] for idx in order])
-    return legend
-    
-def add_ylabel(label,ax=None,x=-0.10,y=0.5):
-    if ax is None:
-        ax = plt.gca()
-    txt = ax.text(x, y, label, va='bottom', ha='center',rotation='vertical',
-            rotation_mode='anchor',transform=ax.transAxes)
-    return txt
-
-def prep_monlag_labels(kmonth,lagtick,label_interval,useblank=True):
-    """
-    Add month labels below the lag for autocorrelation plots
-
-    Parameters
-    ----------
-    kmonth : Int
-        DESCRIPTION.
-    lagtick : TYPE
-        DESCRIPTION.
-    label_interval : TYPE
-        DESCRIPTION.
-    useblank : TYPE, optional
-        DESCRIPTION. The default is True.
-
-    Returns
-    -------
-    mon_labels : TYPE
-        DESCRIPTION.
-
-    """
-    mon_labels = []
-    kmonth_seen = []
-    mons3       = [return_mon_label(m,nletters=3) for m in np.arange(1,13)]
-    
-    for t,tk in enumerate(lagtick):
-        if tk%label_interval == 0:
-            monlbl = [(kmonth+tk)%12]
-            if monlbl in kmonth_seen:
-                lbl = tk
-            else:
-                lbl = "%i\n %s" % (tk,mons3[(kmonth+tk)%12])
-                #kmonth_seen.append(monlbl) # Uncomment this to only plot first feb/aug
-            #print(lbl)
-        else:
-            if useblank:
-                lbl = ""
-            else:
-                lbl = tk
-        mon_labels.append(lbl)
-    return mon_labels
 
 
-def set_xlim_auto(ax,xticks):
-    """ Automatically set x-limits to limits of xticks """
-    ax.set_xlim([xticks[0],xticks[-1]])
-    return None
 
-def plot_mean_stdev(invar,axis,
-                    ax=None,x_vals=None,
-                    stdev=1,
-                    return_lines=False,
-                    alpha=0.1,
-                    color="k"):
-    """
-    
-    Plots meanline and N-standard deviations for a timeseries on the current (or given)
-    axes
 
-    Parameters
-    ----------
-    invar           (ARR)            : Timeseries to visualize 
-    axis            (INT)            : Axis to take the mean/stdev along
-    ax              (mpl.axes)       : Axes to plot on, default=current axes, optional
-    x_vals          (ARR)            : Corresponding x-values, default is 0 to invar.shape[axis], optional
-    stdev           (FLOAT)          : Number of stdevs to plot, optional
-    return_lines    (BOOL)           : Set to True to return line objects, optional
-    alpha           (FLOAT)          : Transparency of stdev shading. Default is 0.1, optional
-    color           (STR)            : Color of the lines and region. Default is "k", optional
 
-    Returns
-    -------
-    mu              (ARR)            : Mean of [invar] along [axis]
-    sigma           (ARR)            : Standard deviation of [invar] along [axis]
-    mean_line       (mpl.obj)        : (if return_line=True), Matplotlib object of mean line
-    shaded_region   (mpl.obj)        : (if return_line=True), Matplotlib object of shadded region
 
-    """
-    
-    # Get unspecified arguments
-    if ax is None:
-        ax        = plt.gca() 
-    if x_vals is None:
-        x_vals    = np.arange(0,invar.shape[axis])
-    
-    # Calculate mean/stdev
-    mu            = np.nanmean(invar,axis)
-    sigma         = np.nanstd(invar,axis) * stdev
-    
-    # Plot
-    mean_line     = ax.plot(x_vals,mu,
-                            color=color,
-                            zorder= -9)
-    shaded_region = ax.fill_between(x_vals,mu-sigma,mu+sigma,
-                                    alpha=alpha,color=color,
-                                    zorder=1)
-    if return_lines:
-        return mu,sigma,mean_line,shaded_region
-    else:
-        return mu,sigma
-    
+
+
+
+
     
