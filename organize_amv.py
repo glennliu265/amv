@@ -108,6 +108,7 @@ Functions:
     get_posneg          : get positive/negative years of a variable from an index/timeseries
     get_posneg_sigma    : get positive/neutral/negative years for a variable using a stdev threshold
     get_topN            : Get indices for top/bottom N values in an array (along last dimension)
+    maxid_2d            : Find indices along each dimension for a 2D matrix. Ignores NaN values.
     
     
     -----------------------------------
