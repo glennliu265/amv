@@ -1841,6 +1841,25 @@ def get_topN(arr,N,bot=False,sort=False,absval=False):
             return ids[np.argsort(-arr[ids])] # Greatest to least
     return ids
 
+
+def maxid_2d(invar):
+    """
+    Find indices along each dimension for a 2D matrix. Ignores NaN values.
+    
+    Parameters
+    ----------
+    invar : ARRAY [x1, x2] - 2D ARRAY/Matrix
+    Returns
+    -------
+    idx1  : INT            - Index along first axis x1
+    idx2  : INT            - Index along second axis x2
+    """
+    x1,x2     = invar.shape
+    idmax     = np.nanargmax(invar.flatten())
+    idx1,idx2 = np.unravel_index(idmax,invar.shape)
+    return idx1,idx2
+
+
 """
 -----------------------------------
 |||  Interpolation & Regridding ||| ****************************************************
