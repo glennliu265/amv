@@ -577,8 +577,9 @@ def lon360to180(lon360,var,autoreshape=False,debug=True):
     kw = np.where(lon360 >= 180)[0]
     ke = np.where(lon360 < 180)[0]
     lon180 = np.concatenate((lon360[kw]-360,lon360[ke]),0)
+    if var is None:
+        return lon180
     var = np.concatenate((var[kw,...],var[ke,...]),0)
-    
     if dimflag:
         var = var.reshape(vshape)
     
@@ -602,7 +603,8 @@ def lon180to360(lon180,var,autoreshape=False,debug=True):
     kw = np.where(lon180 < 0)[0]
     ke = np.where(lon180 >= 0)[0]
     lon360 = np.concatenate((lon180[ke],lon180[kw]+360),0)
-    
+    if var is None:
+        return lon360
     var = np.concatenate((var[ke,...],var[kw,...]),0)
     
     if dimflag:
