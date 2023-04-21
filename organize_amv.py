@@ -66,6 +66,7 @@ Functions:
         ~ Lead/Lag Analysis ~
     calc_lagcovar       : Monthly lag-lead correlation
     calc_lagcovar_nd    : ND version of calc_lagcovar
+    calc_lag_covar_ann  : Yearly (or any time unit) lag-lead correlation calculator
     calc_conflag        : Calculate confidence Intervals for autocorrelation function
     tilebylag           : Tile a monthly variable along a lag sequence
     

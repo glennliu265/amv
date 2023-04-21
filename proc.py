@@ -568,7 +568,6 @@ def lon360to180(lon360,var,autoreshape=False,debug=True):
         3. autoreshape - BOOL, reshape variable autocmatically if size(var) > 3
     """
     
-    
     # Reshape to combine dimensions
     dimflag = False 
     if autoreshape:
@@ -1029,6 +1028,54 @@ def calc_lagcovar_nd(var1,var2,lags,basemonth,detrendopt):
         # Calculate correlation
         corr_ts[i,:] = pearsonr_2d(varbase,varlag,0)       
     return corr_ts
+
+def calc_lag_covar_ann(var1,var2,lags,dim,detrendopt,):
+    
+    # Move time to the first dimension (assume var1.shape==var2.shape)
+    invars      = [var1,var2]
+    oldshape    = var1.shape
+    reshapevars = []
+    for v in invars:
+        vreshape,neworder = dim2front(v,dim,combine=True,return_neworder=True)
+        reshapevars.append(vreshape)
+    
+    # Remove Nan Points (if any are found)
+    
+    # Get total number of lags
+    var1,var2=reshapevars
+    lagdim = len(lags)
+    
+    # Get timeseries length # [yr x npts]
+    ntime  = var1.shape[0]
+    npts   = var1.shape[1]
+    
+    # Detrend variables if option is set
+    if detrendopt == 1:
+        var1 = signal.detrend(var1,0,type='linear')
+        var2 = signal.detrend(var2,0,type='linear')
+    
+    # Preallocate
+    corr_ts        = np.zeros((lagdim,npts)) * np.nan
+    window_lengths = []
+    for l,lag in enumerate(lags):
+        varbase = var1[lag:,:]
+        varlag  = var2[:(ntime-lag),:]
+        window_lengths.append(varbase.shape[0])
+        
+        # Calculate correlation
+        corr_ts[l,:] = pearsonr_2d(varbase,varlag,0)    
+    
+    # Replace back into old shape
+    size_combined_dims = tuple(np.array(oldshape)[neworder][1:]) # Get other dims
+    reshape_corr       = (lagdim,) + size_combined_dims
+    corr_ts            = corr_ts.reshape(reshape_corr)
+    return corr_ts,window_lengths
+        
+        
+        
+    
+    
+    
 
 def calc_conflag(ac,conf,tails,n):
     """
@@ -1521,14 +1568,15 @@ def find_tlatlon(ds,lonf,latf,verbose=True):
         print("Closest lat to %.2f was %.2f" % (latf,foundlat))
     return ds.isel(nlon=klon,nlat=klat)
 
-def find_nan(data,dim,val=None):
+def find_nan(data,dim,val=None,return_dict=False):
     """
     For a 2D array, remove any point if there is a nan in dimension [dim].
     
     Inputs:
-        1) data   : 2d array, which will be summed along last dimension
-        2) dim    : dimension to sum along. 0 or 1.
-        3) val    : value to search for (default is NaN)
+        1) data        : 2d array, which will be summed along last dimension
+        2) dim         : dimension to sum along. 0 or 1.
+        3) val         : value to search for (default is NaN)
+        4) return_dict : Set to True to return dictionary with clearer arguments...
     Outputs:
         1) okdata : data with nan points removed
         2) knan   : boolean array with indices of nan points
@@ -1556,7 +1604,11 @@ def find_nan(data,dim,val=None):
             okdata = data[okpts,:]
     else:
         okdata = data[okpts]
-        
+    if return_dict: # Return dictionary with clearer arguments
+        nandict = {"cleaned_data" : okdata,
+                   "nan_indices"  : knan,
+                   "ok_indices"   : okpts,
+                   }
     return okdata,knan,okpts
 
 def remap_nan(lon,lat,okdata,okpts,lonfirst=True):
@@ -2411,6 +2463,7 @@ def restoredim(y,oldshape,reorderdim):
 def flipdims(invar):
     """ Reverse dim order of an n-dimensional array"""
     return invar.transpose(np.flip(np.arange(len(invar.shape))))
+
 """
 ---------------------
 |||  Convenience ||| ****************************************************
