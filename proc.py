@@ -2582,3 +2582,17 @@ def get_stringnum(instring,keyword,nchars=1,verbose=True,return_pos=False):
     if return_pos:
         return grabstr,numstart
     return grabstr
+
+def fix_febstart(ds):
+    # Copied from preproc_CESM.py on 2022.11.15
+    if ds.time.values[0].month != 1:
+        print("Warning, first month is %s"% ds.time.values[0])
+        # Get starting year, must be "YYYY"
+        startyr = str(ds.time.values[0].year)
+        while len(startyr) < 4:
+            startyr = '0' + startyr
+        nmon = ds.time.shape[0] # Get number of months
+        # Corrected Time
+        correctedtime = xr.cftime_range(start=startyr,periods=nmon,freq="MS",calendar="noleap")
+        ds = ds.assign_coords(time=correctedtime) 
+    return ds
