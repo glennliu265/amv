@@ -15,6 +15,7 @@
     label_barplots      : Add text labels to bar plots (can be inside bar)
     return_mon_label    : Return month labels for a given month
     set_xlim_auto       : Automatically set x-limits to x-tick max/min
+    add_ticks           : Helper function to add ticks and gridlines
     
         ~ Subplot Management
     init_2rowodd        : Center row with odd or even subplots
@@ -162,6 +163,40 @@ def add_ylabel(label,ax=None,x=-0.10,y=0.5):
     txt = ax.text(x, y, label, va='bottom', ha='center',rotation='vertical',
             rotation_mode='anchor',transform=ax.transAxes)
     return txt
+
+def add_ticks(ax=None,add_grid=True,grid_lw=0.5,grid_ls="dotted",grid_col="gray",
+              bottom=True,top=False,left=True,right=False):
+    """
+    Add gridlines and ticks (+minorticks) to perimeter of whole plot 
+    (control labeling with bottom, top, left, right)
+    
+    Parameters (all optional)
+    ----------
+    ax       : matplotlib axes to format. The default is None.
+    add_grid : BOOL. True to add gridlines
+    grid_lw  : NUMERIC. Linewidth of gridlines The default is 0.75.
+    grid_ls  : STR. Linestyle of gridlines. The default is "dotted".
+    grid_col : STR. Color of gridlines
+    bottom   : BOOL. True to label bottom ticks.
+    top      : BOOL. True to label top ticks
+    left     : BOOL. True to label left ticks
+    right    : BOOL. True to label right ticks
+    
+    Returns
+    -------
+    ax : matplotlib.axes. Formatted axes.
+    """
+    if ax is None:
+        ax = plt.gca()
+    if add_grid:
+        ax.grid(True,ls=grid_ls,lw=grid_lw,color=grid_col,alpha=0.75) # Add Grid
+    ax.tick_params(bottom=True,top=True,left=True,right=True,which='both')
+    ax.tick_params(labelbottom=bottom,labeltop=top,labelleft=left,labelright=right,which='both')
+    ax.minorticks_on()
+    return ax
+    
+    
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~
 #%% Subplot Management
