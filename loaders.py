@@ -119,7 +119,7 @@ def load_htr(vname,N,datpath=None):
         ds = ds.sel(time=slice("1920-02-01","2006-01-01"))
     return ds[vname]
 
-def load_atmvar(vname,mnum,datpath,preproc=None,return_ds=False): 
+def load_atmvar(vname,mnum,mconfig,datpath,preproc=None,return_ds=False): 
     """
     Load all [mnum] ensemble members for variable vname, applying preprocessing function [preproc].
     
@@ -129,6 +129,8 @@ def load_atmvar(vname,mnum,datpath,preproc=None,return_ds=False):
             CESM Variable Name.
         mnum      : LIST
             Ensemble member numbers for loading
+        mconfig   : STR
+            Scenario (rcp85 or htr)
         datpath   : STR
             Location to search for the file
         preproc   : function
