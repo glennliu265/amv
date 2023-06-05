@@ -24,6 +24,7 @@ Created on Fri Jan 20 14:24:31 2023
 import glob
 import xarray as xr
 from tqdm import tqdm
+import numpy as np
 
 
 def get_scenario_str(scenario):
