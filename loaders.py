@@ -30,9 +30,9 @@ import numpy as np
 def get_scenario_str(scenario):
     """
     Get CESM 1 Scenario string where:
-        HTR    : historical   (1850-2005), "B[20TR]C5CNBDRD"
-        RCP85  : rcp 8.5      (2006-2100), "B[RCP85]C5CNBDRD"
-        PIC    : pre-industrial control  , "B[1850]C5CN"
+        HTR      : historical   (1850-2005), "B[20TR]C5CNBDRD"
+        RCP85    : rcp 8.5      (2006-2100), "B[RCP85]C5CNBDRD"
+        PIC      : pre-industrial control  , "B[1850]C5CN"
     """
     if scenario == "HTR":
         out_str = "20TR"
@@ -43,7 +43,7 @@ def get_scenario_str(scenario):
     return out_str
 
 # RCP85 Loader
-def load_rcp85(vname,N,datpath=None):
+def load_rcp85(vname,N,datpath=None,atm=True):
     """
     Load a given variable for an ensemble member for rcp85.
     Concatenates the two files for N<34.
@@ -56,6 +56,8 @@ def load_rcp85(vname,N,datpath=None):
             Ensemble member number for loading
         datpath   : STR
             Location to search for the file
+        atm       : BOOL
+            True to load atmospheric data (default)
     Returns
     -------
         ds[vname] : xr.DataArray
@@ -69,11 +71,16 @@ def load_rcp85(vname,N,datpath=None):
         
     # Append variable name to path
     vdatpath = "%s%s/" % (datpath,vname)
+    
+    if atm:
+        model_string = "cam.h0"
+    else:
+        model_string = "pop.h"
         
     # Files are split into 2
     if N<34:
-        fn1 = "b.e11.BRCP85C5CNBDRD.f09_g16.%03i.cam.h0.%s.200601-208012.nc" % (N,vname)
-        fn2 = "b.e11.BRCP85C5CNBDRD.f09_g16.%03i.cam.h0.%s.208101-210012.nc" % (N,vname)
+        fn1 = "b.e11.BRCP85C5CNBDRD.f09_g16.%03i.%s.%s.200601-208012.nc" % (N,model_string,vname)
+        fn2 = "b.e11.BRCP85C5CNBDRD.f09_g16.%03i.%s.%s.208101-210012.nc" % (N,model_string,vname)
         ds = []
         for fn in [fn1,fn2]:
             dsf = xr.open_dataset(vdatpath + fn)
@@ -84,7 +91,7 @@ def load_rcp85(vname,N,datpath=None):
         ds = xr.open_dataset(fn1)
     return ds[vname]
 
-def load_htr(vname,N,datpath=None):
+def load_htr(vname,N,datpath=None,atm=True):
     """
     Load a given variable for an ensemble member for the historical period.
     Accounts for different length of ensemble member 1 by cropping to 1920 onwards...
@@ -97,6 +104,8 @@ def load_htr(vname,N,datpath=None):
             Ensemble member number for loading
         datpath   : STR
             Location to search for the file
+        atm       : BOOL
+            True to load atmospheric data ()
     Returns
     -------
         ds[vname] : xr.DataArray
@@ -110,11 +119,16 @@ def load_htr(vname,N,datpath=None):
     # Append variable name to path
     vdatpath = "%s%s/" % (datpath,vname)
     
+    if atm:
+        model_string = "cam.h0"
+    else:
+        model_string = "pop.h"
+    
     # Ensemble 1 has a different time
     if N == 1:
-        fn = "%sb.e11.B20TRC5CNBDRD.f09_g16.%03i.cam.h0.%s.185001-200512.nc" % (vdatpath,N,vname)
+        fn = "%sb.e11.B20TRC5CNBDRD.f09_g16.%03i.%s.%s.185001-200512.nc" % (vdatpath,N,model_string,vname)
     else:
-        fn = "%sb.e11.B20TRC5CNBDRD.f09_g16.%03i.cam.h0.%s.192001-200512.nc" % (vdatpath,N,vname)
+        fn = "%sb.e11.B20TRC5CNBDRD.f09_g16.%03i.%s.%s.192001-200512.nc" % (vdatpath,N,model_string,vname)
     ds = xr.open_dataset(fn)
     if N == 1:
         ds = ds.sel(time=slice("1920-02-01","2006-01-01"))
