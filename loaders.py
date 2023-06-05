@@ -150,9 +150,9 @@ def load_atmvar(vname,mnum,mconfig,datpath,preproc=None,return_ds=False):
     for e in tqdm(range(nens)):
         N = mnum[e]
         if mconfig =='rcp85':
-            ds =loaders.load_rcp85(vname,N,datpath=datpath)
+            ds = load_rcp85(vname,N,datpath=datpath)
         elif mconfig == 'htr':
-            ds = loaders.load_htr(vname,N,datpath=datpath)
+            ds = load_htr(vname,N,datpath=datpath)
             
         # Apply Preprocessing
         if preproc is not None:
