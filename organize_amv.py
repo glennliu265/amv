@@ -41,7 +41,8 @@ Functions:
 
         ~ Detrending ~
     detrend_dim         : Linear detrend along a dimension
-    detrend_poly        : Perform polynomial detrend
+    detrend_poly        : Perform polynomial detrend (2D)
+    polyfit_1d          : 1-D polynomial fitting/detrending. Returns residuals and coeffs.
 
         ~ Classification/Grouping ~
     make_classes_nd     : Make classes based on given thresholds.
@@ -52,6 +53,7 @@ Functions:
     lon180to360         : Flip longitude from degrees West to East
     lon360to180_xr      : Flip longitude in a DataArray
     lon360to180_ds      : Flip longitude in a DataArray (repeat?)
+    linear_crop         : Remove points above/below a specified line
     
     
     ------------------------------
@@ -152,6 +154,8 @@ Functions:
         
     numpy_to_da         : Convert NumPy array into DataArray (and save)
     cftime2str          : Convert array of cftime objects to string
+    ds_dropvars         : Drop all variables except those included in the list.
+    make_encoding_dict  : Make encoding dictionary for each variable of an xarray dataset
     
     
     -----------------
