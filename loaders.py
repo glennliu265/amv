@@ -40,7 +40,6 @@ def get_scenario_str(scenario):
         out_str = "1850"
     return out_str
 
-
 # RCP85 Loader
 def load_rcp85(vname,N,datpath=None):
     """
@@ -118,6 +117,59 @@ def load_htr(vname,N,datpath=None):
     if N == 1:
         ds = ds.sel(time=slice("1920-02-01","2006-01-01"))
     return ds[vname]
+
+def load_atmvar(vname,mnum,datpath,preproc=None,return_ds=False): 
+    """
+    Load all [mnum] ensemble members for variable vname, applying preprocessing function [preproc].
+    
+    Parameters
+    ----------
+        vname     : STR
+            CESM Variable Name.
+        mnum      : LIST
+            Ensemble member numbers for loading
+        datpath   : STR
+            Location to search for the file
+        preproc   : function
+            Preprocessing function to apply to xr.dataset
+        return_ds : BOOL
+            Set to True to return dataset
+    Returns
+    -------
+        ds[vname] : xr.DataArray
+            DataArray containing the variable.
+            
+    Taken from merge_cesm1_atm.py
+    
+    """
+    nens = len(mnum)
+    var_allens = []
+    for e in tqdm(range(nens)):
+        N = mnum[e]
+        if mconfig =='rcp85':
+            ds =loaders.load_rcp85(vname,N,datpath=datpath)
+        elif mconfig == 'htr':
+            ds = loaders.load_htr(vname,N,datpath=datpath)
+            
+        # Apply Preprocessing
+        if preproc is not None:
+            ds = preproc(ds)
+        
+        if return_ds: # Just return dataset
+            var_allens.append(ds)
+        else: # Load out values
+            invar = ds.values # [Time x Lat x Lon]
+            if e == 0:
+                ntime,nlat,nlon = invar.shape
+                var_allens = np.zeros((nens,ntime,nlat,nlon))
+                times = ds.time.values
+                lon   = ds.lon.values
+                lat   = ds.lat.values
+            var_allens[e,...] = invar.copy()
+    if return_ds: # Just return dataset (has all variables within)
+        return var_allens
+    else:
+        return var_allens,times,lat,lon
 
 #%%
 
