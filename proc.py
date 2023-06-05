@@ -410,6 +410,37 @@ def detrend_poly(x,y,deg):
     ydetrend = y - model.T
     return ydetrend,model
 
+def polyfit_1d(x,y,order):
+    """
+    Similar to detrend poly but just for a 1-D array, but returning the residuals
+    as well.
+
+    Parameters
+    ----------
+    x : ARRAY
+        Input timeseries,independent variable
+    y : ARRAY
+        Target. dependent variable
+    order : INT
+        Order of the polynomial to fit
+
+    Returns
+    -------
+    coeffs : LIST
+        Coefficients of fitted polynomial in decenting order
+    newmodel : ARR
+        The fitted model.
+    residual : ARR
+        Residuals.
+
+    """
+    coeffs   = np.polyfit(x,y,order,)
+    
+    newmodel = [np.power(x,order-N)*np.array(coeffs)[N] for N in range(order+1)] 
+    newmodel = np.array(newmodel).sum(0)
+    residual = y - newmodel
+    return coeffs,newmodel,residual
+
 #%% ~ Classification/Grouping
 
 def make_classes_nd(y,thresholds,exact_value=False,reverse=False,dim=0,debug=False):
@@ -625,7 +656,89 @@ def lon360to180_ds(ds,lonname='longitude'):
     ds = ds.assign_coords(newcoord).sortby(lonname)
     return ds
 
-
+def linear_crop(invar,lat,lon,ptstart,ptend,belowline=True,along_x=True,debug=False):
+    
+    """
+    Remove points above/below a selected line. Taken from landicemask_comparison,
+    and used for masking out Pacific Ocean points.
+    
+    Inputs
+    ------
+        1. invar (ARRAY: [lon x lat])   :: Input variable
+        2. lat (ARRAY: [lat])           :: Latitudes
+        3. lon (ARRAY: [lon])           :: Longitudes
+        4. ptstart (LIST: [Lon,Lat])    :: Start point for crop line (upper left)
+        5. ptend (LIST: [Lon,Lat])      :: End point for crop line (lower right)
+        6. belowline (BOOL)             :: True to remove points below line, False=Above
+        7. along_x (BOOL)               :: True to move zonally (False=meridionally)
+        8. debug (BOOL)                 :: True to print outputs
+    Output
+    ------
+        1. pmfix (ARRAY: [lon x lat])   :: Edited variable with points removed
+    """
+    
+    # Get the indices for starting and ending points
+    xstart,ystart = find_latlon(ptstart[0],ptstart[1],lon,lat)
+    xend,yend     = find_latlon(ptend[0],ptend[1],lon,lat)
+    
+    # Copy variable
+    pmfix         = invar.copy()
+    
+    # Starting X,Y for loop
+    x0 = ptstart[0] 
+    y0 = ptstart[1]
+        
+    # Moving zonally, cut out points
+    if along_x:
+        
+        # Calculate the dx and dy moving zonally
+        dx = (ptend[0]-ptstart[0])/ np.abs((xend-xstart))
+        dy = (ptend[1]-ptstart[1])/ np.abs((xend-xstart)) # Abs() for decreasing values
+        
+        # Starting index for loop
+        kx = xstart
+        for i in range(np.abs(xend-xstart)):
+            if belowline:
+                kremove = np.where(lat <= y0)
+                word = "less"
+            else: # Remove points above the line
+                kremove = np.where(lat >= y0)
+                word = "greater"
+            pmfix[kx,kremove] = np.nan
+            if debug:
+                print("Location is %i Lon, eliminating %i points with Lat %s than %i" % (x0,len(kremove),word,y0))
+            # Add to Index
+            kx += (1*np.sign(xend-xstart))
+            y0 += dy
+            x0 += dx
+    else: # Move meridionally
+        # Calculate the dx or dy moving meridionally
+        dx = (ptend[0]-ptstart[0])/ np.abs((yend-ystart))
+        dy = (ptend[1]-ptstart[1])/ np.abs((yend-ystart)) # Abs() for decreasing values
+        print(dx,dy)
+        # Starting X,y, and y-index
+        ky = ystart
+        for i in range(np.abs(yend-ystart)):
+            if belowline:
+                kremove = np.where(lon <= x0)
+                word = "less"
+            else: # Remove points above the line
+                kremove = np.where(lon >= x0)
+                word = "greater"
+            pmfix[kremove,ky] = np.nan
+            if debug:
+                print("Location is %i Lat, eliminating %i points with Lon %s than %i" % (y0,len(kremove),word,x0))
+            # Add to Index
+            ky += (1*np.sign(yend-ystart))
+            y0 += dy
+            x0 += dx
+    if debug: # Make a plot
+        pts     = np.vstack([ptstart,ptend])
+        fig,ax = plt.subplots(1,1,subplot_kw={'projection':ccrs.PlateCarree()})
+        pcm = ax.pcolormesh(lon,lat,pmfix[:,:].T)
+        ax.plot(pts[:,0],pts[:,1],color="y",marker="x") 
+        fig.colorbar(pcm,ax=ax)
+    return pmfix
 
 """
 ------------------------------
@@ -2519,6 +2632,23 @@ def cftime2str(times):
         newstr = "%04i-%02i-%02i" % (times[t].year,times[t].month,times[t].day)
         newtimes.append(newstr)
     return np.array(newtimes)
+
+
+def ds_dropvars(ds,keepvars):
+    '''Drop variables in ds whose name is not in the list [keepvars]'''
+    # Drop unwanted dimension
+    dsvars = list(ds.variables)
+    remvar = [i for i in dsvars if i not in keepvars]
+    ds = ds.drop(remvar)
+    return ds
+
+def make_encoding_dict(ds,encoding_type='zlib'):
+    keys   = list(ds.keys())
+    values = ({encoding_type:True},) * len(keys)
+    encoding_dict = { k:v for (k,v) in zip(keys,values)}
+    return encoding_dict
+    
+    
 """
 -----------------
 |||  Labeling ||| ****************************************************
@@ -2596,3 +2726,5 @@ def fix_febstart(ds):
         correctedtime = xr.cftime_range(start=startyr,periods=nmon,freq="MS",calendar="noleap")
         ds = ds.assign_coords(time=correctedtime) 
     return ds
+
+
