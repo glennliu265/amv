@@ -674,7 +674,7 @@ def linear_crop(invar,lat,lon,ptstart,ptend,belowline=True,along_x=True,debug=Fa
         8. debug (BOOL)                 :: True to print outputs
     Output
     ------
-        1. pmfix (ARRAY: [lon x lat])   :: Edited variable with points removed
+        1. cropped_mask (ARRAY: [lon x lat])   :: Edited variable with points removed
     """
     
     # Get the indices for starting and ending points
@@ -682,7 +682,7 @@ def linear_crop(invar,lat,lon,ptstart,ptend,belowline=True,along_x=True,debug=Fa
     xend,yend     = find_latlon(ptend[0],ptend[1],lon,lat)
     
     # Copy variable
-    pmfix         = invar.copy()
+    cropped_mask         = invar.copy()
     
     # Starting X,Y for loop
     x0 = ptstart[0] 
@@ -704,7 +704,7 @@ def linear_crop(invar,lat,lon,ptstart,ptend,belowline=True,along_x=True,debug=Fa
             else: # Remove points above the line
                 kremove = np.where(lat >= y0)
                 word = "greater"
-            pmfix[kx,kremove] = np.nan
+            cropped_mask[kx,kremove] = np.nan
             if debug:
                 print("Location is %i Lon, eliminating %i points with Lat %s than %i" % (x0,len(kremove),word,y0))
             # Add to Index
@@ -725,7 +725,7 @@ def linear_crop(invar,lat,lon,ptstart,ptend,belowline=True,along_x=True,debug=Fa
             else: # Remove points above the line
                 kremove = np.where(lon >= x0)
                 word = "greater"
-            pmfix[kremove,ky] = np.nan
+            cropped_mask[kremove,ky] = np.nan
             if debug:
                 print("Location is %i Lat, eliminating %i points with Lon %s than %i" % (y0,len(kremove),word,x0))
             # Add to Index
@@ -735,10 +735,10 @@ def linear_crop(invar,lat,lon,ptstart,ptend,belowline=True,along_x=True,debug=Fa
     if debug: # Make a plot
         pts     = np.vstack([ptstart,ptend])
         fig,ax = plt.subplots(1,1,subplot_kw={'projection':ccrs.PlateCarree()})
-        pcm = ax.pcolormesh(lon,lat,pmfix[:,:].T)
+        pcm = ax.pcolormesh(lon,lat,cropped_mask[:,:].T)
         ax.plot(pts[:,0],pts[:,1],color="y",marker="x") 
         fig.colorbar(pcm,ax=ax)
-    return pmfix
+    return cropped_mask
 
 """
 ------------------------------
@@ -2683,7 +2683,29 @@ def makedir(expdir):
     else:
         print(expdir+" was found!")
     return None
-        
+
+def checkfile(fn,verbose=True):
+    """
+    Check if "fn" exists, and returns False if not.
+    
+    Parameters
+    ----------
+    fn : STR
+        File to check, including the absolute or relative path
+
+    """
+    checkdir = os.path.isfile(fn)
+    if not checkdir:
+        exists_flag = False
+    else:
+        exists_flag = True
+    if verbose:
+        if exists_flag:
+            print(fn + " was found!")
+        else:
+            print(fn + " Not found!")
+    return exists_flag
+
 def get_monstr(nletters=None):
     """
     Get Array containing strings of first 3 letters of reach month
@@ -2716,7 +2738,7 @@ def get_stringnum(instring,keyword,nchars=1,verbose=True,return_pos=False):
 def fix_febstart(ds):
     # Copied from preproc_CESM.py on 2022.11.15
     if ds.time.values[0].month != 1:
-        print("Warning, first month is %s"% ds.time.values[0])
+        print("Warning, first month is %s. Fixing."% ds.time.values[0])
         # Get starting year, must be "YYYY"
         startyr = str(ds.time.values[0].year)
         while len(startyr) < 4:
