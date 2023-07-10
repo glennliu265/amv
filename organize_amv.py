@@ -74,7 +74,7 @@ Functions:
     
         
         ~ EOF Analysis ~
-    eof_simple          : Perform EOF Analysis (cr. Yu-Chiao)
+    eof_simple          : Perform EOF Analysis (cr. Yu-Chiao Liang)
     
         ~ Correlation ~
     pearsonr_2d         : Compute Pearson's Correlation Coefficient for 2D matrix.
@@ -156,7 +156,7 @@ Functions:
     cftime2str          : Convert array of cftime objects to string
     ds_dropvars         : Drop all variables except those included in the list.
     make_encoding_dict  : Make encoding dictionary for each variable of an xarray dataset
-    
+    npz_to_dict         : Make loaded npz file a dict
     
     -----------------
     |||  Labeling ||| ****************************************************
@@ -166,6 +166,7 @@ Functions:
     make_locstring      : Make file and plot title names of lat/lon coordinates
     make_locstring_bbox : Make file and plot title names for bounding box
     makedir             : Check to see if directory exists, and make new one if not.
+    checkfile           : Check to see if a file exists. Return True if so.
     get_monstr          : Get Array containing strings of first N letters of each month
     addstrtoext         : Append string to end of file, before the extension
     get_stringnum       : Search for starting positive of keyword in a string

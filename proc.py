@@ -2647,7 +2647,16 @@ def make_encoding_dict(ds,encoding_type='zlib'):
     values = ({encoding_type:True},) * len(keys)
     encoding_dict = { k:v for (k,v) in zip(keys,values)}
     return encoding_dict
-    
+
+def npz_to_dict(npz,drop_pickle=True):
+    """Convert loaded npz file to dict"""
+    keys    = npz.files
+    if drop_pickle:
+        if "allow_pickle" in keys:
+            id_pickle = keys.index("allow_pickle")
+            keys.pop(id_pickle)# Drop allow_pickle
+    newdict = {keys[k]: npz[keys[k]] for k in range(len(keys))}
+    return newdict
     
 """
 -----------------
@@ -2705,7 +2714,7 @@ def checkfile(fn,verbose=True):
         else:
             print(fn + " Not found!")
     return exists_flag
-
+    
 def get_monstr(nletters=None):
     """
     Get Array containing strings of first 3 letters of reach month
