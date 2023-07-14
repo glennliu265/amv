@@ -79,6 +79,8 @@ Functions:
         ~ Correlation ~
     pearsonr_2d         : Compute Pearson's Correlation Coefficient for 2D matrix.
     calc_pearsonconf    : Compute upper and lower bounds using fisher-Z transform (?)
+    patterncorr         : Compute the pattern correlation between 2 2-D maps (modified from slutil)
+    patterncorr_nd      : Vectorized version of paterncorr script
     
         ~ Significance Testing ~
     ttest_rho           : Perform T-Test

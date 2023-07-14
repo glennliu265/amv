@@ -1424,6 +1424,56 @@ def calc_pearsonconf(rho,conf,tails,n):
     c_upper = np.tanh(z_upper)
     return c_lower,c_upper
 
+def patterncorr(map1,map2):
+    # From Taylor 2001,Eqn. 1, Ignore Area Weights
+    # Calculate pattern correation between two 2d variables (lat x lon)
+    
+    # Get Non NaN values, Flatten, Array Size
+    map1ok = map1.copy()
+    map1ok = map1ok[~np.isnan(map1ok)].flatten()
+    map2ok = map2.copy()
+    map2ok = map2ok[~np.isnan(map2ok)].flatten()
+    N      = len(map1ok)
+    
+    # Anomalize (remove spatial mean and calc spatial stdev)
+    map1a  = map1ok - map1ok.mean()
+    map2a  = map2ok - map2ok.mean()
+    std1   = np.std(map1ok)
+    std2   = np.std(map2ok)
+    
+    # Calculate
+    R = 1/N*np.sum(map1a*map2a)/(std1*std2)
+    return R
+
+def pattercorr_nd(reference_map,target_maps,axis=0):
+    # Vectorized version of patterncorr using array broadcasting
+    # Computes along [axis] of target_maps (default=0)
+    
+    # Combine dimensions
+    if axis != 0: # Move dim to the front
+        target_maps = dim2front(target_maps,axis,verbose=True)
+    N_space         = np.prod(reference_map.shape)
+    reference_map   = reference_map.reshape(N_space) # [Space]
+    target_maps     = target_maps.reshape((target_maps.shape[0],N_space)) # [Y x Space]
+    
+    # Remove NaNs (only use points where both are NOT NaN)
+    okpts_ref                 = ~np.isnan(reference_map)
+    okpts_targ                = ~np.isnan(target_maps.sum(0))
+    okpts                     = okpts_ref * okpts_targ # Must be non-NaN in both
+    reference_map,target_maps = reference_map[okpts],target_maps[:,okpts]
+    N_space_ok                = reference_map.shape[0]
+    
+    # Anomalize
+    refa     = reference_map - reference_map.mean()     # [Space]
+    targa   = target_maps - target_maps.mean(1)[:,None] # [Y x Space]
+    refstd  = np.std(refa)                              # [1]
+    targstd = np.std(targa,1)                           # [Y x 1]
+    
+    # Compute
+    R       = 1/N_space_ok * np.sum(refa[None,:] * targa,1) / (refstd * targstd) # [Y]
+    return R    
+    
+    
 #%% ~Significance Testing
 
 def ttest_rho(p,tails,dof):
