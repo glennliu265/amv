@@ -59,6 +59,8 @@
         ~ Quick Visualization (qv) series
     qv_seasonal         : Plot the seasonal cycle of 2D variable
 """
+
+
 # Import
 import sys
 import cmocean
@@ -165,22 +167,28 @@ def add_ylabel(label,ax=None,x=-0.10,y=0.5):
     return txt
 
 def add_ticks(ax=None,add_grid=True,grid_lw=0.5,grid_ls="dotted",grid_col="gray",
-              bottom=True,top=False,left=True,right=False):
+              bottom=True,top=False,left=True,right=False,facecolor="white",
+              spinecolor="k",tickcolor="k",ticklabelcolor="k"):
     """
     Add gridlines and ticks (+minorticks) to perimeter of whole plot 
     (control labeling with bottom, top, left, right)
     
     Parameters (all optional)
     ----------
-    ax       : matplotlib axes to format. The default is None.
-    add_grid : BOOL. True to add gridlines
-    grid_lw  : NUMERIC. Linewidth of gridlines The default is 0.75.
-    grid_ls  : STR. Linestyle of gridlines. The default is "dotted".
-    grid_col : STR. Color of gridlines
-    bottom   : BOOL. True to label bottom ticks.
-    top      : BOOL. True to label top ticks
-    left     : BOOL. True to label left ticks
-    right    : BOOL. True to label right ticks
+    ax         : matplotlib axes to format. The default is None.
+    add_grid   : BOOL. True to add gridlines
+    grid_lw    : NUMERIC. Linewidth of gridlines The default is 0.75.
+    grid_ls    : STR. Linestyle of gridlines. The default is "dotted".
+    grid_col   : STR. Color of gridlines
+    bottom     : BOOL. True to label bottom ticks.
+    top        : BOOL. True to label top ticks
+    left       : BOOL. True to label left ticks
+    right      : BOOL. True to label right ticks
+    facecolor  : STR  Matplotlib named color or RGB tuple for background
+    spinecolor : STR  Border Color
+    tickcolor  : STR Tick color
+    ticklabelcolor : STR tick label color
+    
     
     Returns
     -------
@@ -189,14 +197,13 @@ def add_ticks(ax=None,add_grid=True,grid_lw=0.5,grid_ls="dotted",grid_col="gray"
     if ax is None:
         ax = plt.gca()
     if add_grid:
-        ax.grid(True,ls=grid_ls,lw=grid_lw,color=grid_col,alpha=0.75) # Add Grid
-    ax.tick_params(bottom=True,top=True,left=True,right=True,which='both')
+        ax.grid(True,ls=grid_ls,lw=grid_lw,color=grid_col,alpha=0.75,zorder=1) # Add Grid
+    ax.tick_params(bottom=True,top=True,left=True,right=True,which='both',color=tickcolor,labelcolor=ticklabelcolor)
     ax.tick_params(labelbottom=bottom,labeltop=top,labelleft=left,labelright=right,which='both')
     ax.minorticks_on()
+    ax.set_facecolor(facecolor)
+    ax.spines[:].set_color(spinecolor)
     return ax
-    
-    
-
 
 # ~~~~~~~~~~~~~~~~~~~~~~
 #%% Subplot Management
