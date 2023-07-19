@@ -1445,7 +1445,7 @@ def patterncorr(map1,map2):
     R = 1/N*np.sum(map1a*map2a)/(std1*std2)
     return R
 
-def pattercorr_nd(reference_map,target_maps,axis=0):
+def patterncorr_nd(reference_map,target_maps,axis=0,return_N=False):
     # Vectorized version of patterncorr using array broadcasting
     # Computes along [axis] of target_maps (default=0)
     
@@ -1471,6 +1471,8 @@ def pattercorr_nd(reference_map,target_maps,axis=0):
     
     # Compute
     R       = 1/N_space_ok * np.sum(refa[None,:] * targa,1) / (refstd * targstd) # [Y]
+    if return_N:
+        return R,N_space_ok
     return R    
     
     
