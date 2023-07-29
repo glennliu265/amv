@@ -26,7 +26,6 @@ import xarray as xr
 from tqdm import tqdm
 import numpy as np
 
-
 def get_scenario_str(scenario):
     """
     Get CESM 1 Scenario string where:
@@ -133,7 +132,7 @@ def load_htr(vname,N,datpath=None,atm=True):
     if N == 1:
         ds = ds.sel(time=slice("1920-02-01","2006-01-01"))
     return ds[vname]
-
+    
 def load_atmvar(vname,mnum,mconfig,datpath,preproc=None,return_ds=False): 
     """
     Load all [mnum] ensemble members for variable vname, applying preprocessing function [preproc].
@@ -227,7 +226,6 @@ def get_lens_nc(modelname,vname,e,compname="Amon"):
         else:
             ncname = "%s_%s_MPI-ESM_historical_rcp85_r%ii1p1_185001-209912.nc" % (vname,compname,e+1)
     return ncname
-
 
 # def get_cesm1_ocn_nclist(varname,scenario="HTR",path=None):
     

@@ -168,7 +168,7 @@ def add_ylabel(label,ax=None,x=-0.10,y=0.5):
 
 def add_ticks(ax=None,add_grid=True,grid_lw=0.5,grid_ls="dotted",grid_col="gray",
               bottom=True,top=False,left=True,right=False,facecolor="white",
-              spinecolor="k",tickcolor="k",ticklabelcolor="k"):
+              spinecolor="k",tickcolor="k",ticklabelcolor="k",fontsize=12):
     """
     Add gridlines and ticks (+minorticks) to perimeter of whole plot 
     (control labeling with bottom, top, left, right)
@@ -199,7 +199,7 @@ def add_ticks(ax=None,add_grid=True,grid_lw=0.5,grid_ls="dotted",grid_col="gray"
     if add_grid:
         ax.grid(True,ls=grid_ls,lw=grid_lw,color=grid_col,alpha=0.75,zorder=1) # Add Grid
     ax.tick_params(bottom=True,top=True,left=True,right=True,which='both',color=tickcolor,labelcolor=ticklabelcolor)
-    ax.tick_params(labelbottom=bottom,labeltop=top,labelleft=left,labelright=right,which='both')
+    ax.tick_params(labelbottom=bottom,labeltop=top,labelleft=left,labelright=right,which='both',labelsize=fontsize)
     ax.minorticks_on()
     ax.set_facecolor(facecolor)
     ax.spines[:].set_color(spinecolor)
