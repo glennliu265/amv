@@ -2709,7 +2709,55 @@ def npz_to_dict(npz,drop_pickle=True):
             keys.pop(id_pickle)# Drop allow_pickle
     newdict = {keys[k]: npz[keys[k]] for k in range(len(keys))}
     return newdict
+
+def format_ds(da,latname='lat',lonname='lon',timename='time'):
+    """
+    Format dataset to match 'lat' from -90 to 90, 'lon' from -180 to 180 and 'time'
+    and have consistent specified names. Taken from GulfStream_TBI/grad_funcs on 2023.08.29
     
+    Parameters
+    ----------
+    da          : [xr.DataArray] DataArray to Format
+    latname     : STR. Name of latitude dimension. The default is 'lat'.
+    lonname     : STR. Name of longitude dimension The default is 'lon'.
+    timename    : STR. Name of time dimension. The default is 'time'.
+
+    Returns
+    -------
+    da : [xr.DataArray], formatted DataArray
+
+    """
+    # Rename lat, lon time
+    format_dict = {}
+    if latname != "lat":         # Rename Lat
+        print("Renaming lat")
+        format_dict[latname] = 'lat'
+    if lonname != "lon":         # Rename Lon
+        print("Renaming lon")
+        format_dict[lonname] = 'lon'
+    if timename != "time":       # Rename time
+        print("Renaming time")
+        format_dict[timename] = 'time'
+    if len(format_dict) > 0:
+        da = da.rename(format_dict)
+    
+    # Flip Latitude to go from -90 to 90
+    if (da[latname][1] - da[latname][0]) < 0:
+        print("Flipping Latitude to go from South to North")
+        format_dict['lat_original'] = da[latname].values
+        da = da.isel(**{latname:slice(None,None,-1)})
+        
+    # Flip longitude to go from -180 to 180
+    if np.any(da[lonname]>180):
+        print("Flipping Longitude to go from -180 to 180")
+        format_dict['lon_original'] = da[lonname].values
+        newcoord = {lonname : ((da[lonname] + 180) % 360) - 180}
+        da       = da.assign_coords(newcoord).sortby(lonname)
+    
+    # Transpose the datase
+    da = da.transpose('time','lat','lon')
+    return da
+
 """
 -----------------
 |||  Labeling ||| ****************************************************

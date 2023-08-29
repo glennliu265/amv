@@ -159,6 +159,7 @@ Functions:
     ds_dropvars         : Drop all variables except those included in the list.
     make_encoding_dict  : Make encoding dictionary for each variable of an xarray dataset
     npz_to_dict         : Make loaded npz file a dict
+    format_ds           : Standardize Lat/Lon direction and naming in netCDFs
     
     -----------------
     |||  Labeling ||| ****************************************************
