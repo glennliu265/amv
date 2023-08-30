@@ -22,6 +22,7 @@
     label_sp            : Add text label to each subplot
     
         ~ Cartopy/Mapping
+    geosubplots         : Make subplots with geoaxes
     init_map            : Quickly initialize a map for plotting
     plot_box            : Plot bounding box
     add_coast_grid      : Add land and gridlines (with fill)
@@ -333,6 +334,11 @@ def label_sp(sp_id,case='upper',inside=True,ax=None,fig=None,x=0.0,y=1.0,
 # ~~~~~~~~~~~~~~~~~~~~~~
 #%% Cartopy/Mapping
 # ~~~~~~~~~~~~~~~~~~~~~~
+
+def geosubplots(nrows=1,ncols=1,figsize=(12,4),proj=ccrs.PlateCarree()):
+    # Shortcut for making subplots with geoaxis
+    fig,ax = plt.subplots(nrows,ncols,figsize=figsize,subplot_kw={'projection':PlateCarree()})
+    return fig,ax
 
 def init_map(bbox,crs=ccrs.PlateCarree(),ax=None,return_gl=False):
     """
