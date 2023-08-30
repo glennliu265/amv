@@ -801,7 +801,7 @@ def regress_2d(A,B,nanwarn=1,verbose=True):
         
         # Calculate denominator, summing over N
         Aanom2 = np.power(Aanom,2)
-        denom = np.nansum(Aanom2,axis=a_axis)    
+        denom  = np.nansum(Aanom2,axis=a_axis)    
         
         # Calculate Beta
         beta = Aanom @ Banom / denom
@@ -2710,7 +2710,7 @@ def npz_to_dict(npz,drop_pickle=True):
     newdict = {keys[k]: npz[keys[k]] for k in range(len(keys))}
     return newdict
 
-def format_ds(da,latname='lat',lonname='lon',timename='time'):
+def format_ds(da,latname='lat',lonname='lon',timename='time',lon180=True):
     """
     Format dataset to match 'lat' from -90 to 90, 'lon' from -180 to 180 and 'time'
     and have consistent specified names. Taken from GulfStream_TBI/grad_funcs on 2023.08.29
@@ -2721,6 +2721,7 @@ def format_ds(da,latname='lat',lonname='lon',timename='time'):
     latname     : STR. Name of latitude dimension. The default is 'lat'.
     lonname     : STR. Name of longitude dimension The default is 'lon'.
     timename    : STR. Name of time dimension. The default is 'time'.
+    lon180      : BOOL. True to flip to -180 to 180, False to keep at 0 to 360
 
     Returns
     -------
@@ -2748,12 +2749,20 @@ def format_ds(da,latname='lat',lonname='lon',timename='time'):
         da = da.isel(**{latname:slice(None,None,-1)})
         
     # Flip longitude to go from -180 to 180
-    if np.any(da[lonname]>180):
-        print("Flipping Longitude to go from -180 to 180")
-        format_dict['lon_original'] = da[lonname].values
-        newcoord = {lonname : ((da[lonname] + 180) % 360) - 180}
-        da       = da.assign_coords(newcoord).sortby(lonname)
-    
+    if lon180:
+        if np.any(da[lonname]>180):
+            print("Flipping Longitude to go from -180 to 180")
+            format_dict['lon_original'] = da[lonname].values
+            newcoord = {lonname : ((da[lonname] + 180) % 360) - 180}
+            da       = da.assign_coords(newcoord).sortby(lonname)
+    else:
+        if np.any(da[lonname]<0):
+            # Note need to test this
+            print("Flipping Longitude to go from 0 to 360")
+            format_dict['lon_original'] = da[lonname].values
+            newcoord = {lonname : ((da[lonname] + 360) % 360)}
+            da       = da.assign_coords(newcoord).sortby(lonname)
+        
     # Transpose the datase
     da = da.transpose('time','lat','lon')
     return da
