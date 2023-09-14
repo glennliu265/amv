@@ -68,16 +68,19 @@ def load_rcp85(vname,N,datpath=None,atm=True):
     Taken from preproc_CESM1_LENS.py on 2023.01.24
     
     """
+    if atm:
+        model_string = "cam.h0"
+        comp         = "atm"
+    else:
+        model_string = "pop.h"
+        comp         = "ocn"
     if datpath is None:
-        datpath = "/vortex/jetstream/climate/data1/yokwon/CESM1_LE/downloaded/atm/proc/tseries/monthly/"
+        datpath = "/vortex/jetstream/climate/data1/yokwon/CESM1_LE/downloaded/%s/proc/tseries/monthly/" % comp
         
     # Append variable name to path
     vdatpath = "%s%s/" % (datpath,vname)
     
-    if atm:
-        model_string = "cam.h0"
-    else:
-        model_string = "pop.h"
+
         
     # Files are split into 2
     if N<34:
@@ -115,16 +118,18 @@ def load_htr(vname,N,datpath=None,atm=True):
     Taken from preproc_CESM1_LENS.py on 2023.01.24
     
     """
+    if atm:
+        model_string = "cam.h0"
+        comp         = "atm"
+    else:
+        model_string = "pop.h"
+        comp         = "ocn"
+        
     if datpath is None:
-        datpath = "/vortex/jetstream/climate/data1/yokwon/CESM1_LE/downloaded/atm/proc/tseries/monthly/"
+        datpath = "/vortex/jetstream/climate/data1/yokwon/CESM1_LE/downloaded/%s/proc/tseries/monthly/" % comp
     
     # Append variable name to path
     vdatpath = "%s%s/" % (datpath,vname)
-    
-    if atm:
-        model_string = "cam.h0"
-    else:
-        model_string = "pop.h"
     
     # Ensemble 1 has a different time
     if N == 1:
