@@ -26,6 +26,9 @@ import xarray as xr
 from tqdm import tqdm
 import numpy as np
 
+def get_mnum():
+    return np.concatenate([np.arange(1,36),np.arange(101,108)])
+
 def get_scenario_str(scenario):
     """
     Get CESM 1 Scenario string where:
