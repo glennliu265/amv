@@ -1475,8 +1475,7 @@ def patterncorr_nd(reference_map,target_maps,axis=0,return_N=False):
         return R,N_space_ok
     return R    
     
-    
-#%% ~Significance Testing
+#%% ~ Significance Testing
 
 def ttest_rho(p,tails,dof):
     """
@@ -1733,7 +1732,7 @@ def find_tlatlon(ds,lonf,latf,verbose=True):
         print("Closest lat to %.2f was %.2f" % (latf,foundlat))
     return ds.isel(nlon=klon,nlat=klat)
 
-def find_nan(data,dim,val=None,return_dict=False):
+def find_nan(data,dim,val=None,return_dict=False,verbose=True):
     """
     For a 2D array, remove any point if there is a nan in dimension [dim].
     
@@ -1765,15 +1764,20 @@ def find_nan(data,dim,val=None,return_dict=False):
     if len(data.shape) > 1:
         if dim == 0:
             okdata = data[:,okpts]
+            clean_dim = 1
         elif dim == 1:    
             okdata = data[okpts,:]
+            clean_dim = 0
     else:
         okdata = data[okpts]
+    if verbose:
+        print("Found %i NaN Points along axis %i." % (data.shape[clean_dim] - okdata.shape[clean_dim],clean_dim))
     if return_dict: # Return dictionary with clearer arguments
         nandict = {"cleaned_data" : okdata,
                    "nan_indices"  : knan,
                    "ok_indices"   : okpts,
                    }
+        return nandict
     return okdata,knan,okpts
 
 def remap_nan(lon,lat,okdata,okpts,lonfirst=True):
@@ -2183,7 +2187,7 @@ def coarsen_byavg(invar,lat,lon,deg,tol,latweight=True,verbose=True,newlatlon=No
             print(msg,end="\r",flush=True)
     return outvar,lat5,lon5
 
-def getpt_pop(lonf,latf,ds,searchdeg=0.5,returnarray=1):
+def getpt_pop(lonf,latf,ds,searchdeg=0.5,returnarray=1,debug=False):
     
     
     """ 
@@ -2216,7 +2220,9 @@ def getpt_pop(lonf,latf,ds,searchdeg=0.5,returnarray=1):
     # Find the specified point on curvilinear grid and average values
     selectmld = ds.where((lonfc-searchdeg < ds.TLONG) & (ds.TLONG < lonfc+searchdeg)
                     & (latf-searchdeg < ds.TLAT) & (ds.TLAT < latf+searchdeg),drop=True)
-    
+    if debug:
+        print("Found %i points" % (len(selectmld)))
+        
     pmean = selectmld.mean(('nlon','nlat'))
     
     if returnarray ==1:
@@ -2523,13 +2529,13 @@ def calc_T2(rho,axis=0):
 
 
 
-#%%
+#%% ~ Dimension Gymnastics
 """
 ----------------------------
 ||| Dimension Gymnastics ||| **********************************************
 ----------------------------
 """
-#%% ~ Dimension Gymnastics
+
 
 def combine_dims(var,nkeep,debug=True):
     """
