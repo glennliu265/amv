@@ -482,10 +482,11 @@ def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_
     return ax
 
 def init_fig(nrow,ncol,proj=ccrs.PlateCarree(),figsize=(8,6),
-             sharex=False,sharey=False):
+             sharex=False,sharey=False,constrained_layout=True):
     fig,ax=plt.subplots(nrow,ncol,figsize=figsize,
                         sharex=sharex,sharey=sharey,
-                        subplot_kw={'projection':proj})
+                        subplot_kw={'projection':proj},
+                        constrained_layout=constrained_layout)
     return fig,ax
 
 
