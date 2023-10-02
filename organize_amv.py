@@ -83,6 +83,7 @@ Functions:
     patterncorr_nd      : Vectorized version of paterncorr script
     
         ~ Significance Testing ~
+    calc_dof            : Compute effective degrees of freedom
     ttest_rho           : Perform T-Test
     
         ~ Other ~
@@ -110,6 +111,7 @@ Functions:
     remap_nan           : Replace output of find_nan back into an Array with the original size
     sel_region          : Select bounding box and optinally perform average or sum (uses area_avg)
     sel_region_cv       : Select region for curvilienear/2D points in POP
+    sel_region_xr       : Select region for xarray DataSet or DataArray
     get_posneg          : get positive/negative years of a variable from an index/timeseries
     get_posneg_sigma    : get positive/neutral/negative years for a variable using a stdev threshold
     get_topN            : Get indices for top/bottom N values in an array (along last dimension)

@@ -1476,6 +1476,68 @@ def patterncorr_nd(reference_map,target_maps,axis=0,return_N=False):
     return R    
     
 #%% ~ Significance Testing
+## ND version (incomplete)
+# def calc_dof(ts,dim=0):
+#     """
+#     Calculate effective degrees of freedom for autocorrelated timeseries.
+#     Assumes time is first dim, but can specify otherwise.
+    
+#     ts :: ARRAY [time x otherdims] 1-D or 2-D Array
+    
+#     """
+#     # Create Lagged Timeseries
+#     n_tot = ts.shape[dim]
+#     ts0   = np.take(ts,np.arange(0,n_tot-1),dim)
+#     ts1   = np.take(ts,np.arange(1,n_tot),dim)
+    
+#     # Calculate Lag 1 Autocorrelation
+#     #tscorr = lambda ts0,ts1 : np.corrcoef(ts0[0,:],ts1[0,:])[0,1]
+#     #corrs  = np.apply_along_axis(tscorr,0)
+    
+#     #n_eff = 
+#     return dof
+
+def calc_dof(ts,ts1=None):
+    """
+    Calculate effective degrees of freedom for autocorrelated timeseries.
+    Assumes time is first dim, but can specify otherwise. Based on Eq. 31
+    from Bretherton et al. 1998 (originally Bartlett 1935):
+        
+        N_eff = N * (1-r1*r2) / (1+r1*r2) 
+        
+    Inputs:
+        ts          :: ARRAY [time] 1-D or 2-D Array
+        ts1         :: ARRAY [time] Another timeseries to correlate
+    Output:
+        dof         :: Int Effective Degrees of Freedom
+        
+    """
+    n_tot = len(ts)
+    
+    # Compute R1 for first timeseries
+    ts_base         = ts[:-1]
+    ts_lag          = ts[1:]
+    r1              = np.corrcoef(ts_base,ts_lag)[0,1]
+    if r1<0:
+        print("Warning, r1 is less than zero: %f. Taking abs value!" % (r1))
+        r1 = np.abs(r1)
+    if ts1 is None: # Square R1
+        rho_in = r1**2
+        
+    else: # Compute R2 and compute product
+        ts1_base    = ts1[:-1]
+        ts1_lag     = ts1[1:]
+        r2          = np.corrcoef(ts1_base,ts1_lag)[0,1]
+        if r2<0:
+            print("Warning, r2 is less than zero: %f. Taking abs value!" % (r2))
+            r2 = np.abs(r2)
+        rho_in      = r1*r2
+
+        
+    # Compute DOF
+    dof   = n_tot * (1-rho_in) / (1+rho_in)
+
+    return dof
 
 def ttest_rho(p,tails,dof):
     """
@@ -1953,6 +2015,24 @@ def sel_region_cv(tlon,tlat,invar,bbox,debug=False,return_mask=False):
         return sellon,sellat,selvar,masksel
     return sellon,sellat,selvar
 
+
+def sel_region_xr(ds,bbox):
+    """
+    Selects region given bbox = [West Bnd, East Bnd, South Bnd, North Bnd]
+    
+    Parameters
+    ----------
+    ds : xr.DataArray or Dataset
+        Assumes "lat" and "lon" variables are [present]
+    bbox : LIST
+        Boundaries[West Bnd, East Bnd, South Bnd, North Bnd]
+        
+    Returns
+    -------
+        Subsetted datasetor dataarray
+    """
+    return ds.sel(lon=slice(bbox[0],bbox[1]),lat=slice(bbox[2],bbox[3]))
+    
 def get_posneg(varr,idx,return_id=False):
     """
     Get positive and negative years of an varianble
@@ -2716,7 +2796,7 @@ def npz_to_dict(npz,drop_pickle=True):
     newdict = {keys[k]: npz[keys[k]] for k in range(len(keys))}
     return newdict
 
-def format_ds(da,latname='lat',lonname='lon',timename='time',lon180=True):
+def format_ds(da,latname='lat',lonname='lon',timename='time',lon180=True,verbose=True):
     """
     Format dataset to match 'lat' from -90 to 90, 'lon' from -180 to 180 and 'time'
     and have consistent specified names. Taken from GulfStream_TBI/grad_funcs on 2023.08.29
@@ -2750,21 +2830,24 @@ def format_ds(da,latname='lat',lonname='lon',timename='time',lon180=True):
     
     # Flip Latitude to go from -90 to 90
     if (da[latname][1] - da[latname][0]) < 0:
-        print("Flipping Latitude to go from South to North")
+        if verbose:
+            print("Flipping Latitude to go from South to North")
         format_dict['lat_original'] = da[latname].values
         da = da.isel(**{latname:slice(None,None,-1)})
         
     # Flip longitude to go from -180 to 180
     if lon180:
         if np.any(da[lonname]>180):
-            print("Flipping Longitude to go from -180 to 180")
+            if verbose:
+                print("Flipping Longitude to go from -180 to 180")
             format_dict['lon_original'] = da[lonname].values
             newcoord = {lonname : ((da[lonname] + 180) % 360) - 180}
             da       = da.assign_coords(newcoord).sortby(lonname)
     else:
         if np.any(da[lonname]<0):
             # Note need to test this
-            print("Flipping Longitude to go from 0 to 360")
+            if verbose:
+                print("Flipping Longitude to go from 0 to 360")
             format_dict['lon_original'] = da[lonname].values
             newcoord = {lonname : ((da[lonname] + 360) % 360)}
             da       = da.assign_coords(newcoord).sortby(lonname)
