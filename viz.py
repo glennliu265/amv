@@ -28,11 +28,11 @@
     add_coast_grid      : Add land and gridlines (with fill)
     init_fig            : Initialize a figure with geoaxis
     init_blabels        : Initialize dict indicating bounding box labels
-
+    
         ~ Time Series/1-D Plots
     quickstatslabel     : Quickly generate label of mean ,stdev ,and maximum for a figure title/text
     quickstats          : Yields nanmean, nanstd, and and absolute max of a timeseries
-    plot_anavg          : Plot the seasonal cycle and annual average
+    plot_annavg          : Plot the seasonal cycle and annual average
     ensemble_plot       : Plot timeseries with max/min and mean of ensemble members
     plot_mean_stdev     : Plot mean and +/- stdev
 
@@ -443,7 +443,7 @@ def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_
         if blabels['lower'] == 1:
             blnew[3] = 1
         blabels=blnew
-            
+    
     if proj is None:
         proj = ccrs.PlateCarree()
         
