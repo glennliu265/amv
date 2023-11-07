@@ -167,15 +167,16 @@ def load_atmvar(vname,mnum,mconfig,datpath,preproc=None,return_ds=False):
     Taken from merge_cesm1_atm.py
     
     """
+    
     nens = len(mnum)
     var_allens = []
     for e in tqdm(range(nens)):
         N = mnum[e]
-        if mconfig =='rcp85':
+        if mconfig in ['rcp85',"RCP85"]:
             ds = load_rcp85(vname,N,datpath=datpath)
-        elif mconfig == 'htr':
+        elif mconfig in ['htr',"HTR"]:
             ds = load_htr(vname,N,datpath=datpath)
-            
+        
         # Apply Preprocessing
         if preproc is not None:
             ds = preproc(ds)
