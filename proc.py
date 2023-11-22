@@ -2827,6 +2827,10 @@ def format_ds(da,latname='lat',lonname='lon',timename='time',lon180=True,verbose
     if len(format_dict) > 0:
         da = da.rename(format_dict)
     
+    # Rename variables
+    latname = "lat"
+    lonname = "lon"
+    
     # Flip Latitude to go from -90 to 90
     if (da[latname][1] - da[latname][0]) < 0:
         if verbose:
