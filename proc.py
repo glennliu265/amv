@@ -4,8 +4,8 @@
 Created on Thu Jul 16 19:12:31 2020
 
 Data Processing Functions. See organize_amv.py for contents/details.
-
 test from stormtrack (moved 20200815)
+
 @author: gliu
 """
 
@@ -1183,8 +1183,7 @@ def calc_lag_covar_ann(var1,var2,lags,dim,detrendopt,):
     reshape_corr       = (lagdim,) + size_combined_dims
     corr_ts            = corr_ts.reshape(reshape_corr)
     return corr_ts,window_lengths
-        
-        
+
         
     
     
@@ -2855,6 +2854,20 @@ def format_ds(da,latname='lat',lonname='lon',timename='time',lon180=True,verbose
     # Transpose the datase
     da = da.transpose('time','lat','lon')
     return da
+
+def savefig_pub(savename,fig=None,
+                dpi=1200,transparent=False,format='eps'):
+    """
+    Save a figure for publication. EPS format.
+    Grabs current figure by default.
+    Set transparency, DPI, format.
+    """
+    if fig is None:
+        fig = plt.gcf()
+    plt.savefig(savename,dpi=dpi,bbox_inches='tight',format=format,
+                transparent=transparent)
+    
+    return None
 
 """
 -----------------
