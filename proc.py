@@ -2743,7 +2743,7 @@ def numpy_to_da(invar,times,lat,lon,varname,savenetcdf=None):
     savenetcdf : STR 
         If string argument is provided, saves as netcdf to the
         path indicated by the string. Default is None.
-
+    
     Returns
     -------
     da : xr.DataArray
@@ -2807,7 +2807,7 @@ def format_ds(da,latname='lat',lonname='lon',timename='time',lon180=True,verbose
     lonname     : STR. Name of longitude dimension The default is 'lon'.
     timename    : STR. Name of time dimension. The default is 'time'.
     lon180      : BOOL. True to flip to -180 to 180, False to keep at 0 to 360
-
+    
     Returns
     -------
     da : [xr.DataArray], formatted DataArray
@@ -2816,13 +2816,16 @@ def format_ds(da,latname='lat',lonname='lon',timename='time',lon180=True,verbose
     # Rename lat, lon time
     format_dict = {}
     if latname != "lat":         # Rename Lat
-        print("Renaming lat")
+        if verbose:
+            print("Renaming lat")
         format_dict[latname] = 'lat'
     if lonname != "lon":         # Rename Lon
-        print("Renaming lon")
+        if verbose:
+            print("Renaming lon")
         format_dict[lonname] = 'lon'
     if timename != "time":       # Rename time
-        print("Renaming time")
+        if verbose:
+            print("Renaming time")
         format_dict[timename] = 'time'
     if len(format_dict) > 0:
         da = da.rename(format_dict)
