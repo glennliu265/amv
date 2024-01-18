@@ -35,7 +35,8 @@
     plot_annavg          : Plot the seasonal cycle and annual average
     ensemble_plot       : Plot timeseries with max/min and mean of ensemble members
     plot_mean_stdev     : Plot mean and +/- stdev
-
+    init_monplot        : initialize seasonal cycle monthly plot
+    
         ~ Power Spectra/Spectral Analysis
     twin_freqaxis       : Twin x-axis on top and label with periods
     make_axtime         : Label twinned axis with text markers (Millenniun, Century, etc.)
@@ -669,6 +670,28 @@ def plot_mean_stdev(invar,axis,
         return mu,sigma,mean_line,shaded_region
     else:
         return mu,sigma
+    
+
+def init_monplot(row,col,figsize=(6,4),constrained_layout=True,skipaxis=False):
+    fig,axs = plt.subplots(row,col,figsize=figsize,constrained_layout=True)
+    tks = proc.get_monstr(nletters=3)
+    if row+col > 2:
+        for aa,ax in enumerate(axs.flatten()):
+            if skipaxis is not False:
+                if aa in skipaxis:
+                    continue
+            ax.set_xlim([0,11])
+            ax.set_xticks(np.arange(0,12,1))
+            ax.set_xticklabels(tks)
+            ax = add_ticks(ax,bottom=True)
+    else:
+        axs.set_xlim([0,11])
+        axs.set_xticks(np.arange(0,12,1))
+        axs.set_xticklabels(tks)
+        axs = add_ticks(axs,bottom=True)
+    return fig,axs
+        
+    
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #%% Power Spectra/Spectral Analysis
