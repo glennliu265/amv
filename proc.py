@@ -19,6 +19,7 @@ import time
 import scipy
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
+import scipy as sp
 
 """
 -----------------------
@@ -1473,7 +1474,42 @@ def patterncorr_nd(reference_map,target_maps,axis=0,return_N=False):
     if return_N:
         return R,N_space_ok
     return R    
+
+def calc_binwidth(invar,dim=0):
+    """
+    Use freedman-diaconis rule to compute bin width for invar along dimension/axis dim
+                      IQR(x)
+    Bin Width =  2 * -------
+                      n^(1/3)
+    """
+    n   = invar.shape[dim]
+    iqr = stats.iqr(invar,axis=dim,nan_policy='omit')
+    return 2 * iqr / n**(1/3)
+
+def expfit(acf,lags,lagmax):
+    # Copief from reemergence/estimate_damping_fit/12.S992 Final Project
+    expf3      = lambda t,b: np.exp(b*t)         # No c and A
+    funcin     = expf3
+    x = lags
+    y = acf
+    popt, pcov = sp.optimize.curve_fit(funcin, x[:(lagmax+1)], y[:(lagmax+1)])
     
+    tau_inv = popt[0] # 1/tau (tau = timescale),. np.exp(tau_inv*t)
+    acf_fit = expf3(lags,tau_inv)
+    outdict = {'tau_inv':tau_inv, 'acf_fit':acf_fit}
+    return outdict
+
+def calc_monvar(ts,dim=0):
+    # NOTE/WARNING: Currently just works if time is in the first dimension
+    # Copied from viz_synth_stochmod_combine
+    # Compute Monthly Variance for a timeseries, ignoring all NaNs
+    _,tsmyr = calc_clim(ts,dim,returnts=1)
+    monvar  = np.nanvar(tsmyr,axis=0)
+    if monvar.shape[0] != 12:
+        print("Warning, this function only supports the case where time is in the first dim.")
+        return monvar
+    return monvar
+
 #%% ~ Significance Testing
 ## ND version (incomplete)
 # def calc_dof(ts,dim=0):
@@ -1891,7 +1927,7 @@ def sel_region(var,lon,lat,bbox,reg_avg=0,reg_sum=0,warn=1,autoreshape=False,ret
         5) reg_avg: BOOL, set to 1 to return regional average
         6) reg_sum: BOOL, set to 1 to return regional sum
         7) warn: BOOL, set to 1 to print warning text for region selection
-        8) awgt: INT, type of area weighting to apply (default is None, no area weight)
+        8) awgt: INT, type of area weighting to apply (default is None, 1=cos(lat),2=cos^2(lat))
     Outputs:
         1) varr: ARRAY: Output variable, cut to region
         2+3), lonr, latr: ARRAYs, new cut lat/lon
@@ -2160,6 +2196,46 @@ def maxid_2d(invar):
     idmax     = np.nanargmax(invar.flatten())
     idx1,idx2 = np.unravel_index(idmax,invar.shape)
     return idx1,idx2
+
+def sort_by_axis(sortarr,targarrs,axis=0,lon=None,lat=None):
+    """
+    Sort a list of arrays [targarrs] given values from [sortarr] along [axis] from smallest to largest
+    Note this is currently untested...
+    
+    Parameters
+    ----------
+    sortarr : np.array
+        Array containing values to sort by along [axis]
+    targarrs : list of np.arrays
+        List containing target arrays to sort (same axis)
+    axis : INT, optional
+        Axis along which to sort. The default is 0.
+    lon : np.array, optional
+        Longitude Values. The default is None.
+    lat : np.array, optional
+        Latitude values. The default is None.
+        
+    Returns
+    -------
+    sortid : np.array
+        Array containing indices that would sort array from smallest to largest
+    sorttarg : list of np.arrays
+        Sorted list of arrays
+    coords_str : list of STR ["lon,lat"] (%.2f) for corresponding points
+    coords_val : list of lists [lon,lat] in float for corresponding points
+    """
+    
+    
+    sortid   = np.argsort(sortarr,axis=axis)
+    sortid   = [sid for sid in sortid if ~np.isnan(sortarr[sid])]# Drop NaN values
+    sorttarg = [np.take(arrs,sortid,axis=axis) for arrs in targarrs]
+    if (lon is not None) and (lat is not None):
+        nlon,nlat=len(lon),len(lat)
+        xx,yy  = np.unravel_index(sortid,(nlon,nlat))
+        coords_str = [[ "%.2f, %.2f" % (lon[xx[i]], lat[yy[i]])] for i in range(len(sortid))] # String Formatted Version
+        coords_val = [[lon[xx[i]], lat[yy[i]]] for i in range(len(sortid))] # Actual values
+        return sortid,sorttarg,coords_str,coords_val
+    return sortid,sorttarg
 
 
 """
@@ -2876,6 +2952,40 @@ def savefig_pub(savename,fig=None,
     
     return None
 
+def check_sum_ds(add_list,sum_ds,lonf=50,latf=-30,t=0,fmt="%.2f"):
+    """
+    Check sum (sum_ds) of a list of dataarrays at a given point/time.
+    
+    Parameters
+    ----------
+    add_list : List of xr.DataArrays that were summed. have lat, lon, time dims
+    sum_ds   : DataArray containing the summed result
+    lonf,latf: NUMERIC, optional. Lon/Lat indices to check at. The default is 50,-30
+    t        : INT, optional. Time indices to check. default is 0
+
+    fmt      : STR, optional. Font Format String.The default is "%.2f".
+    
+    Returns
+    -------
+    chkstr : STR. Sum Check String
+    """
+    # Get Values
+    out_pt  = sum_ds.sel(lon=lonf,lat=latf,method='nearest').isel(time=t).values
+    list_pt = [ds.sel(lon=lonf,lat=latf,method='nearest').isel(time=t).values for ds in add_list]
+    vallist = list_pt + [np.array(list_pt).sum(),out_pt] # List of values
+    
+    # Make Format String
+    fmtstr = ""
+    for ii in range(len(list_pt)):
+        fmtstr += "%s + " % fmt
+    fmtstr = fmtstr[:-2] # Drop last addition sign
+    fmtstr += "= %s (obtained %s)" % (fmt,fmt)
+    
+    # Make Check String
+    chkstr  = fmtstr % tuple(vallist)
+    print(chkstr)
+    return chkstr
+
 """
 -----------------
 |||  Labeling ||| ****************************************************
@@ -2883,9 +2993,15 @@ def savefig_pub(savename,fig=None,
 """
 #%% ~ Labeling
 
-def make_locstring(lon,lat):
-    locfn    = "lon%i_lat%i" % (lon,lat)
-    loctitle = "Lon: %i, Lat: %i" % (lon,lat)
+def make_locstring(lon,lat,pres=None):
+    if pres == True:
+            
+        locfn    = "lon%.4f_lat%.4f" % (lon,lat)
+        loctitle = "Lon: %.4f, Lat: %.4f" % (lon,lat)
+    else:
+        
+        locfn    = "lon%i_lat%i" % (lon,lat)
+        loctitle = "Lon: %i, Lat: %i" % (lon,lat)
     return locfn,loctitle
 
 def make_locstring_bbox(bbox):
