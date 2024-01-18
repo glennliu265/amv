@@ -170,7 +170,7 @@ def add_ylabel(label,ax=None,x=-0.10,y=0.5):
 
 def add_ticks(ax=None,add_grid=True,grid_lw=0.5,grid_ls="dotted",grid_col="gray",
               bottom=True,top=False,left=True,right=False,facecolor="white",
-              spinecolor="k",tickcolor="k",ticklabelcolor="k",fontsize=12):
+              spinecolor="k",tickcolor="k",ticklabelcolor="k",fontsize=12,minorx=True,minory=True):
     """
     Add gridlines and ticks (+minorticks) to perimeter of whole plot 
     (control labeling with bottom, top, left, right)
@@ -202,7 +202,11 @@ def add_ticks(ax=None,add_grid=True,grid_lw=0.5,grid_ls="dotted",grid_col="gray"
         ax.grid(True,ls=grid_ls,lw=grid_lw,color=grid_col,alpha=0.75,zorder=1) # Add Grid
     ax.tick_params(bottom=True,top=True,left=True,right=True,which='both',color=tickcolor,labelcolor=ticklabelcolor)
     ax.tick_params(labelbottom=bottom,labeltop=top,labelleft=left,labelright=right,which='both',labelsize=fontsize)
-    ax.minorticks_on()
+    if minorx:
+        ax.xaxis.set_minor_locator(mticker.AutoMinorLocator())
+    if minory:
+        ax.yaxis.set_minor_locator(mticker.AutoMinorLocator())
+    #ax.minorticks_on()
     ax.set_facecolor(facecolor)
     ax.spines[:].set_color(spinecolor)
     return ax
@@ -683,12 +687,12 @@ def init_monplot(row,col,figsize=(6,4),constrained_layout=True,skipaxis=False):
             ax.set_xlim([0,11])
             ax.set_xticks(np.arange(0,12,1))
             ax.set_xticklabels(tks)
-            ax = add_ticks(ax,bottom=True)
+            ax = add_ticks(ax,minorx=False)
     else:
         axs.set_xlim([0,11])
         axs.set_xticks(np.arange(0,12,1))
         axs.set_xticklabels(tks)
-        axs = add_ticks(axs,bottom=True)
+        axs = add_ticks(axs,minorx=False)
     return fig,axs
         
     
