@@ -90,7 +90,10 @@ Functions:
     covariance_2d       : Calculate covariance for 2 2D arrays
     make_ar1            : Create AR1 timeseries given lag 1 correlation coefficient, signa, and length (from slutil)
     patterncorr         : Compute pattern correlation between 2 2D variables
-    
+    patterncorr_nd      : Compute pattern correlation between 2 ND variables
+    calc_binwidth       : Use Freedman Diaconis rule to compute bin width
+    expfit              : Fit Exponential to lagged autocorrelation function (from 12.S922 Final Project)
+    calc_monvar         : Compute monthly variance of a timesesries
     
     -----------------------------------------
     |||  Spectral Analysis and Filtering  ||| ****************************************************
@@ -116,6 +119,7 @@ Functions:
     get_posneg_sigma    : get positive/neutral/negative years for a variable using a stdev threshold
     get_topN            : Get indices for top/bottom N values in an array (along last dimension)
     maxid_2d            : Find indices along each dimension for a 2D matrix. Ignores NaN values.
+    sort_by_axis        : Sort arrays along axis by values from a single array 
     
     
     -----------------------------------
@@ -163,6 +167,7 @@ Functions:
     npz_to_dict         : Make loaded npz file a dict
     format_ds           : Standardize Lat/Lon direction and naming in netCDFs
     savefig_pub         : Save a publication-ready figure
+    check_sum_ds        : Check summed output of DataArray
     
     
     -----------------
