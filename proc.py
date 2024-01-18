@@ -21,6 +21,9 @@ import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import scipy as sp
 
+import pandas as pd
+import datetime
+
 """
 -----------------------
 |||  Preprocessing  ||| ****************************************************
@@ -194,6 +197,28 @@ def year2mon(ts):
     ts = ts.T
     return ts
 
+def deseason(ts,dim=0,return_scycle=False):
+    """
+    Remove mean seasonal cycle from array of timeseries [ts], 
+    with time in dimension [dim].
+
+    Parameters
+    ----------
+    ts  : ND ARRAY with time in dimension [dim]
+    dim : Axis/Dimension of time
+
+    Returns
+    -------
+    tsanom : Deseasoned Timeseries
+    scycle : Seasonal Cycle
+    
+    """
+    scycle,tsmonyr = calc_clim(ts,dim=dim,returnts=1,keepdims=True) # Compute seasonal cycle
+    tsanom = tsmonyr - scycle # Remove to compute anomalies
+    if return_scycle:
+        return tsanom,scycle
+    return tsanom
+
 def xrdeseason(ds):
     """ Remove seasonal cycle, given an Dataarray with dimension 'time'"""
     return ds.groupby('time.month') - ds.groupby('time.month').mean('time')
@@ -224,7 +249,7 @@ def calc_savg(invar,debug=False,return_str=False,axis=-1):
         return savgs,snames
     return savgs
     
-def calc_clim(ts,dim,returnts=0):
+def calc_clim(ts,dim,returnts=0,keepdims=False):
     """
     Given monthly timeseries with time in axis [dim], calculate the climatology...
     
@@ -236,7 +261,7 @@ def calc_clim(ts,dim,returnts=0):
     newshape =    tsshape[:dim:] +(int(ntime/12),12) + tsshape[dim+1::]
     
     tsyrmon = np.reshape(ts,newshape)
-    climavg = np.nanmean(tsyrmon,axis=dim)
+    climavg = np.nanmean(tsyrmon,axis=dim,keepdims=keepdims)
     
     if returnts==1:
         return climavg,tsyrmon
@@ -2845,6 +2870,84 @@ def cftime2str(times):
         newstr = "%04i-%02i-%02i" % (times[t].year,times[t].month,times[t].day)
         newtimes.append(newstr)
     return np.array(newtimes)
+
+def convert_datenum(matlab_datenum,datestr=False,fmt="%d-%b-%Y %H:%M:%S",autoreshape=True,return_datetimeobj=False,verbose=False):
+    """
+    Usage: python_datenum = convert_datenum(matlab_datenum,datestr=False,
+                                fmt="%d-%b-%Y %H:%M%S",autoreshape=True,
+                                return_datetimeobj=False,verbose=False)
+    
+    Converts an array of Matlab Datenumbers to either an array of np.datetime64 or strings (if datestr=True).
+    This considers the offset for different origin date for matlab (Jan 1, year 0) vs. Python (Jan 1, 1970).
+    If you prefer to work with datetime objects, set return_datetimeobj to True.
+    
+    Inputs
+    ------
+    1) matlab_datenum     : N-D ARRAY of floats
+        Array containing matlab datenumbers to convert
+    2) datestr            : BOOL
+        Set to True to convert output to human-readable strings. Default returns np.datetime64[ns]
+    3) fmt                : STR
+        Format out output datestring. ex. of default format is "30-Jan-1990 23:59:00"
+    4) autoreshape        : BOOL
+        By default, the script flattens then reshapes the array to its original dimensions.
+        Set to False to just return the flattened array.
+    5) return_datetimeobj : BOOL
+        By default, the script returns np.datetime64. To just return datetime, set this to true.
+        NOTE: The dimensions will be flattened and autoreshape will not work.
+    6) verbose            : BOOL
+        Set to true to print messages
+    
+    Output
+    ------
+    1) python_datetime : N-D ARRAY of np.datetime64[64] or strings
+        Array containing the result of the conversion.
+    
+    Copied from cvd_utils on 2024.01.18
+    Dependencies
+        import pandas as pd
+        import numpy as np
+        import datetime as datetime
+        
+    """
+    # Preprocess inputs (flattening n-d arrays)
+    in_arr = np.array(matlab_datenum)
+    dims   = in_arr.shape
+    if len(dims)  > 1:
+        if verbose:
+            print("Warning! flattening %i-D array with dims %s"%(len(dims),str(dims)))
+        in_arr = in_arr.flatten()
+
+    # Calculate offset (In Python, reference date is Jan 1, year 1970 UTC, see "Unix Time")
+    # Additional 366 days because reference date in matlab is January 0, year 0000 
+    offset = datetime.datetime(1970, 1, 1).toordinal() + 366
+
+    # Convert to Python datetime, considering offset
+    # Note that Matlab uses "days since", hence unit="D"
+    python_datetime  = pd.to_datetime(in_arr-offset, unit='D')
+
+    # Convert to datestring, and optionally convert to numpy array
+    if datestr:
+        if verbose:
+            print("Converting to datestr")
+        python_datetime = python_datetime.strftime(fmt)
+        if return_datetimeobj:
+            return python_datetime
+        # Otherwise convert to string array
+        python_datetime = np.array(python_datetime,dtype=str)
+    else: # Convert to numpy array with datetime objects
+        if return_datetimeobj:
+            return python_datetime
+        # Otherwise convert to np.datetime64 array
+        python_datetime = np.array(python_datetime)
+
+    # Reshape array if necessary (current works only for numpy arrays)
+    if len(dims) > 1 and autoreshape:
+        if verbose:
+            print("Reshaping array to original dimensions!")
+        # Reshape array to original dimensions
+        python_datetime=python_datetime.reshape(dims) 
+    return python_datetime
 
 
 def ds_dropvars(ds,keepvars):
