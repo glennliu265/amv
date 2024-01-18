@@ -34,11 +34,13 @@ Functions:
     
         ~ Seasonal Cycle ~
     year2mon            : Separate mon x year dimensions
+    deseason            : Calculate monthly anomalies by removing the seasonal cycle
     xrdeseason          : Deseason DataArray by removing mean seasonal cycle
     calc_savg           : Caclulate seasonal average of an ND input
     calc_clim           : Compute climatological monthly means
     remove_ss_sinusoid  : Moves annual and semiannual seasonal cycles using least squares fit to sinusoids
-
+    
+    
         ~ Detrending ~
     detrend_dim         : Linear detrend along a dimension
     detrend_poly        : Perform polynomial detrend (2D)
