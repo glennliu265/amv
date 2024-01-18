@@ -140,6 +140,33 @@ def load_htr(vname,N,datpath=None,atm=True):
     if N == 1:
         ds = ds.sel(time=slice("1920-02-01","2006-01-01"))
     return ds[vname]
+
+def load_pic(vname,datpath=None,atm=True):
+    
+    if atm:
+        model_string = "cam.h0"
+        comp         = "atm"
+    else:
+        model_string = "pop.h"
+        comp         = "ocn"
+    
+    if datpath is None:
+        datpath = "/vortex/jetstream/climate/data1/yokwon/CESM1_LE/downloaded/%s/proc/tseries/monthly/" % comp
+    
+    # b.e11.B1850C5CN.f09_g16.005.cam.h0.LHFLX.040001-049912.nc
+    nclist = glob.glob("%s/%s/b.e11.B1850C5CN.f09_g16.005.%s.%s.*.nc" % (datpath,vname,model_string,vname))
+    nfiles = len(nclist)
+    nclist.sort()
+    print("Found %i files!" % (nfiles))
+    if nfiles != 18:
+        print("WARNING: did not find all files")
+    dslist = []
+    for f in range(nfiles):
+        ds = xr.open_dataset(nclist[f])
+        dslist.append(ds)
+    return dslist
+    
+
     
 def load_atmvar(vname,mnum,mconfig,datpath,preproc=None,return_ds=False): 
     """
