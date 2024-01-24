@@ -45,7 +45,7 @@ def get_scenario_str(scenario):
     return out_str
 
 # RCP85 Loader
-def load_rcp85(vname,N,datpath=None,atm=True):
+def load_rcp85(vname,N,datpath=None,atm=True,return_da=True):
     """
     Load a given variable for an ensemble member for rcp85.
     Concatenates the two files for N<34.
@@ -60,6 +60,8 @@ def load_rcp85(vname,N,datpath=None,atm=True):
             Location to search for the file
         atm       : BOOL
             True to load atmospheric data (default)
+        return_da : BOOL
+            True to return DataArray (False for Dataset)
     Returns
     -------
         ds[vname] : xr.DataArray
@@ -94,9 +96,12 @@ def load_rcp85(vname,N,datpath=None,atm=True):
     else:
         fn1 = "%sb.e11.BRCP85C5CNBDRD.f09_g16.%03i.cam.h0.%s.200601-210012.nc" % (vdatpath,N,vname)
         ds = xr.open_dataset(fn1)
-    return ds[vname]
+    if return_da:
+        return ds[vname]
+    else:
+        return ds
 
-def load_htr(vname,N,datpath=None,atm=True):
+def load_htr(vname,N,datpath=None,atm=True,return_da=True):
     """
     Load a given variable for an ensemble member for the historical period.
     Accounts for different length of ensemble member 1 by cropping to 1920 onwards...
@@ -111,6 +116,8 @@ def load_htr(vname,N,datpath=None,atm=True):
             Location to search for the file
         atm       : BOOL
             True to load atmospheric data ()
+        return_da : BOOL
+            True to return DataArray (False for Dataset)
     Returns
     -------
         ds[vname] : xr.DataArray
@@ -139,7 +146,11 @@ def load_htr(vname,N,datpath=None,atm=True):
     ds = xr.open_dataset(fn)
     if N == 1:
         ds = ds.sel(time=slice("1920-02-01","2006-01-01"))
-    return ds[vname]
+    
+    if return_da:
+        return ds[vname]
+    else:
+        return ds
 
 def load_pic(vname,datpath=None,atm=True):
     
