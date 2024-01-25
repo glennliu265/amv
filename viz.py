@@ -1536,7 +1536,8 @@ def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None,
 
     """
     if ax is None:
-        ax = plt.gca()
+        
+        ax  = plt.gca()
     
     # Tile Months for plotting
     mons3     = ('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec')
