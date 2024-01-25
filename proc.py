@@ -2410,7 +2410,33 @@ def getpt_pop(lonf,latf,ds,searchdeg=0.5,returnarray=1,debug=False):
         return pmean
     else:
         return pmean
+
+def get_pt_nearest(ds,lonf,latf,tlon_name="TLONG",tlat_name="TLAT",debug=True):
+    # Different version of above but query just the nearest point using nearest neightbor
     
+    tlon_name = "TLONG"
+    tlat_name = "TLAT"
+    x1name    = "nlat"
+    x2name    = "nlon"
+    tlon      = ds[tlon_name].values
+    tlat      = ds[tlat_name].values
+
+    # Find minimum in tlon
+    # Based on https://stackoverflow.com/questions/58758480/xarray-select-nearest-lat-lon-with-multi-dimension-coordinates
+    londiff   =  np.abs(tlon - lonf)
+    latdiff   =  np.abs(tlat - latf)
+    locdiff   =  londiff+latdiff
+
+    # Get Point Indexes
+    ([x1], [x2]) = np.where(locdiff == np.min(locdiff))
+    #plt.pcolormesh(np.maximum(londiff,latdiff)),plt.colorbar(),plt.show()
+    #plt.pcolormesh(locdiff),plt.colorbar(),plt.show()
+
+    if debug:
+        print("Nearest point to (%.2f,%.2f) is (%.2f,%.2f) at index (%i,%i)" % (lonf,latf,tlon[x1,x2],tlat[x1,x2],x1,x2))
+
+    return ds.isel(**{x1name : x1, x2name : x2})
+
 def quick_interp2d(inlons,inlats,invals,outlons=None,outlats=None,method='cubic',
                    debug=False):
     """
