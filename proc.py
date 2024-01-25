@@ -2399,7 +2399,7 @@ def getpt_pop(lonf,latf,ds,searchdeg=0.5,returnarray=1,debug=False):
         
     # Find the specified point on curvilinear grid and average values
     selectmld = ds.where((lonfc-searchdeg < ds.TLONG) & (ds.TLONG < lonfc+searchdeg)
-                    & (latf-searchdeg < ds.TLAT) & (ds.TLAT < latf+searchdeg),drop=True)
+                    & (latf-searchdeg < ds.TLAT) & (ds.TLAT < latf+searchdeg),drop=True).load()
     if debug:
         print("Found %i points" % (len(selectmld)))
         
