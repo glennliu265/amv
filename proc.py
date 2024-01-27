@@ -3122,14 +3122,17 @@ def check_sum_ds(add_list,sum_ds,lonf=50,latf=-30,t=0,fmt="%.2f"):
 """
 #%% ~ Labeling
 
-def make_locstring(lon,lat,pres=None):
+def make_locstring(lon,lat,pres=None,lon360=False):
+    if lon360 and lon < 0:
+        lon += 360
+        
     if pres == True:
             
         locfn    = "lon%.4f_lat%.4f" % (lon,lat)
         loctitle = "Lon: %.4f, Lat: %.4f" % (lon,lat)
     else:
-        
-        locfn    = "lon%i_lat%i" % (lon,lat)
+
+        locfn    = "lon%03i_lat%02i" % (lon,lat)
         loctitle = "Lon: %i, Lat: %i" % (lon,lat)
     return locfn,loctitle
 
