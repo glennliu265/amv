@@ -104,7 +104,7 @@ def load_rcp85(vname,N,datpath=None,atm=True,return_da=True):
 def load_htr(vname,N,datpath=None,atm=True,return_da=True):
     """
     Load a given variable for an ensemble member for the historical period.
-    Accounts for different length of ensemble member 1 by cropping to 1920 onwards...
+    **Accounts for different length of ensemble member 1 by cropping to 1920 onwards...
     
     Parameters
     ----------
