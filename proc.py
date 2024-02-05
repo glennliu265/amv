@@ -2114,7 +2114,7 @@ def resize_ds(ds_list):
     bboxes  = np.array([get_bbox(ds) for ds in ds_list]) # [ds.bound]
     
     bbxsmall = np.zeros(4)
-    bbxsmall[1] = np.max(bboxes[:,0]) # Easternmost Westbound
+    bbxsmall[0] = np.max(bboxes[:,0]) # Easternmost Westbound
     bbxsmall[1] = np.min(bboxes[:,1]) # Westernmost Eastbound
     bbxsmall[2] = np.max(bboxes[:,2]) # Northerhmost Southbound
     bbxsmall[3] = np.min(bboxes[:,3]) # Southernmost Northbound
