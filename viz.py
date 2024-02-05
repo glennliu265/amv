@@ -25,9 +25,11 @@
     geosubplots         : Make subplots with geoaxes
     init_map            : Quickly initialize a map for plotting
     plot_box            : Plot bounding box
+    get_box_coords      : Get coordinates of bounding box for orthomap plot
     add_coast_grid      : Add land and gridlines (with fill)
     init_fig            : Initialize a figure with geoaxis
     init_blabels        : Initialize dict indicating bounding box labels
+    init_orthomap       : Initialize orthographic map over North Atlantic
     
         ~ Time Series/1-D Plots
     quickstatslabel     : Quickly generate label of mean ,stdev ,and maximum for a figure title/text
@@ -82,6 +84,7 @@ from matplotlib.ticker import LogLocator
 import matplotlib.ticker as mticker
 import matplotlib.gridspec as gridspec
 import matplotlib.patheffects as PathEffects
+import matplotlib.path as mpath
 
 # Custom Functions
 sys.path.append("/Users/gliu/Downloads/02_Research/01_Projects/01_AMV/00_Commons/03_Scripts/")
@@ -408,6 +411,41 @@ def plot_box(bbox,ax=None,return_line=False,leglab="Bounding Box",
         return ax,linesample
     return ax
 
+def get_box_coords(bbox,dx=None,dy=None):
+    # Get coordinates of box for plotting an ortho map/polygon
+    # Given [Westbound EastBound Southbound Northbound]
+    # Returns xcoords and ycoords of path drawn from:
+    # Lower Left, counterclockwise around and back.
+    
+    if dx is None:
+        dx = np.linspace(bbox[0],bbox[1],5)
+        dx = dx[1] - dx[0]
+    if dy is None:
+        dy = np.linspace(bbox[2],bbox[3],5)
+        dy = dy[1] - dy[0]
+    
+    # Lower Edge (Bot. Left --> Bot. Right)
+    lower_x = np.arange(bbox[0],bbox[1]+dx,dx) # x-coord
+    nx = len(lower_x) 
+    lower_y = [bbox[2],]*nx # y-coord
+    
+    # Right Edge (Bot. Right ^^^ Top Right)
+    right_y = np.arange(bbox[2],bbox[3]+dy,dy)
+    ny = len(right_y)
+    right_x = [bbox[1],]*ny
+    
+    # Upper Edge (Top Left <-- Top Right)
+    upper_x = np.flip(lower_x)
+    upper_y = [bbox[3],]*nx
+    
+    # Left Edge (Bot. Left vvv Top Left)
+    left_y  = np.flip(right_y)
+    left_x  = [bbox[0],]*ny
+    
+    x_coords = np.hstack([lower_x,right_x,upper_x,left_x])
+    y_coords = np.hstack([lower_y,right_y,upper_y,left_y])
+    
+    return x_coords,y_coords
 
 def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_error=False,
                    fill_color=None,line_color='k',grid_color='gray',c_zorder=1,
@@ -470,9 +508,9 @@ def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_
         #gl.yformatter = LatitudeFormatter(degree_symbol='')
         gl.rotate_labels = False
     
-    if fix_lon:
+    if fix_lon is not False:
         gl.xlocator = mticker.FixedLocator(fix_lon)
-    if fix_lat:
+    if fix_lat is not False:
         gl.ylocator = mticker.FixedLocator(fix_lat)
         
         
@@ -502,6 +540,55 @@ def init_blabels():
     """
     return {'left':0,'right':0,'upper':0,'lower':0}
 
+def init_orthomap(nrow,ncol,bboxplot,centlon=-40,centlat=35,precision=40,
+                  dx=10,dy=5,
+                  frame_lw=2,frame_col="k",
+                  figsize=(8,4.5),constrained_layout=True):
+    # Intiailize Ortograpphic map over North Atlantic.
+    # Based on : https://stackoverflow.com/questions/74124975/cartopy-fancy-box
+    # The default lat/lon projection
+    noProj = ccrs.PlateCarree(central_longitude=0)
+    
+    # Set Orthographic Projection
+    myProj = ccrs.Orthographic(central_longitude=centlon, central_latitude=centlat)
+    myProj._threshold = myProj._threshold/precision  #for higher precision plot
+    
+    # Initialize Figure
+    fig,axs = plt.subplots(nrow,ncol,figsize=figsize,subplot_kw={'projection': myProj},
+                          constrained_layout=constrained_layout)
+    
+    # Get Line Coordinates
+    xp,yp  = get_box_coords(bboxplot,dx=dx,dy=dy)
+    
+    # Draw the line
+    ndaxis=True
+    if nrow>1 and ncol<1:
+        axs = axs.flatten()
+    elif nrow ==1 and ncol ==1:
+        #print("Nd Axis")
+        axs = [axs,]
+        ndaxis=False
+    for ax in axs:
+        [ax_hdl] = ax.plot(xp,yp,
+            color=frame_col, linewidth=frame_lw,
+            transform=noProj)
+        
+        # Make a polygon and crop
+        tx_path                = ax_hdl._get_transformed_path()
+        path_in_data_coords, _ = tx_path.get_transformed_path_and_affine()
+        polygon1s              = mpath.Path( path_in_data_coords.vertices)
+        ax.set_boundary(polygon1s) # masks-out unwanted part of the plot
+        
+    if ndaxis is False:
+        axs = axs[0] # Return just the axis
+        
+    mapdict={
+        'noProj'     : noProj,
+        'myProj'     : myProj,
+        'line_coords': (xp,yp),
+        'polygon'    : polygon1s,
+        }
+    return fig,axs,mapdict
 
 # ~~~~~~~~~~~~~~~~~~~~~~
 #%% Time Series/1-D Plot
