@@ -221,6 +221,8 @@ def deseason(ts,dim=0,return_scycle=False):
 
 def xrdeseason(ds):
     """ Remove seasonal cycle, given an Dataarray with dimension 'time'"""
+    if ds.time[0].values.item().month != 1:
+        print("Warning, first month is not Jan...")
     return ds.groupby('time.month') - ds.groupby('time.month').mean('time')
 
 def calc_savg(invar,debug=False,return_str=False,axis=-1):
@@ -1902,6 +1904,10 @@ def find_nan(data,dim,val=None,return_dict=False,verbose=True):
         return nandict
     return okdata,knan,okpts
 
+def selpt_ds(ds,lonf,latf,lonname='lon',latname='lat'):
+    return ds.sel({lonname:lonf,latname:latf},method='nearest')
+
+
 def remap_nan(lon,lat,okdata,okpts,lonfirst=True):
     """
     Remaps [okdata] with combined spatial dimension 
@@ -2092,7 +2098,30 @@ def sel_region_xr(ds,bbox):
         Subsetted datasetor dataarray
     """
     return ds.sel(lon=slice(bbox[0],bbox[1]),lat=slice(bbox[2],bbox[3]))
+
+def get_bbox(ds):
+    # Get bounding box of a dataset
+    bbox = [ds.lon.values[0],
+            ds.lon.values[-1],
+            ds.lat.values[0],
+            ds.lat.values[-1]]
+    return bbox
+
+def resize_ds(ds_list):
+    # Given a list of datasets, (lon, lat, etc)
+    # Resize all of them to the smallest bounding box
+    # Note this was made to work with degrees west, have not handeled crrossing dateline
+    bboxes  = np.array([get_bbox(ds) for ds in ds_list]) # [ds.bound]
     
+    bbxsmall = np.zeros(4)
+    bbxsmall[1] = np.max(bboxes[:,0]) # Easternmost Westbound
+    bbxsmall[1] = np.min(bboxes[:,1]) # Westernmost Eastbound
+    bbxsmall[2] = np.max(bboxes[:,2]) # Northerhmost Southbound
+    bbxsmall[3] = np.min(bboxes[:,3]) # Southernmost Northbound
+    
+    ds_resize = [sel_region_xr(ds,bbxsmall) for ds in ds_list]
+    return ds_resize
+
 def get_posneg(varr,idx,return_id=False):
     """
     Get positive and negative years of an varianble
@@ -2522,10 +2551,6 @@ def calc_AMV(lon,lat,sst,bbox,order,cutofftime,awgt,runmean=False):
     
     aa_sst: ARRAY [TIME]
         Area Averaged SST
-
-    """
-    
-    """
     
     # Dependencies
     functions: area_avg
@@ -2732,8 +2757,6 @@ def calc_T2(rho,axis=0):
     axis : [INT], optional, Axis to sum along (default = 0)
     """
     return (1+2*np.nansum(rho**2,axis=axis))
-
-
 
 #%% ~ Dimension Gymnastics
 """
@@ -3181,12 +3204,15 @@ def checkfile(fn,verbose=True):
             print(fn + " Not found!")
     return exists_flag
     
-def get_monstr(nletters=None):
+def get_monstr(nletters=3):
     """
     Get Array containing strings of first 3 letters of reach month
     """
-    return [cal.month_name[i][:nletters] for i in np.arange(1,13,1)]
- 
+    if nletters is None:
+        return [cal.month_name[i][:] for i in np.arange(1,13,1)]
+    else:
+        return [cal.month_name[i][:nletters] for i in np.arange(1,13,1)]
+
 def addstrtoext(name,addstr,adjust=0):
     """
     Add [addstr] to the end of a string with an extension [name.ext]
