@@ -31,15 +31,15 @@ Functions:
         ~ Averaging ~
     ann_avg             : Take annual average of monthly time series
     area_avg            : Take (weighted) area average within bounding box
+    area_avg_cosweight  : Take area-weighted average of xr.Dataset <xarray>
     
         ~ Seasonal Cycle ~
     year2mon            : Separate mon x year dimensions
     deseason            : Calculate monthly anomalies by removing the seasonal cycle
-    xrdeseason          : Deseason DataArray by removing mean seasonal cycle
+    xrdeseason          : Deseason DataArray by removing mean seasonal cycle <xarray>
     calc_savg           : Caclulate seasonal average of an ND input
-    calc_clim           : Compute climatological monthly means
+    calc_clim           : Compute climatological monthly mean
     remove_ss_sinusoid  : Moves annual and semiannual seasonal cycles using least squares fit to sinusoids
-    
     
         ~ Detrending ~
     detrend_dim         : Linear detrend along a dimension
@@ -113,10 +113,13 @@ Functions:
     find_latlon         : Find lat/lon indices
     find_tlatlon        : Find lat/lon indices on POP Tripolar grid
     find_nan            : Locate and remove NaN points
+    selpt_ds            : Select a point in an xr.dataarray/dataset
     remap_nan           : Replace output of find_nan back into an Array with the original size
     sel_region          : Select bounding box and optinally perform average or sum (uses area_avg)
     sel_region_cv       : Select region for curvilienear/2D points in POP
-    sel_region_xr       : Select region for xarray DataSet or DataArray
+    sel_region_xr       : Select region for xarray DataSet or DataArray <xarray>
+    get_bbox            : Get bounding box of a dataset from "lon" and "lat" dimensions <xarray>
+    resize_ds           : Given list of datasets, resize all to the smallest bounding box <xarray>
     get_posneg          : get positive/negative years of a variable from an index/timeseries
     get_posneg_sigma    : get positive/neutral/negative years for a variable using a stdev threshold
     get_topN            : Get indices for top/bottom N values in an array (along last dimension)
@@ -132,7 +135,6 @@ Functions:
     coarsen_byavg       : Coarsen input by averaging over bins
     getpt_pop           : Average values on POP grid for a DataArray
     quick_interp2d      : Quick 2D interpolation of datapoints, works with [sel_region_cv]
-    
     
     -------------------------
     |||  Climate Analysis ||| ****************************************************

@@ -186,6 +186,13 @@ def area_avg(data,bbox,lon,lat,wgt):
         data_aa = np.nanmean(sel_data,(0,1))
     return data_aa
 
+def area_avg_cosweight(ds,sqrt=False):
+    # Take area average of dataset, applying cos weighting
+    weights     = np.cos(np.deg2rad(ds.lat))
+    if sqrt: # Take squareroot if option is set
+        weights = np.sqrt(weights)
+    ds_weighted = ds.weighted(weights)
+    return ds_weighted.mean(('lat','lon'))
 
 #%% ~ Seasonal Cycle
 
@@ -2100,7 +2107,7 @@ def sel_region_xr(ds,bbox):
     return ds.sel(lon=slice(bbox[0],bbox[1]),lat=slice(bbox[2],bbox[3]))
 
 def get_bbox(ds):
-    # Get bounding box of a dataset
+    # Get bounding box of a dataset from "lon" and "lat" dimensions
     bbox = [ds.lon.values[0],
             ds.lon.values[-1],
             ds.lat.values[0],
