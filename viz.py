@@ -17,6 +17,7 @@
     set_xlim_auto       : Automatically set x-limits to x-tick max/min
     add_ticks           : Helper function to add ticks and gridlines
     
+    
         ~ Subplot Management
     init_2rowodd        : Center row with odd or even subplots
     label_sp            : Add text label to each subplot
@@ -164,11 +165,11 @@ def reorder_legend(ax,order=None):
     legend = ax.legend([handles[idx] for idx in order],[labels[idx] for idx in order])
     return legend
     
-def add_ylabel(label,ax=None,x=-0.10,y=0.5):
+def add_ylabel(label,ax=None,x=-0.10,y=0.5,fontsize=12):
     if ax is None:
         ax = plt.gca()
     txt = ax.text(x, y, label, va='bottom', ha='center',rotation='vertical',
-            rotation_mode='anchor',transform=ax.transAxes)
+            rotation_mode='anchor',transform=ax.transAxes,fontsize=fontsize)
     return txt
 
 def add_ticks(ax=None,add_grid=True,grid_lw=0.5,grid_ls="dotted",grid_col="gray",
@@ -512,8 +513,7 @@ def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_
         gl.xlocator = mticker.FixedLocator(fix_lon)
     if fix_lat is not False:
         gl.ylocator = mticker.FixedLocator(fix_lat)
-        
-        
+    
     gl.left_labels = blabels[0]
     gl.right_labels = blabels[1]
     gl.top_labels   = blabels[2]
@@ -561,13 +561,14 @@ def init_orthomap(nrow,ncol,bboxplot,centlon=-40,centlat=35,precision=40,
     xp,yp  = get_box_coords(bboxplot,dx=dx,dy=dy)
     
     # Draw the line
-    ndaxis=True
-    if nrow>1 and ncol<1:
-        axs = axs.flatten()
-    elif nrow ==1 and ncol ==1:
+    if nrow ==1 and ncol ==1:
         #print("Nd Axis")
         axs = [axs,]
         ndaxis=False
+    else:
+        orishape = axs.shape
+        axs      = axs.flatten()
+        ndaxis   = True
     for ax in axs:
         [ax_hdl] = ax.plot(xp,yp,
             color=frame_col, linewidth=frame_lw,
@@ -581,7 +582,8 @@ def init_orthomap(nrow,ncol,bboxplot,centlon=-40,centlat=35,precision=40,
         
     if ndaxis is False:
         axs = axs[0] # Return just the axis
-        
+    else:
+        axs = axs.reshape(orishape)
     mapdict={
         'noProj'     : noProj,
         'myProj'     : myProj,
@@ -1596,7 +1598,7 @@ def summarize_params(lat,lon,params,synth=False):
 
 
 def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None,
-                usegrid=True,tickfreq=None):
+                usegrid=True,tickfreq=None,fsz_axis=14,fsz_ticks=12,fsz_title=18):
     """
     Function to initialize autocorrelation plot with months on top,
     lat on the bottom
@@ -1634,8 +1636,8 @@ def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None,
     
     # Set up second axis
     ax2 = ax.twiny()
-    ax2.set_xticks(xticks)
-    ax2.set_xticklabels(mons3tile[xticks], rotation = 45)
+    ax2.set_xticks(xticks)#,size=fsz_ticks)
+    ax2.set_xticklabels(mons3tile[xticks], rotation = 45,fontsize=fsz_ticks)
     ax2.set_axisbelow(True)
     ax2.grid(zorder=0,alpha=0)
     ax2.set_xlim(xticks[[0,-1]])
@@ -1645,17 +1647,17 @@ def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None,
         ax3 = ax.twinx()
         loopvar = proc.tilebylag(kmonth,loopvar,lags)
         ax3.plot(lags,loopvar,color='gray',linestyle='dashed')
-        ax3.tick_params(axis='y',labelcolor='gray')
+        ax3.tick_params(axis='y',labelcolor='gray',fontsize=fsz_ticks)
         ax3.grid(False)
     
-    ax.set_xticks(xticks)
+    ax.set_xticks(xticks)#,fontsize=fsz_ticks)
     ax.set_xlim([xticks[0],xticks[-1]])
     if title is None:
-        ax.set_title("SST Autocorrelation, Lag 0 = %s" % (mons3[kmonth]))
+        ax.set_title("SST Autocorrelation, Lag 0 = %s" % (mons3[kmonth]),fontsize=fsz_title)
     else:
         ax.set_title(title)
-    ax.set_xlabel("Lags (Months)")
-    ax.set_ylabel("Correlation")
+    ax.set_xlabel("Lags (Months)",fontsize=fsz_axis)
+    ax.set_ylabel("Correlation",fontsize=fsz_axis)
     if usegrid:
         ax.grid(True,linestyle='dotted')
     plt.tight_layout()
@@ -1674,8 +1676,8 @@ def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None,
             else:
                 lbl_new_mon.append("")
                 lbl_new.append("")
-        ax.set_xticklabels(lbl_new)
-        ax2.set_xticklabels(lbl_new_mon)
+        ax.set_xticklabels(lbl_new,fontsize=fsz_ticks)
+        ax2.set_xticklabels(lbl_new_mon,fontsize=fsz_ticks)
     
     if loopvar is not None:
         return ax,ax2,ax3
