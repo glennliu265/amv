@@ -172,7 +172,7 @@ Functions:
     format_ds           : Standardize Lat/Lon direction and naming in netCDFs
     savefig_pub         : Save a publication-ready figure
     check_sum_ds        : Check summed output of DataArray
-    
+    get_xryear          : use xr.cftime to make dummy "year" for calculations
     
     -----------------
     |||  Labeling ||| ****************************************************
