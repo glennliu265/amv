@@ -1219,10 +1219,6 @@ def calc_lag_covar_ann(var1,var2,lags,dim,detrendopt,):
     corr_ts            = corr_ts.reshape(reshape_corr)
     return corr_ts,window_lengths
 
-        
-    
-    
-    
 
 def calc_conflag(ac,conf,tails,n):
     """
@@ -1310,6 +1306,11 @@ def eof_simple(pattern,N_mode,remove_timemean):
     pattern1 = pattern.copy()
     nt = pattern1.shape[1] # Get time dimension size
     ns = pattern1.shape[0] # Get space dimension size
+    
+    if N_mode > nt:
+        print("Warning, number of requested modes greater than length of time dimension. Adjusting to size of time.")
+        N_mode = nt
+        
     
     # Preallocate
     eofs = np.zeros((ns,N_mode))
@@ -1832,7 +1833,7 @@ def calc_specvar(freq,spec,thresval,dtthres,droplast=True
 """
 
 #%% ~ Indexing and Querying
-def find_latlon(lonf,latf,lon,lat):
+def find_latlon(lonf,latf,lon,lat,verbose=True):
     """
     Find lat and lon indices
     """
@@ -1842,11 +1843,11 @@ def find_latlon(lonf,latf,lon,lat):
     klon = np.abs(lon - lonf).argmin()
     klat = np.abs(lat - latf).argmin()
     
-    msg1 = "Closest lon to %.2f was %.2f" % (lonf,lon[klon])
-    msg2 = "Closest lat to %.2f was %.2f" % (latf,lat[klat])
-    print(msg1)
-    print(msg2)
-    
+    if verbose:
+        msg1 = "Closest lon to %.2f was %.2f" % (lonf,lon[klon])
+        msg2 = "Closest lat to %.2f was %.2f" % (latf,lat[klat])
+        print(msg1)
+        print(msg2)
     return klon,klat
 
 def find_tlatlon(ds,lonf,latf,verbose=True):
@@ -2699,7 +2700,7 @@ def calc_remidx_simple(ac,kmonth,monthdim=-2,lagdim=-1,
     ac_in          = np.take(ac,np.array([kmonth,]),axis=monthdim).squeeze()
     
     # Compute the number of years involved (month+lags)/12
-    nyrs           = int(np.floor((ac_in.shape[-1] + kmonth) /12))
+    nyrs           = int(np.floor((ac_in.shape[lagdim] + kmonth) /12))
     
     # Move lagdim to the front
     ac_in,neworder = dim2front(ac_in,lagdim,return_neworder=True)
@@ -2721,6 +2722,11 @@ def calc_remidx_simple(ac,kmonth,monthdim=-2,lagdim=-1,
         maxlag = (ac_in.shape[0]-1)
         minid  = minid[minid<=maxlag]
         maxid  = maxid[maxid<=maxlag]
+        if len(minid) == 0:
+            continue
+        
+        
+        
         
         if debug:
             print("For yr %i"% yr)
@@ -2771,7 +2777,6 @@ def calc_T2(rho,axis=0):
 ||| Dimension Gymnastics ||| **********************************************
 ----------------------------
 """
-
 
 def combine_dims(var,nkeep,debug=True):
     """
@@ -3144,6 +3149,11 @@ def check_sum_ds(add_list,sum_ds,lonf=50,latf=-30,t=0,fmt="%.2f"):
     chkstr  = fmtstr % tuple(vallist)
     print(chkstr)
     return chkstr
+
+
+def get_xryear(ystart="0000",nmon=12):
+    # Get an xarray year (dummy operation). Can indicate startyear or month
+    return xr.cftime_range(start='0000',periods=nmon,freq="MS",calendar="noleap")
 
 """
 -----------------
