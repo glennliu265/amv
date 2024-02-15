@@ -343,7 +343,7 @@ def remove_ss_sinusoid(ts,t=None,dt=12,semiannual=True,Winv=None):
 
 #%% ~ Detrending
 
-def detrend_dim(invar,dim):
+def detrend_dim(invar,dim,return_dict=False):
     
     """
     Detrends n-dimensional variable [invar] at each point along axis [dim].
@@ -414,7 +414,9 @@ def detrend_dim(invar,dim):
     oldshape = [dtvar.shape.index(x) for x in varshape]
     dtvar = np.transpose(dtvar,oldshape)
     linmod = np.transpose(linmod,oldshape)
-    
+    if return_dict:
+        outdict = dict(detrended_var=dtvar,linearmodel=linmod,beta=beta,intercept=intercept)
+        return outdict
     return dtvar,linmod,beta,intercept
 
 def detrend_poly(x,y,deg):
@@ -774,6 +776,46 @@ def linear_crop(invar,lat,lon,ptstart,ptend,belowline=True,along_x=True,debug=Fa
         ax.plot(pts[:,0],pts[:,1],color="y",marker="x") 
         fig.colorbar(pcm,ax=ax)
     return cropped_mask
+
+def calc_dx_dy(longitude,latitude,centered=False):
+    ''' 
+        This definition calculates the distance between grid points (in meters)
+        that are in a latitude/longitude format.
+        
+        Function from: https://github.com/Unidata/MetPy/issues/288
+        added "centered" option to double the distance for centered-difference
+        
+        Equations from:
+        http://andrew.hedges.name/experiments/haversine/
+
+        dy should be close to 55600 m
+        dx at pole should be 0 m
+        dx at equator should be close to 55600 m
+        
+        Accepts, 1D arrays for latitude and longitude
+        
+        Returns: dx, dy; 2D arrays of distances between grid points 
+                                    in the x and y direction in meters 
+    '''
+    dlat = np.abs(latitude[1]-latitude[0])*np.pi/180
+    if centered:
+        dlat *= 2
+    dy   = 2*(np.arctan2(np.sqrt((np.sin(dlat/2))**2),np.sqrt(1-(np.sin(dlat/2))**2)))*6371000
+    dy   = np.ones((latitude.shape[0],longitude.shape[0]))*dy
+
+    dx = np.empty((latitude.shape))
+    dlon = np.abs(longitude[1] - longitude[0])*np.pi/180
+    if centered:
+        dlon *= 2
+    for i in range(latitude.shape[0]):
+        # Apply cos^2 latitude weight
+        a = (np.cos(latitude[i]*np.pi/180)*np.cos(latitude[i]*np.pi/180)*np.sin(dlon/2))**2
+        c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1-a) )
+        dx[i] = c * 6371000
+    dx = np.repeat(dx[:,np.newaxis],longitude.shape,axis=1)
+    return dx, dy
+
+
 
 """
 ------------------------------
@@ -1339,6 +1381,36 @@ def eof_simple(pattern,N_mode,remove_timemean):
         eofs[:,II] = np.squeeze(U[:,II]*sigma[II]/np.sqrt(nt-1))
     return eofs, pcs, varexp
 
+def eof_filter(eofs,varexp,eof_thres,axis=0,return_all=False):
+    """
+    Discard modes above a certain variance explained percentage threshold
+    Inputs:
+        varexp    : [mode x mon]
+        eofs      : [mode x mon x lat x lon]
+        eof_thres : the percentange threshold (0.90=90%)
+        axis      : axis of the mode dimension
+    Outputs:
+        eofs_filtered : [mode x mon x lat x lon] filtered eofs, with higher modes set to zero
+        varexp_cumu   : [mode x mon] cumulative variance explained
+        nmodes_needed : [mon] # of modes needed to reach threshold (first exceedence)
+        varexps_filt  : [mode x mon] filtered variances explained by mode
+    """
+    varexp_cumu   = np.cumsum(varexp,axis=0) # Cumulative sum of variance
+    above_thres   = varexp_cumu >= eof_thres        # Check exceedances
+    nmodes_needed = np.argmax(above_thres,0)        # Get first exceedance
+    
+    eofs_filtered = eofs.copy()
+    varexps_filt  = varexp.copy()
+    for im in range(12):
+        eofs_filtered[nmodes_needed[im]:,im,:,:] = 0 # Set modes above exceedence to zero
+        varexps_filt[nmodes_needed[im]:,im] = 0
+    if return_all:
+        return eofs_filtered,varexp_cumu,nmodes_needed,varexps_filt
+    # Here's a check"
+    # print(np.sum(varexps_filt,0)) # Should be all below the variance threshold
+    return eofs_filtered
+
+
 #%% ~ Correlation
 def pearsonr_2d(A,B,dim,returnsig=0,p=0.05,tails=2,dof='auto'):
     """
@@ -1885,7 +1957,6 @@ def find_nan(data,dim,val=None,return_dict=False,verbose=True):
     else:
         datasum = data.copy()
     
-    
     # Find non nan pts
     if val is None:
         knan  = np.isnan(datasum)
@@ -1911,6 +1982,7 @@ def find_nan(data,dim,val=None,return_dict=False,verbose=True):
                    }
         return nandict
     return okdata,knan,okpts
+
 
 def selpt_ds(ds,lonf,latf,lonname='lon',latname='lat'):
     return ds.sel({lonname:lonf,latname:latf},method='nearest')
@@ -2448,22 +2520,33 @@ def getpt_pop(lonf,latf,ds,searchdeg=0.5,returnarray=1,debug=False):
     else:
         return pmean
 
-def get_pt_nearest(ds,lonf,latf,tlon_name="TLONG",tlat_name="TLAT",debug=True):
-    # Different version of above but query just the nearest point using nearest neightbor
+def get_pt_nearest(ds,lonf,latf,tlon_name="TLONG",tlat_name="TLAT",debug=True,
+                   use_arr=False,tlon=None,tlat=None,returnid=False):
+    # ds: Either Dataset or np.array with [time x tlat x tlon]
+    #     Adjust the name of TLON with tlong_name (and same for TLAT)
+    #     It an array is supplied, use_arr=True and supply tlon and tlat manually!
+    # latf: target latitude
+    # lonf: target longitude
+    # returnid: Set this to True to return the actual indices
     
-    tlon_name = "TLONG"
-    tlat_name = "TLAT"
+    # Different version of above but query just the nearest point using nearest neightbor
+    if tlon_name is None:
+        tlon_name = "TLONG"
+    if tlat_name is None:
+        tlat_name = "TLAT"
     x1name    = "nlat"
     x2name    = "nlon"
-    tlon      = ds[tlon_name].values
-    tlat      = ds[tlat_name].values
+    if tlon is None:
+        tlon      = ds[tlon_name].values
+    if tlat is None:
+        tlat      = ds[tlat_name].values
 
     # Find minimum in tlon
     # Based on https://stackoverflow.com/questions/58758480/xarray-select-nearest-lat-lon-with-multi-dimension-coordinates
     londiff   =  np.abs(tlon - lonf)
     latdiff   =  np.abs(tlat - latf)
     locdiff   =  londiff+latdiff
-
+    
     # Get Point Indexes
     ([x1], [x2]) = np.where(locdiff == np.min(locdiff))
     #plt.pcolormesh(np.maximum(londiff,latdiff)),plt.colorbar(),plt.show()
@@ -2471,8 +2554,15 @@ def get_pt_nearest(ds,lonf,latf,tlon_name="TLONG",tlat_name="TLAT",debug=True):
 
     if debug:
         print("Nearest point to (%.2f,%.2f) is (%.2f,%.2f) at index (%i,%i)" % (lonf,latf,tlon[x1,x2],tlat[x1,x2],x1,x2))
+    
+    if returnid:
+        return x1,x2
+    else:
+        if use_arr:
+            return ds[:,x1,x2] # Assume Time x Lat x Lon
+        else:
+            return ds.isel(**{x1name : x1, x2name : x2})
 
-    return ds.isel(**{x1name : x1, x2name : x2})
 
 def quick_interp2d(inlons,inlats,invals,outlons=None,outlats=None,method='cubic',
                    debug=False):

@@ -50,12 +50,13 @@ Functions:
     make_classes_nd     : Make classes based on given thresholds.
     checkpoint          : Groups values based on thresholds and returns indices
     
-        ~ Spatial Analysis/Wrangling ~
+        ~ Spatial Analysis/Operations/Wrangling ~
     lon360to180         : Flip longitude from degrees East to West
     lon180to360         : Flip longitude from degrees West to East
     lon360to180_xr      : Flip longitude in a DataArray
     lon360to180_ds      : Flip longitude in a DataArray (repeat?)
     linear_crop         : Remove points above/below a specified line
+    calc_dx_dy          : Retrieve 2d array of distances between grid points in meters
     
     
     ------------------------------
@@ -77,6 +78,7 @@ Functions:
         
         ~ EOF Analysis ~
     eof_simple          : Perform EOF Analysis (cr. Yu-Chiao Liang)
+    eof_filter          : Discard modes above a percentage threshold
     
         ~ Correlation ~
     pearsonr_2d         : Compute Pearson's Correlation Coefficient for 2D matrix.
