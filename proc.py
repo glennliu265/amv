@@ -1599,7 +1599,7 @@ def expfit(acf,lags,lagmax):
     funcin     = expf3
     x = lags
     y = acf
-    popt, pcov = sp.optimize.curve_fit(funcin, x[:(lagmax+1)], y[:(lagmax+1)])
+    popt, pcov = sp.optimize.curve_fit(funcin, x[:(lagmax+1)], y[:(lagmax+1)],maxfev=5000)
     
     tau_inv = popt[0] # 1/tau (tau = timescale),. np.exp(tau_inv*t)
     acf_fit = expf3(lags,tau_inv)
