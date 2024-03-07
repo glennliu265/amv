@@ -232,7 +232,7 @@ def xrdeseason(ds):
         print("Warning, first month is not Jan...")
     return ds.groupby('time.month') - ds.groupby('time.month').mean('time')
 
-def calc_savg(invar,debug=False,return_str=False,axis=-1):
+def calc_savg(invar,debug=False,return_str=False,axis=-1,ds=False):
     """
     Calculate Seasonal Average of input with time in the last dimension
     (or specify axis with axis=N)
@@ -241,6 +241,7 @@ def calc_savg(invar,debug=False,return_str=False,axis=-1):
         1) invar : ARRAY[...,time], N-D monthly variable where time is the last axis
         2) debug : BOOL, Set to True to Print the Dimension Sizes
         3) return_str : BOOL, Set to True to return the Month Strings (DJF,MAM,...)
+        4) ds: BOOL, if true, invar can be DataArray with 'mon' variable indicating month
     Outputs:
         1) savgs : LIST of ARRAYS, [winter, spring, summer, fall]
         2) snames : LIST of STR, season names, (returns if return_str is true)
@@ -248,14 +249,24 @@ def calc_savg(invar,debug=False,return_str=False,axis=-1):
     
     snames = ("DJF"   ,"MAM"  ,"JJA"  ,"SON")
     sids   = ([11,0,1],[2,3,4],[5,6,7],[8,9,10])
-    savgs = []
-    for s in range(4):
+    
+    if ds is False:
+        savgs = []
+        for s in range(4):
+            
+            savgs.append(np.nanmean(np.take(invar,sids[s],axis=axis),axis)) # Take mean along last dimension
+            if debug:
+                print(savgs[s].shape)
+        if return_str:
+            return savgs,snames
+    else:
+        savgs = []
+        for s in range(4):
+            ds_season = invar.isel(mon=(sids[s])).mean('mon')
+            savgs.append(ds_season)
         
-        savgs.append(np.nanmean(np.take(invar,sids[s],axis=axis),axis)) # Take mean along last dimension
-        if debug:
-            print(savgs[s].shape)
-    if return_str:
-        return savgs,snames
+        savgs = xr.concat(savgs,dim='season')
+        savgs = savgs.assign_coords({'season': np.array(list(snames),dtype=str)})
     return savgs
     
 def calc_clim(ts,dim,returnts=0,keepdims=False):
@@ -815,13 +826,12 @@ def calc_dx_dy(longitude,latitude,centered=False):
     dx = np.repeat(dx[:,np.newaxis],longitude.shape,axis=1)
     return dx, dy
 
-
-
 """
 ------------------------------
 |||  Statistical Analysis  ||| ****************************************************
 ------------------------------
 """
+
 #%% ~ Regression
 def regress_2d(A,B,nanwarn=1,verbose=True):
     """
@@ -1029,7 +1039,6 @@ def regress2ts(var,ts,normalizeall=0,method=1,nanwarn=1,verbose=True):
     
     return var_reg
 
-#%% ~Lead/Lag Analysis
 #%% ~ Lead/Lag Analysis
 def calc_lagcovar(var1,var2,lags,basemonth,detrendopt,yr_mask=None,debug=True,
                   return_values=False,spearman=False):
@@ -1328,8 +1337,7 @@ def tilebylag(kmonth,var,lags):
 #%% ~ EOF Analysis
 def eof_simple(pattern,N_mode,remove_timemean):
     """
-    Simple EOF function based on script by Yu-Chiao
-    
+    Simple EOF function based on script by Yu-Chiao Liang
     
     Inputs:
         1) pattern: Array of Space x Time [MxN], no NaNs
@@ -1352,7 +1360,6 @@ def eof_simple(pattern,N_mode,remove_timemean):
     if N_mode > nt:
         print("Warning, number of requested modes greater than length of time dimension. Adjusting to size of time.")
         N_mode = nt
-        
     
     # Preallocate
     eofs = np.zeros((ns,N_mode))
@@ -1833,7 +1840,7 @@ def lp_butter(varmon,cutofftime,order):
     -------
     varfilt : ARRAY [time,lat,lon]
         Filtered variable
-
+    
     """
     # Input variable is assumed to be monthy with the following dimensions:
     flag1d=False
@@ -2606,6 +2613,31 @@ def quick_interp2d(inlons,inlats,invals,outlons=None,outlats=None,method='cubic'
     # Do interpolation
     outvals = scipy.interpolate.griddata((inlons,inlats),invals,(xx,yy),method=method,)
     return newx,newy,outvals
+
+def repair_timestep(ds,t):
+    """Given a ds with a timestep with all NaNs, replace value with linear interpolation"""
+    
+    # Get steps before/after and dimensions
+    val_before = ds.isel(time=t-1).values # [zz x tlat x tlon]
+    val_0      = ds.isel(time=t).values   # [zz x tlat x tlon]
+    val_after  = ds.isel(time=t+1).values # [zz x tlat x tlon]
+    orishape   = val_before.shape
+    newshape   = np.prod(orishape)
+    
+    # Do Linear Interp
+    x_in       = [0,2]
+    y_in       = np.array([val_before.flatten(),val_after.flatten()]) # [2 x otherdims]
+    interpfunc = sp.interpolate.interp1d(x_in,y_in,axis=0)
+    val_fill   = interpfunc([1]).squeeze()
+    
+    # Reshape and replace into repaired data array copy
+    val_fill   = val_fill.reshape(orishape)
+    #ds_fill   = xr.zeros_like(ds.isel(time=t))
+    
+    ds_new     = ds.copy()
+    ds_new.loc[{'time':ds.time.isel(time=t)}] = val_fill
+    return ds_new
+
 
 """
 -------------------------
