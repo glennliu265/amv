@@ -2724,7 +2724,7 @@ def calc_AMV(lon,lat,sst,bbox,order,cutofftime,awgt,runmean=False):
     
 def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10,anndata=False,
                   runmean=False,dropedge=0,monid=None,nmon=12,
-                  mask=None):
+                  mask=None,return_unsmoothed=False,verbose=True):
     """
     
     Wrapper for quick AMV calculation.
@@ -2771,14 +2771,15 @@ def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10,anndata=False,
         annsst   = var_in.copy()
     
     # Calculate Index
-    if mask is not None:
-        print("Masking SST for Index Calculation!")
-        amvidx,_   = calc_AMV(lon,lat,annsst*mask[:,:,None],bbox,order,cutofftime,1,runmean=runmean)
+    if mask is not None: 
+        if verbose:
+            print("Masking SST for Index Calculation!")
+        amvidx,aasst   = calc_AMV(lon,lat,annsst*mask[:,:,None],bbox,order,cutofftime,1,runmean=runmean)
     else:
-        amvidx,_   = calc_AMV(lon,lat,annsst,bbox,order,cutofftime,1,runmean=runmean)
+        amvidx,aasst   = calc_AMV(lon,lat,annsst,bbox,order,cutofftime,1,runmean=runmean)
     
     # Drop boundary points if option is set
-    amvidxout = amvidx.copy() # Copy for later (without dropped edges)
+    amvidxout = amvidx.copy() # Copy for later (without dropped e ddges)
     if dropedge > 0:
         
         amvidx = amvidx[dropedge:-dropedge]
@@ -2788,7 +2789,9 @@ def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10,anndata=False,
     idxnorm    = amvidx / np.nanstd(amvidx)
     
     # Regress back to SST for spatial pattern
-    amvpattern = regress2ts(annsst,idxnorm,nanwarn=0)
+    amvpattern = regress2ts(annsst,idxnorm,nanwarn=0,verbose=verbose)
+    if return_unsmoothed:
+        return amvidxout,amvpattern,aasst
     return amvidxout,amvpattern
 
 def calc_DMI(sst,lon,lat):
@@ -2846,9 +2849,6 @@ def calc_remidx_simple(ac,kmonth,monthdim=-2,lagdim=-1,
         maxid  = maxid[maxid<=maxlag]
         if len(minid) == 0:
             continue
-        
-        
-        
         
         if debug:
             print("For yr %i"% yr)
