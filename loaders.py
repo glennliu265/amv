@@ -274,6 +274,29 @@ def get_lens_nc(modelname,vname,e,compname="Amon"):
             ncname = "%s_%s_MPI-ESM_historical_rcp85_r%ii1p1_185001-209912.nc" % (vname,compname,e+1)
     return ncname
 
+
+def load_bsf(datpath=None,stormtrack=0,ensavg=True,ssh=False):
+    
+    # Load mean BSF (or SSH) [ens x mon x lat x lon180]
+    # As processed by calc_mean_bsf.py
+    
+    vname = "BSF"
+    if ssh:
+        vname = "SSH" # Load SSH instead
+    
+    if datpath is None:
+        if stormtrack == 0: # Assumed to be Astraeus
+            datpath = "/Users/gliu/Downloads/02_Research/01_Projects/01_AMV/03_reemergence/01_Data/proc/CESM1/NATL_proc/"
+        else: # stormtrack path
+            datpath = "/home/glliu/01_Data/"
+    if ensavg:
+        nc = "%sCESM1_HTR_%s_bilinear_regridded_EnsAvg.nc" % (datpath,vname)
+    else:
+        nc = "%sCESM1_HTR_%s_bilinear_regridded_AllEns.nc" % (datpath,vname)
+        
+    ds = xr.open_dataset(nc).load()
+    return ds
+        
 # def get_cesm1_ocn_nclist(varname,scenario="HTR",path=None):
     
 #     """
