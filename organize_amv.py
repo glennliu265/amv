@@ -137,6 +137,7 @@ Functions:
     coarsen_byavg       : Coarsen input by averaging over bins
     getpt_pop           : Average values on POP grid for a DataArray
     quick_interp2d      : Quick 2D interpolation of datapoints, works with [sel_region_cv]
+    repair_timestep     : Given dataarray with all-NaN timeslice, replace with linear interpolation
     
     -------------------------
     |||  Climate Analysis ||| ****************************************************
