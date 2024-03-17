@@ -330,13 +330,13 @@ def label_sp(sp_id,case='upper',inside=True,ax=None,fig=None,x=0.0,y=1.0,
     if inside:
         trans = mtransforms.ScaledTranslation(10/72, -5/72, fig.dpi_scale_trans)
         ax.text(x, y, label, transform=ax.transAxes + trans,
-                fontsize=fontsize, verticalalignment='top', fontfamily=fontfamily,
+                fontsize=fontsize, verticalalignment='top',
                 bbox=dict(facecolor='1', edgecolor='none', pad=3.0,alpha=alpha),
                 color=fontcolor)
     else:
         trans = mtransforms.ScaledTranslation(-20/72, 7/72, fig.dpi_scale_trans)
         ax.text(x, y, label, transform=ax.transAxes + trans,
-                fontsize=fontsize, va='bottom', fontfamily=fontfamily,
+                fontsize=fontsize, va='bottom',
                 color=fontcolor)
     return ax
 
@@ -1633,7 +1633,6 @@ def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None,
     mons3tile = np.tile(np.array(mons3),int(np.floor(len(lags)/12))) 
     mons3tile = np.concatenate([np.roll(mons3tile,-kmonth),[mons3[kmonth]]])
     
-    
     # Set up second axis
     ax2 = ax.twiny()
     ax2.set_xticks(xticks)#,size=fsz_ticks)
@@ -1650,7 +1649,8 @@ def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None,
         ax3.tick_params(axis='y',labelcolor='gray',fontsize=fsz_ticks)
         ax3.grid(False)
     
-    ax.set_xticks(xticks)#,fontsize=fsz_ticks)
+    ax.set_xticks(xticks)
+    ax.tick_params(labelsize=fsz_ticks)
     ax.set_xlim([xticks[0],xticks[-1]])
     if title is None:
         ax.set_title("SST Autocorrelation, Lag 0 = %s" % (mons3[kmonth]),fontsize=fsz_title)
