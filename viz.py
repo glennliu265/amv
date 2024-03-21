@@ -1380,7 +1380,7 @@ def viz_kprev(h,kprev,locstring="",ax=None,lw=1,msize=25,mstyle="x",
     
     # Start Plot
     #fig,ax = plt.subplots(1,1,figsize=(6,4))
-    plt.style.use('seaborn-bright')
+    #plt.style.use('seaborn-bright')
     
     # Plot the MLD cycle
     ax.plot(plotmon,plotmld,color='k',label='MLD Cycle',lw=lw,zorder=1)

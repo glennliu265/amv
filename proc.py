@@ -491,7 +491,7 @@ def polyfit_1d(x,y,order):
 
 #%% ~ Classification/Grouping
 
-def make_classes_nd(y,thresholds,exact_value=False,reverse=False,dim=0,debug=False):
+def make_classes_nd(y,thresholds,exact_value=False,reverse=False,dim=0,debug=False,return_thres=False):
     """
     Makes classes based on given thresholds. Loops over values in ND number of datagroups
     and sets thresholds for each one
@@ -515,6 +515,7 @@ def make_classes_nd(y,thresholds,exact_value=False,reverse=False,dim=0,debug=Fal
         (an integer representing each threshold)
 
     """
+    
     # Make target array 2-D, and bring target dim to front (axis 0)
     if len(y.shape) > 1:
         if debug:
@@ -535,7 +536,7 @@ def make_classes_nd(y,thresholds,exact_value=False,reverse=False,dim=0,debug=Fal
         thresholds = np.array(thresholds)[:,None] * y_std[None,:] # [thres x npts]
     else:
         thresholds = np.array(thresholds)[:,None]
-        
+    
     y_class = np.zeros((y.shape[0],npts)) # [sample,datagroup]
     if nthres == 1: # For single threshold cases
         # Get the threshold
@@ -582,6 +583,8 @@ def make_classes_nd(y,thresholds,exact_value=False,reverse=False,dim=0,debug=Fal
         
     if reshape_flag:
         y_class=restoredim(y_class,oldshape,reorderdim)
+    if return_thres:
+        return y_class,thresholds
     return y_class
 
 def checkpoint(checkpoints,invar,debug=True):
@@ -635,6 +638,7 @@ def checkpoint(checkpoints,invar,debug=True):
                 print("Found %s"% str(np.array(invar)[ids]))
             ids_all.append(ids)
     return ids_all
+    
 
 #%% ~ Spatial Analysis/Wrangling
 
@@ -1646,7 +1650,7 @@ def calc_monvar(ts,dim=0):
 #     #n_eff = 
 #     return dof
 
-def calc_dof(ts,ts1=None):
+def calc_dof(ts,ts1=None,calc_r1=True,ntotal=None):
     """
     Calculate effective degrees of freedom for autocorrelated timeseries.
     Assumes time is first dim, but can specify otherwise. Based on Eq. 31
@@ -1655,40 +1659,55 @@ def calc_dof(ts,ts1=None):
         N_eff = N * (1-r1*r2) / (1+r1*r2) 
         
     Inputs:
-        ts          :: ARRAY [time] 1-D or 2-D Array
-        ts1         :: ARRAY [time] Another timeseries to correlate
+        ts          :: ARRAY [time] 1-D or 2-D Array, or lag 1 autocorrelation (r1) if calc_r1=False
+        ts1         :: ARRAY [time] Another timeseries to correlate, or r1 if calc_r1=False
+        calc_r1     :: BOOL    - Set to False if ts and ts1 are precalculated r1s
+        ntotal      :: NUMERIC - Number of samples, must be given if calc_r1 is false (full DOF)
     Output:
         dof         :: Int Effective Degrees of Freedom
         
     """
-    n_tot = len(ts)
+    if calc_r1:
+        
+        n_tot = ntotal
+    else:
+        n_tot = len(ts)
+    print("Setting base DOF to %i" % ntotal)
     
     # Compute R1 for first timeseries
-    ts_base         = ts[:-1]
-    ts_lag          = ts[1:]
-    r1              = np.corrcoef(ts_base,ts_lag)[0,1]
-    if r1<0:
-        print("Warning, r1 is less than zero: %f. Taking abs value!" % (r1))
+    if calc_r1:
+        ts_base         = ts[:-1]
+        ts_lag          = ts[1:]
+        r1              = np.corrcoef(ts_base,ts_lag)[0,1]
+    else:
+        r1 = ts
+    if np.any(r1<0):
+        print("Warning, r1 is less than zero. Taking abs value!")
         r1 = np.abs(r1)
+    
     if ts1 is None: # Square R1
         rho_in = r1**2
         
     else: # Compute R2 and compute product
-        ts1_base    = ts1[:-1]
-        ts1_lag     = ts1[1:]
-        r2          = np.corrcoef(ts1_base,ts1_lag)[0,1]
-        if r2<0:
-            print("Warning, r2 is less than zero: %f. Taking abs value!" % (r2))
-            r2 = np.abs(r2)
-        rho_in      = r1*r2
-
         
+        if calc_r1:
+            ts1_base    = ts1[:-1]
+            ts1_lag     = ts1[1:]
+            r2          = np.corrcoef(ts1_base,ts1_lag)[0,1]
+        else:
+            r2          = ts1
+        if np.any(r2<0):
+            print("Warning, r2 is less than zero. Taking abs value!")
+            r2 = np.abs(r2)
+    
+        rho_in      = r1*r2
+    
     # Compute DOF
     dof   = n_tot * (1-rho_in) / (1+rho_in)
-
+    
     return dof
 
-def ttest_rho(p,tails,dof):
+def ttest_rho(p,tails,dof,return_str=False):
     """
     Perform T-Test, given pearsonr, p (0.05), and tails (1 or 2), and degrees
     of freedom. The latter dof can be N-D
@@ -1714,6 +1733,9 @@ def ttest_rho(p,tails,dof):
     if type(dof) is np.ndarray:
         dof = dof.reshape(oldshape)
     corrthres = np.sqrt(1/ ((dof/np.power(critval,2))+1))
+    if return_str:
+        ttest_str = "p%03i_tails%i" % (p*100,tails)
+        return corrthres,ttest_str
     return corrthres
 
 
