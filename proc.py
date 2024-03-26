@@ -2401,6 +2401,16 @@ def sort_by_axis(sortarr,targarrs,axis=0,lon=None,lat=None):
     return sortid,sorttarg
 
 
+def get_nearest(value,searcharr,dim=0,return_rank=False):
+    # Given a [value], find the closest corresponding number in [searcharr] along dimension [dim]
+    # Optionally return the full ranking of values from closest to furthest
+    diff = np.abs(searcharr - value)
+    if return_rank:
+        return np.argsort(diff,axis=dim)
+    return np.argmin(diff,axis=dim)
+    
+
+
 """
 -----------------------------------
 |||  Interpolation & Regridding ||| ****************************************************
@@ -2906,13 +2916,15 @@ def calc_remidx_simple(ac,kmonth,monthdim=-2,lagdim=-1,
         return maxmincorr,maxids,minids
     return maxmincorr
 
-def calc_T2(rho,axis=0):
+def calc_T2(rho,axis=0,ds=False):
     """
     Calculate Decorrelation Timescale (DelSole 2001)
     Inputs:
     rho  : [ARRAY] Autocorrelation Function [lags x otherdims]
     axis : [INT], optional, Axis to sum along (default = 0)
     """
+    # if ds:
+    #     return (1+2*(rho**2).sum(axis))
     return (1+2*np.nansum(rho**2,axis=axis))
 
 #%% ~ Dimension Gymnastics
@@ -3298,6 +3310,14 @@ def check_sum_ds(add_list,sum_ds,lonf=50,latf=-30,t=0,fmt="%.2f"):
 def get_xryear(ystart="0000",nmon=12):
     # Get an xarray year (dummy operation). Can indicate startyear or month
     return xr.cftime_range(start='0000',periods=nmon,freq="MS",calendar="noleap")
+
+def rep_ds(ds,repdim,dimname):
+    # repeat [ds] a number of times along a selected dimension [repdim], named [dimname]
+    nreps  = len(repdim) # Number of reps
+    dsrep  = [ds for n in range(nreps)] 
+    dsrep  = xr.concat(dsrep,dim=dimname)
+    dsrep  = dsrep.reindex(**{ dimname :repdim})
+    return dsrep
 
 """
 -----------------
