@@ -1334,7 +1334,8 @@ def return_clevels(cmax,cstep,lstep=None):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def viz_kprev(h,kprev,locstring="",ax=None,lw=1,msize=25,mstyle="x",
-              cmap=None,fill_style='full',txtalpha=1,usetitle=True):
+              cmap=None,fill_style='full',txtalpha=1,usetitle=True,
+              fsz_lbl=12,fsz_axis=14,plotarrow=False,shade_layers=True):
     """
     Quick visualization of mixed layer cycle (h)
     and the corresponding detrainment index found using the
@@ -1358,14 +1359,11 @@ def viz_kprev(h,kprev,locstring="",ax=None,lw=1,msize=25,mstyle="x",
         
     # Create Connector lines ([entrainmon,detrainmon],[MLD,MLD])
     connex = [([im+1,kprev[im]],[h[im],h[im]]) for im in range(12) if kprev[im] != 0]
-    
     # Set colormap
     if cmap is None:
         cmap = cc.glasbey[:len(connex)]
     else:
         cmap = cmap[:len(connex)]
-        
-    
     for m in range(len(connex)):
         if connex[m][0][0] < connex[m][0][1]: # The first point comes before last point
             connex[m][0][0] += 12 # Shift 1 year ahead
@@ -1373,6 +1371,9 @@ def viz_kprev(h,kprev,locstring="",ax=None,lw=1,msize=25,mstyle="x",
     # Indicate entraining months
     foundmon = kprev[kprev!=0]
     foundmld = h[kprev!=0]
+    
+    dtmon = kprev[kprev == 0]
+    dtmld = h[kprev==0]
     
     # Append month to the end
     plotmon = np.arange(1,14,1)
@@ -1386,31 +1387,65 @@ def viz_kprev(h,kprev,locstring="",ax=None,lw=1,msize=25,mstyle="x",
     ax.plot(plotmon,plotmld,color='k',label='MLD Cycle',lw=lw,zorder=1)
     
     # Plot the connectors
-    lns  = [ax.plot(connex[m][0],connex[m][1],
-                    lw=lw,color=cmap[m],zorder=-1) for m in range(len(connex))]
-    clrs = [ln[0].get_color() for ln in lns] 
+    if plotarrow:
+        lns  = []
+        clrs = []
+        for m in range(len(connex)):
+            if m == h.argmax():
+                hl = 0 
+                hw = 0 
+            else:
+                hl = 0.15
+                hw = 3.5
+                
+            arx  = connex[m][0][1]
+            ary  = connex[m][1][1]
+            ardx = connex[m][0][0] - connex[m][0][1]
+            ardy = connex[m][1][0] - connex[m][1][1]
+            ln   = ax.arrow(arx,ary,ardx,ardy,color=cmap[m],zorder=1,head_starts_at_zero=False,
+                            head_length=hl,head_width=hw)
+            lns.append(ln)
+            clrs.append(ln.get_facecolor())
+            
+    else:
+        lns  = [ax.plot(connex[m][0],connex[m][1],
+                        lw=lw,color=cmap[m],zorder=-1) for m in range(len(connex))]
+        clrs = [ln[0].get_color() for ln in lns] 
     
     # Plot markers
     pts  = [ax.plot(foundmon[m],foundmld[m],
                     markersize=msize,marker=mstyle,color=clrs[m],fillstyle=fill_style,
                     linestyle='None',zorder=5) for m in range(len(connex))]
     
+    
     # Plot Annotations
     txts = [ax.annotate("%.2f" %(connex[m][0][1]),(connex[m][0][1],connex[m][1][1]),
-                 zorder=9) for m in range(len(connex))]
+                 zorder=9,fontsize=fsz_lbl) for m in range(len(connex))]
     for txt in txts:
         txt.set_path_effects([PathEffects.withStroke(linewidth=2.5,foreground="w",alpha=txtalpha)])
+        
+    # Plot Entrain Arrows
+    ax.scatter(np.arange(1,13,1)[kprev!=0],h[kprev!=0],
+               marker=r"$\circlearrowleft$",s=250,color=cmap,zorder=3,#edgecolor="w",
+               linewidth=0.99,)
         
     # Labeling
     ax.set(xlabel='Month',
            ylabel='Mixed Layer Depth (m)',
            xlim=(1,12),
-           
            )
+    
+    # Add Shading
+    if shade_layers:
+        ax.fill_between(plotmon,0,plotmld,alpha=0.90,color="cornflowerblue",zorder=-5)
+        ax.fill_between(plotmon,plotmld,plotmld.max()+50,alpha=0.70,color="navy",zorder=-5)
+        ax.set_ylim([0,plotmld.max()+10])
+    
     if usetitle:
         ax.set_title("Mixed Layer Depth Seasonal Cycle at " + locstring)
 
     ax.set_xticks(range(1,14,1))
+    ax.invert_yaxis()
     
     return ax
 
@@ -1577,7 +1612,9 @@ def summarize_params(lat,lon,params,synth=False):
     ax.set_xticks(xtks)
     ax.set_title("")
     ax.set_ylabel("Mixed-Layer Depth (m)")
-    ax.grid(True,linestyle='dotted')
+    ax.grid(True,linestyle='dotted',color="w",zorder=5)
+    
+
     
     # Plot Forcing
     ax = axs[2]
@@ -1595,10 +1632,8 @@ def summarize_params(lat,lon,params,synth=False):
     plt.tight_layout()
     return fig,ax
 
-
-
 def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None,
-                usegrid=True,tickfreq=None,fsz_axis=14,fsz_ticks=12,fsz_title=18):
+                usegrid=True,tickfreq=None,fsz_axis=14,fsz_ticks=12,fsz_title=18,vlines=None):
     """
     Function to initialize autocorrelation plot with months on top,
     lat on the bottom
@@ -1617,6 +1652,7 @@ def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None,
         Title of plot. The default is "SST Autocorrelation, Lag 0 = Month.
     loopvar: ARRAY [12,], optional
         Monthly variable to tile and plot in the background
+    vlines: indices of months to put vertical values at
     
     Returns
     -------
@@ -1678,6 +1714,14 @@ def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None,
                 lbl_new.append("")
         ax.set_xticklabels(lbl_new,fontsize=fsz_ticks)
         ax2.set_xticklabels(lbl_new_mon,fontsize=fsz_ticks)
+    
+    # Add some vertical lines
+    if vlines is not None:
+        vline_mons = [mons3[mm] for mm in vlines]
+        for l,lag in enumerate(lags):
+            lbl = mons3tile[l]
+            if lbl in vline_mons:
+                ax.axvline([l],lw=0.75,c="k",label="")
     
     if loopvar is not None:
         return ax,ax2,ax3
