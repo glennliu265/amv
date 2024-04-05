@@ -1696,7 +1696,7 @@ def init_acplot(kmonth,xticks,lags,ax=None,title=None,loopvar=None,
     ax.set_ylabel("Correlation",fontsize=fsz_axis)
     if usegrid:
         ax.grid(True,linestyle='dotted')
-    plt.tight_layout()
+    #plt.tight_layout()
     
     # Adjust ticks if option is set
     if tickfreq is not None:

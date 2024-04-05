@@ -127,6 +127,7 @@ Functions:
     get_topN            : Get indices for top/bottom N values in an array (along last dimension)
     maxid_2d            : Find indices along each dimension for a 2D matrix. Ignores NaN values.
     sort_by_axis        : Sort arrays along axis by values from a single array 
+    get_nearest         : Get indices of the closest value to an input (absolute diff)
     
     
     -----------------------------------
@@ -176,6 +177,7 @@ Functions:
     savefig_pub         : Save a publication-ready figure
     check_sum_ds        : Check summed output of DataArray
     get_xryear          : use xr.cftime to make dummy "year" for calculations
+    rep_ds              : Repeat ds certain number of times along a specified dimension
     
     -----------------
     |||  Labeling ||| ****************************************************
