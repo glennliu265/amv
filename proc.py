@@ -843,11 +843,13 @@ def regress_2d(A,B,nanwarn=1,verbose=True):
     either A or B can be a timeseries [N-dimensions] or a space x time matrix 
     [N x M]. Script automatically detects this and permutes to allow for matrix
     multiplication.
+    Note that if A and B are of the same size, assumes axis 1 of A will be regressed to axis 0 of B
     
     Returns the slope (beta) for each point, array of size [M]
     
     
     """
+    
     # Determine if A or B is 2D and find anomalies
     bothND = False # By default, assume both A and B are not 2-D.
     # Note: need to rewrite function such that this wont be a concern...
@@ -859,7 +861,7 @@ def regress_2d(A,B,nanwarn=1,verbose=True):
     if np.any(np.isnan(A)) or np.any(np.isnan(B)):
         if nanwarn == 1:
             print("NaN Values Detected...")
-    
+            
         # 2D Matrix is in A [MxN]
         if len(A.shape) > len(B.shape):
             
@@ -890,6 +892,32 @@ def regress_2d(A,B,nanwarn=1,verbose=True):
             Aanom = A - np.nanmean(A,axis=a_axis)
             Banom = B - np.nanmean(B,axis=b_axis)[None,:]
         
+
+        # A is [P x N], B is [N x M]
+        elif len(A.shape) == len(B.shape):
+            if verbose:
+                print("Note, both A and B are 2-D...")
+            bothND = True
+            if A.shape[1] != B.shape[0]:
+                print("WARNING, Dimensions not matching...")
+                print("A is %s, B is %s" % (str(A.shape),str(B.shape)))
+                print("Detecting common dimension")
+                # Get intersecting indices 
+                intersect, ind_a, ind_b = np.intersect1d(A.shape,B.shape, return_indices=True)
+                if ind_a[0] == 0: # A is [N x P]
+                    A = A.T # Transpose to [P x N]
+                if ind_b[0] == 1: # B is [M x N]
+                    B = B.T # Transpose to [N x M]
+                print("New dims: A is %s, B is %s" % (str(A.shape),str(B.shape)))
+                
+            # Set axis for summing/averaging
+            a_axis = 1 # Assumes dim 1 of A will be regressed to dim 0 of b
+            b_axis = 0
+            
+            # Compute anomalies along appropriate axis        
+            Aanom = A - np.nanmean(A,axis=a_axis)[:,None]
+            Banom = B - np.nanmean(B,axis=b_axis)[None,:]
+            
         # Calculate denominator, summing over N
         Aanom2 = np.power(Aanom,2)
         denom  = np.nansum(Aanom2,axis=a_axis)    
@@ -898,6 +926,8 @@ def regress_2d(A,B,nanwarn=1,verbose=True):
         beta = Aanom @ Banom / denom
         
         b = (np.nansum(B,axis=b_axis) - beta * np.nansum(A,axis=a_axis))/A.shape[a_axis]
+        
+            
     else:
         # 2D Matrix is in A [MxN]
         if len(A.shape) > len(B.shape):
