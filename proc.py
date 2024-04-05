@@ -915,18 +915,18 @@ def regress_2d(A,B,nanwarn=1,verbose=True):
             b_axis = 0
             
             # Compute anomalies along appropriate axis        
-            Aanom = A - np.nanmean(A,axis=a_axis)[:,None]
-            Banom = B - np.nanmean(B,axis=b_axis)[None,:]
+            Aanom = A - np.nanmean(A,axis=a_axis)[:,None] # Anomalize w.r.t. dim 1 of A
+            Banom = B - np.nanmean(B,axis=b_axis)[None,:] # Anonalize w.r.t. dim 0 of B
             
         # Calculate denominator, summing over N
         Aanom2 = np.power(Aanom,2)
-        denom  = np.nansum(Aanom2,axis=a_axis)    
+        denom  = np.nansum(Aanom2,axis=a_axis)     # Sum along dim 1 of A (lets say this is time)
         
         # Calculate Beta
-        beta = Aanom @ Banom / denom
+        beta = Aanom @ Banom / denom[:,None] # Denom is [A[mode,time]@ B[time x space]], output is [mode x pts]
         
-        b = (np.nansum(B,axis=b_axis) - beta * np.nansum(A,axis=a_axis))/A.shape[a_axis]
-        
+        b = (np.nansum(B,axis=b_axis,keepdims=True) - beta * np.nansum(A,axis=a_axis,keepdims=True))/A.shape[a_axis]
+        # b is [mode x pts] [or P x M]
             
     else:
         # 2D Matrix is in A [MxN]
