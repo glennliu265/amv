@@ -920,9 +920,10 @@ def regress_2d(A,B,nanwarn=1,verbose=True):
             
         # Calculate denominator, summing over N
         Aanom2 = np.power(Aanom,2)
-        denom  = np.nansum(Aanom2,axis=a_axis)     # Sum along dim 1 of A (lets say this is time)
+        denom  = np.nansum(Aanom2,axis=a_axis,keepdims=True)     # Sum along dim 1 of A (lets say this is time)
         
         # Calculate Beta
+        #if 
         beta = Aanom @ Banom / denom[:,None] # Denom is [A[mode,time]@ B[time x space]], output is [mode x pts]
         
         b = (np.nansum(B,axis=b_axis,keepdims=True) - beta * np.nansum(A,axis=a_axis,keepdims=True))/A.shape[a_axis]
@@ -985,7 +986,7 @@ def regress_2d(A,B,nanwarn=1,verbose=True):
 
         # Calculate denominator, summing over N
         Aanom2 = np.power(Aanom,2)
-        denom = np.sum(Aanom2,axis=a_axis)
+        denom = np.sum(Aanom2,axis=a_axis,keepdims=True)
         if bothND:
             denom = denom[:,None] # Broadcast
             
@@ -1013,7 +1014,7 @@ def regress2ts(var,ts,normalizeall=0,method=1,nanwarn=1,verbose=True):
         reshapeflag = True
         if verbose:
             print("Lon and lat are uncombined!")
-        londim = var.shape[0]
+        londim = var.shape[0]   
         latdim = var.shape[1]
     else:
         reshapeflag=False
