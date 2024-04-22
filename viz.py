@@ -63,6 +63,8 @@
 
         ~ Quick Visualization (qv) series
     qv_seasonal         : Plot the seasonal cycle of 2D variable
+    hcbar               : Make Horizontal Colorbar
+    
 """
 
 
@@ -1832,6 +1834,19 @@ def qv_seasonal(lon,lat,var,
         fig.colorbar(pcm,ax=axs.flatten(),fraction=0.025,pad=0.01)
         
     return ax
+
+def hcbar(mpl_obj,ax=None,fig=None,fraction=0.035,pad=.01):
+    """
+    Make quick horizontal colorbar. Arguments are same as ax.colorbar()
+    
+    """
+    if ax is None:
+        ax = plt.gca()
+    if fig is None:
+        fig = plt.gcf()
+    cb = plt.colorbar(mpl_obj,ax=ax,fraction=fraction,
+                      pad=pad,orientation='horizontal',)
+    return cb
     
 #%% Spectral Analysis
 
