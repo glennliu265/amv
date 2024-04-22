@@ -196,13 +196,14 @@ def area_avg_cosweight(ds,sqrt=False):
 
 #%% ~ Seasonal Cycle
 
-def year2mon(ts):
+def year2mon(ts,return_monxyr=True):
     """
     Separate mon x year from a 1D timeseries of monthly data
     """
     ts = np.reshape(ts,(int(np.ceil(ts.size/12)),12))
-    ts = ts.T
-    return ts
+    if return_monxyr:
+        ts = ts.T # [year x mon] --> [mon x year]
+    return ts 
 
 def deseason(ts,dim=0,return_scycle=False):
     """
@@ -2847,7 +2848,7 @@ def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10,anndata=False,
         
         amvidx = amvidx[dropedge:-dropedge]
         annsst = annsst[:,:,dropedge:-dropedge]
-        
+    
     # Normalize index
     idxnorm    = amvidx / np.nanstd(amvidx)
     
