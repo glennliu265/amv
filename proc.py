@@ -269,6 +269,12 @@ def calc_savg(invar,debug=False,return_str=False,axis=-1,ds=False):
         savgs = xr.concat(savgs,dim='season')
         savgs = savgs.assign_coords({'season': np.array(list(snames),dtype=str)})
     return savgs
+
+def calc_savg_mon(ds):
+    """Calculate the seasonal averages from ds with dimension "mon"""
+    dstime = ds.assign_coords(mon=get_xryear()).rename({'mon':'time'})
+    dssavg = dstime.groupby('time.season').mean('time')
+    return dssavg
     
 def calc_clim(ts,dim,returnts=0,keepdims=False):
     """
@@ -1370,6 +1376,42 @@ def tilebylag(kmonth,var,lags):
     vartile = np.concatenate([np.roll(vartile,-kmonth),[var[kmonth]]])
     return vartile
 
+
+def leadlag_corr(varbase,varlag,lags,corr_only=False):
+    """
+    Compute lead-lag correlation of two 1-D timeseries [time]
+     - lags/leads are computed w.r.t. varbase
+     - works with ufunc (see debug_leadlag_corr for examples)
+    Inputs:
+        varbase   (ARRAY, [time]) Base timeseries
+        varlag    (ARRAY, [time]) Timeseries to lag/lead
+        lags      (ARRAY, [lags]) Lags to compute lead/lag over
+        corr_only (BOOL)          True to return just correlation
+    Outputs:
+        leadlags    (ARRAY, [lags]) Leads and Lags (flips and negates lags)
+        leadlagcorr (ARRAY, [lags]) Correlation values
+    
+    """
+    
+    ntime = varbase.shape[0]
+    nlags = len(lags)
+    # Lags
+    leadcorrs = []
+    lagcorrs  = []
+    for ii in range(nlags):
+        lag     = lags[ii]
+        lagcorr  = np.corrcoef(varbase[:(ntime-lag)],varlag[lag:])[0,1]
+        leadcorr = np.corrcoef(varbase[lag:],varlag[:(ntime-lag)])[0,1]
+        lagcorrs.append(lagcorr)
+        leadcorrs.append(leadcorr)
+    leadlagcorr = np.concatenate([np.flip(leadcorrs)[:-1],lagcorrs])
+    leadlags    = np.concatenate([np.flip(-1*lags)[:-1],lags],)
+    if corr_only:
+        return leadlagcorr
+    return leadlags,leadlagcorr
+
+
+
 #%% ~ EOF Analysis
 def eof_simple(pattern,N_mode,remove_timemean):
     """
@@ -1877,7 +1919,7 @@ def patterncorr(map1,map2,verbose=True):
 ------------------------------
 """
 #%% ~ Spectral Analysis and Filtering
-def lp_butter(varmon,cutofftime,order):
+def lp_butter(varmon,cutofftime,order,btype='lowpass'):
     """
     Design and apply a low-pass filter (butterworth)
 
@@ -1889,6 +1931,8 @@ def lp_butter(varmon,cutofftime,order):
         Cutoff value in months
     order : INT
         Order of the butterworth filter
+    btype : STR
+        Type of filter {‘lowpass’, ‘highpass’, ‘bandpass’, ‘bandstop’}
 
     Returns
     -------
@@ -1908,7 +1952,7 @@ def lp_butter(varmon,cutofftime,order):
     filtfreq = nmon/cutofftime
     nyquist  = nmon/2
     cutoff = filtfreq/nyquist
-    b,a    = butter(order,cutoff,btype="lowpass")
+    b,a    = butter(order,cutoff,btype=btype)
     
     # Reshape input
     if flag1d is False: # For 3d inputs, loop thru each point
@@ -1921,6 +1965,7 @@ def lp_butter(varmon,cutofftime,order):
     else: # 1d input
         varfilt = filtfilt(b,a,varmon)
     return varfilt
+    
 
 def calc_specvar(freq,spec,thresval,dtthres,droplast=True
                  ,lowerthres=0,return_thresids=False,trapz=True):
