@@ -274,7 +274,6 @@ def get_lens_nc(modelname,vname,e,compname="Amon"):
             ncname = "%s_%s_MPI-ESM_historical_rcp85_r%ii1p1_185001-209912.nc" % (vname,compname,e+1)
     return ncname
 
-
 def load_bsf(datpath=None,stormtrack=0,ensavg=True,ssh=False):
     
     # Load mean BSF (or SSH) [ens x mon x lat x lon180]

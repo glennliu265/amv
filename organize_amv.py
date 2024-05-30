@@ -74,6 +74,7 @@ Functions:
     calc_lag_covar_ann  : Yearly (or any time unit) lag-lead correlation calculator
     calc_conflag        : Calculate confidence Intervals for autocorrelation function
     tilebylag           : Tile a monthly variable along a lag sequence
+    leadlag_corr        : Compute lead/lag correlation of 2 variables (all months)
     
         
         ~ EOF Analysis ~
@@ -85,6 +86,7 @@ Functions:
     calc_pearsonconf    : Compute upper and lower bounds using fisher-Z transform (?)
     patterncorr         : Compute the pattern correlation between 2 2-D maps (modified from slutil)
     patterncorr_nd      : Vectorized version of paterncorr script
+    nancorr             : Correlation on timeseries with NaN
     
         ~ Significance Testing ~
     calc_dof            : Compute effective degrees of freedom
