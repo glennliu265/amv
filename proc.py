@@ -12,6 +12,7 @@ test from stormtrack (moved 20200815)
 import numpy as np
 import xarray as xr
 import calendar as cal
+import numpy.ma as ma
 from scipy import signal,stats
 from scipy.signal import butter, lfilter, freqz, filtfilt, detrend
 import os
@@ -1666,6 +1667,10 @@ def patterncorr_nd(reference_map,target_maps,axis=0,return_N=False):
     if return_N:
         return R,N_space_ok
     return R    
+
+def nancorr(ts1,ts2):
+    # From https://stackoverflow.com/questions/31619578/numpy-corrcoef-compute-correlation-matrix-while-ignoring-missing-data
+    return ma.corrcoef(ma.masked_invalid(ts1), ma.masked_invalid(ts2))
 
 def calc_binwidth(invar,dim=0):
     """
