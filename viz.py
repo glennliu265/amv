@@ -167,10 +167,10 @@ def reorder_legend(ax,order=None):
     legend = ax.legend([handles[idx] for idx in order],[labels[idx] for idx in order])
     return legend
     
-def add_ylabel(label,ax=None,x=-0.10,y=0.5,fontsize=12):
+def add_ylabel(label,ax=None,x=-0.10,y=0.5,fontsize=12,rotation='vertical'):
     if ax is None:
         ax = plt.gca()
-    txt = ax.text(x, y, label, va='bottom', ha='center',rotation='vertical',
+    txt = ax.text(x, y, label, va='bottom', ha='center',rotation=rotation,
             rotation_mode='anchor',transform=ax.transAxes,fontsize=fontsize)
     return txt
 
