@@ -45,6 +45,7 @@ Functions:
     detrend_dim         : Linear detrend along a dimension
     detrend_poly        : Perform polynomial detrend (2D)
     polyfit_1d          : 1-D polynomial fitting/detrending. Returns residuals and coeffs.
+    xr_detrend          : Apply detrend_dim to xarray DataArray
 
         ~ Classification/Grouping ~
     make_classes_nd     : Make classes based on given thresholds.
