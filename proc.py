@@ -511,6 +511,18 @@ def polyfit_1d(x,y,order):
     residual = y - newmodel
     return coeffs,newmodel,residual
 
+
+def xrdetrend(ds,timename='time',verbose=True):
+    st          = time.time()
+    # Simple Linear detrend along dimension 'time'
+    tdim        = list(ds.dims).index(timename) # Locate Time Dim
+    dt_dict     = hf.detrend_dim(ds.values,tdim,return_dict=True) # ASSUME TIME in first axis
+    ds_anom_out = xr.DataArray(dt_dict['detrended_var'],dims=ds.dims,coords=ds.coords,name=ds.name)
+    if verbose:
+        print("Detrended in %.2fs" % (time.time()-st))
+    return ds_anom_out
+    
+
 #%% ~ Classification/Grouping
 
 def make_classes_nd(y,thresholds,exact_value=False,reverse=False,dim=0,debug=False,return_thres=False):
