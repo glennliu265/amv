@@ -25,6 +25,20 @@ import scipy as sp
 import pandas as pd
 import datetime
 
+#%% Optional Yobox Import
+import_yobox = True
+if import_yobox:
+    import sys
+    yopath = "/Users/gliu/Downloads/02_Research/01_Projects/01_AMV/00_Commons/03_Scripts/"
+    sys.path.append(yopath)
+    import yo_box as ybx
+    
+
+
+
+#%%
+
+
 """
 -----------------------
 |||  Preprocessing  ||| ****************************************************
@@ -2008,6 +2022,28 @@ def calc_specvar(freq,spec,thresval,dtthres,droplast=True
         specsum  = np.sum((specval*df),-1)
     return specsum
 
+def point_spectra(ts, nsmooth=1, opt=1, dt=None, clvl=[.95], pct=0.1):
+    # Compute the power spectra to a single timeseries
+    if dt is None:  # Divides to return output in 1/sec
+        dt = 3600*24*30
+    sps = ybx.yo_spec(ts, opt, nsmooth, pct, debug=False, verbose=False)
+
+    P, freq, dof, r1 = sps
+    coords = dict(freq=freq/dt)
+    da_out = xr.DataArray(P*dt, coords=coords, dims=coords, name="spectra")
+    return da_out
+
+
+def get_freqdim(ts, dt=None, opt=1, nsmooth=1, pct=0.10, verbose=False, debug=False):
+    # Get the frequency dimension from a spectra calculation
+    if dt is None:
+        dt = 3600*24*30
+    sps = ybx.yo_spec(ts, opt, nsmooth, pct, debug=False, verbose=verbose)
+    if sps is None:
+        return None
+    return sps[1]/dt
+
+
 
 """
 -------------------------------
@@ -2490,6 +2526,58 @@ def get_nearest(value,searcharr,dim=0,return_rank=False):
     if return_rank:
         return np.argsort(diff,axis=dim)
     return np.argmin(diff,axis=dim)
+
+
+def indexwindow(invar,m,monwin,combinetime=False,verbose=False):
+    """
+    index a specific set of months/years for an odd sliding window
+    given the following information (see inputs)
+    
+    drops the first and last years when a the dec-jan boundary
+    is crossed, according to the direction of crossing
+    time dimension is thus reduced by 2 overall
+    
+    inputs:
+        1) invar [ARRAY: yr x mon x otherdims] : variable to index
+        2) m [int] : index of central month in the window
+        3) monwin [int]: total size of moving window of months
+        4) combinetime [bool]: set to true to combine mons and years into 1 dimension
+    
+    output:
+        1) varout [ARRAY]
+            [yr x mon x otherdims] if combinetime=False
+            [time x otherdims] if combinetime=True
+    
+    """
+    
+    if monwin > 1:  
+        winsize = int(np.floor((monwin-1)/2))
+        monid = [m-winsize,m,m+winsize]
+    
+    varmons = []
+    msg = []
+    for m in monid:
+
+        if m < 0: # Indexing months from previous year
+            
+            msg.append("Prev Year")
+            varmons.append(invar[:-2,m,:])
+            
+        elif m > 11: # Indexing months from next year
+            msg.append("Next Year")
+            varmons.append(invar[2:,m-12,:])
+            
+        else: # Interior years (drop ends)
+            msg.append("Interior Year")
+            varmons.append(invar[1:-1,m,:])
+    if verbose:
+        print("Months are %s with years %s"% (str(monid),str(msg)))       
+    # Stack together and combine dims, with time in order
+    varout = np.stack(varmons) # [mon x yr x otherdims]
+    varout = varout.transpose(1,0,2) # [yr x mon x otherdims]
+    if combinetime:
+        varout = varout.reshape((varout.shape[0]*varout.shape[1],varout.shape[2])) # combine dims
+    return varout
     
 
 
@@ -2933,7 +3021,7 @@ def calc_DMI(sst,lon,lat):
     return DMI
     
 def calc_remidx_simple(ac,kmonth,monthdim=-2,lagdim=-1,
-                       minref=6,maxref=12,tolerance=3,debug=False):
+                       minref=6,maxref=12,tolerance=3,debug=False,return_rei=False):
     
     # Select appropriate month
     ac_in          = np.take(ac,np.array([kmonth,]),axis=monthdim).squeeze()
@@ -2996,6 +3084,76 @@ def calc_remidx_simple(ac,kmonth,monthdim=-2,lagdim=-1,
             
     if debug:
         return maxmincorr,maxids,minids
+    if return_rei:
+        rei = maxmincorr[1,...] - maxmincorr[0,...]
+        return rei
+    return maxmincorr
+
+    
+def calc_remidx_xr(ac,minref=6,maxref=12,tolerance=3,debug=False,return_rei=False):
+    # Rewritten to work with just an input of acf [lags].
+    # For use case, see [calc_remidx_general.py]
+    # Rather than explicitly computing # years based on starting month, just assume 12 lags = 1 year
+    
+    # Compute the number of years involved (month+lags)/12
+    # ex: if nlags = 37
+    #     if kmonth = 0, nyrs is just 37/12 = ~3 years (computes re-emergence for each year)
+    #     if kmonth = 11, nyrs is starts from Y1 (Dec) andgoes to (37+11)/12 (48), to Y4 Dec Re-emergence
+    nlags          = ac.shape[0]
+    nyrs           = int(np.floor((nlags) /12))
+    if debug:
+        maxids = []
+        minids = []
+    maxmincorr = np.zeros((2,nyrs,))  # [max/min x year]
+    for yr in range(nyrs):
+        
+        # Get indices of target lags
+        minid = np.arange(minref-tolerance,minref+tolerance+1,1) + (yr*12)
+        maxid = np.arange(maxref-tolerance,maxref+tolerance+1,1) + (yr*12)
+        
+        # Drop indices greater than max lag
+        maxlag = (ac.shape[0]-1)
+        minid  = minid[minid<=maxlag]
+        maxid  = maxid[maxid<=maxlag]
+        if len(minid) == 0:
+            continue
+        
+        if debug:
+            print("For yr %i"% yr)
+            print("\t Min Ids are %i to %i" % (minid[0],minid[-1]))
+            print("\t Max Ids are %i to %i" % (maxid[0],maxid[-1]))
+        
+        # Find minimum
+        mincorr  = np.min(np.take(ac,minid,axis=0),axis=0)
+        maxcorr  = np.max(np.take(ac,maxid,axis=0),axis=0)
+        
+        maxmincorr[0,yr,...] = mincorr.copy()
+        maxmincorr[1,yr,...] = maxcorr.copy()
+        #remreidx[yr,...]     = (maxcorr - mincorr).copy()
+        
+        if debug:
+            maxids.append(maxid)
+            minids.append(minid)
+        
+        if debug:
+            ploti = 0
+            fig,ax = plt.subplots(1,1)
+            acplot=ac
+            #acplot = ac.reshape(np.concatenate([maxlag,],ac.shape[1:].prod()))
+            
+            # Plot the autocorrelation function
+            ax.plot(np.arange(0,maxlag+1),acplot)
+            
+            # Plot the search indices
+            ax.scatter(minid,acplot[minid],marker="x")
+            ax.scatter(maxid,acplot[maxid],marker="+")
+            
+            
+    if debug:
+        return maxmincorr,maxids,minids
+    if return_rei:
+        rei = maxmincorr[1,...] - maxmincorr[0,...]
+        return rei
     return maxmincorr
 
 def calc_T2(rho,axis=0,ds=False):
@@ -3008,6 +3166,252 @@ def calc_T2(rho,axis=0,ds=False):
     # if ds:
     #     return (1+2*(rho**2).sum(axis))
     return (1+2*np.nansum(rho**2,axis=axis))
+
+def remove_enso(invar,ensoid,ensolag,monwin,reduceyr=True,verbose=True,times=None):
+    """
+    Remove ENSO via regression of [ensoid] to [invar: time,lat,lon] for each month
+    and principle component.
+    
+    Copied from stochmod/scm on 2024.06.24
+    
+    Parameters
+    ----------
+    invar : ARRAY [time x lat x lon]
+        Input variable to remove ENSO from
+    ensoid : ARRAY [time x month x pc]
+        ENSO Index.
+    ensolag : INT
+        Lag to apply between ENSO Index and Input variable
+    monwin : INT
+        Size of centered moving window to calculate ENSO for
+    reduceyr : BOOL, optional
+        Reduce/drop time dimension to account for ensolag. The default is True.
+    times : ARRAY[time]
+        Array of times to work with
+    Returns
+    -------
+    vout : ARRAY [time x lat x lon]
+        Variable with ENSO removed
+    ensopattern : ARRAY [month x lat x lon x pc]
+        ENSO Component that was removed
+    
+    """
+    allstart = time.time()
+
+    # Standardize the index (stdev = 1)
+    ensoid = ensoid/np.std(ensoid,(0,1))
+    
+    # Shift ENSO by the specified enso lag
+    ensoid = np.roll(ensoid,ensolag,axis=1) # (ex: Idx 0 (Jan) is now 11)
+
+    # Reduce years if needed
+    if reduceyr: # Since enso leads, drop years from end of period
+        dropyr = int(np.fix(ensolag/12) + 1)
+        ensoid=ensoid[:-dropyr,:,:]
+
+    # Reshape to combine spatial dimensions
+    ntime,nlat,nlon = invar.shape
+    nyr             = int(ntime/12)
+    vanom           = invar.reshape(nyr,12,nlat*nlon) # [year x mon x space]
+    
+    # Reduce years if option is set
+    if reduceyr:
+        vanom=vanom[dropyr:,:,:] # Drop year from beginning of period for lag
+        if times is not None:
+            times = times.reshape(nyr,12)[dropyr:,:]
+    vout            = vanom.copy()
+    
+    # Variable to save enso pattern
+    nyr,_,pcrem = ensoid.shape # Get reduced year, pcs length
+    ensopattern = np.zeros((12,nlat,nlon,pcrem))
+    
+    # Looping by PC...
+    for pc in range(pcrem):
+        # Looping for each month
+        for m in range(12):
+            #print('m loop start, vout size is %s'% str(vout[winsize:-winsize,m,:].shape))
+            
+            # Set up indexing
+            if monwin > 1:  
+                winsize = int(np.floor((monwin-1)/2))
+                monid = [m-winsize,m,m+winsize]
+                if monid[2] > 11: # Reduce end month if needed
+                    monid[2] -= 12
+            else:
+                winsize = 0
+                monid = [m]
+                
+            if reduceyr:
+                ensoin = indexwindow(ensoid[:,:,[pc]],m,monwin,combinetime=True).squeeze()
+                varin  = indexwindow(vanom,m,monwin,combinetime=True)
+                nyr   = int(ensoin.shape[0]/monwin) # Get new year dimension
+            else:
+                # Index corresponding timeseries
+                ensoin = ensoid[:,monid,pc] # [yr * mon]  Lagged ENSO
+                varin = vanom[:,monid,:] # [yr * mon * space] Variable
+                
+                # Re-combine time dimensions
+                ensoin = ensoin.reshape(nyr*monwin)
+                varin = varin.reshape(nyr*monwin,nlat*nlon)
+            
+            # Check for points that are all nan
+            # delete_points = []
+            # for i in range(varin.shape[0]):
+            #     if np.all(np.isnan(varin[i,:])):
+            #         print("All nan at i=%i for month %i, removing from calculation" % (i,m)) 
+            #         delete_points.append(i)
+            
+            #ensoin = np.delete(ensoin,delete_points)
+            #varin  = np.delete(varin,delete_points,axis=0)
+                    
+            # Regress to obtain coefficients [space] # [1xshape]
+            varreg,_    = regress_2d(ensoin.squeeze(),varin,nanwarn=1)
+            varreg      = varreg.squeeze()
+            
+            # Write to enso pattern
+            ensopattern[m,:,:,pc] = varreg.reshape(nlat,nlon).copy()
+            
+            # Expand and multiply out and take mean for period [space,None]*[None,time] t0o [space x time]
+            ensocomp = (varreg[:,None] * ensoin[None,:]).squeeze()
+            
+            # Separate year and mon and take mean along months
+            ensocomp = ensocomp.reshape(nlat*nlon,nyr,monwin).mean(2)
+            
+            # Remove the enso component for the specified month
+            vout[winsize:-winsize,m,:] -= ensocomp.T
+            
+            if verbose:
+                print("Removed ENSO Component for PC %02i | Month %02i (t=%.2fs)" % (pc+1,m+1,time.time()-allstart))
+            # < End Mon Loop>
+        # < End PC Loop>
+        # Get the correct window size, and reshape it to [time x lat x lon]
+    vout = vout[winsize:-winsize,:,:].reshape(nyr*12,nlat,nlon)
+    if times is not None:
+        times = times[winsize:-winsize,:].flatten()
+        return vout,ensopattern,times
+    return vout,ensopattern
+
+
+def calc_HF(sst,flx,lags,monwin,verbose=True,posatm=True,return_cov=False,
+            var_denom=None,return_dict=False):
+    """
+    damping,autocorr,crosscorr=calc_HF(sst,flx,lags,monwin,verbose=True)
+    Calculates the heat flux damping given SST and FLX anomalies using the
+    formula:
+        lambda = [SST(t),FLX(t+l)] / [SST(t),SST(t+l)]
+    
+    
+    Inputs
+    ------
+        1) sst     : ARRAY [year x time x lat x lon] 
+            sea surface temperature anomalies
+        2) flx     : ARRAY [year x time x lat x lon]
+            heat flux anomalies
+        3) lags    : List of INTs
+            lags to calculate for (0-N)
+        4) monwin  : INT (odd #)
+            Moving window of months centered on target month
+            (ex. For Jan, monwin=3 is DJF and monwin=1 = J)
+        
+        --- OPTIONAL ---
+        5) verbose : BOOL
+            set to true to display print messages
+        6) posatm : BOOL
+            check to true to set positive upwards into the atmosphere
+        
+        7) return_cov : BOOL
+            True to return covariance values
+        8) var_denom : ARRAY [year x time x lat x lon]
+            Rather than autovariance, replace SST(t) with vardenom(t).
+        9) return_dict : BOOL
+            True to return dictionary
+        
+    Outputs
+    -------     
+        1) damping   : ARRAY [month x lag x lat x lon]
+            Heat flux damping values
+        2) autocorr  : ARRAY [month x lag x lat x lon]
+            SST autocorrelation
+        3) crosscorr : ARRAY [month x lag x lat x lon]
+            SST-FLX cross correlation
+    """
+    # Reshape variables [time x lat x lon] --> [yr x mon x space]
+    nyr,nmon,nlat,nlon = sst.shape
+    
+    sst = sst.reshape(nyr,12,nlat*nlon)
+    flx = flx.reshape(sst.shape)
+    if var_denom is not None:
+        var_denom = var_denom.reshape(sst.shape)
+    #sst = sst.reshape(int(ntime/12),12,nlat*nlon)
+    #flx = flx.reshape(sst.shape)
+    
+    # Preallocate
+    nlag      = len(lags)
+    damping   = np.zeros((12,nlag,nlat*nlon)) # [month, lag, lat, lon]
+    autocorr  = np.zeros(damping.shape)
+    crosscorr = np.zeros(damping.shape)
+    
+    covall    = np.zeros(damping.shape)
+    autocovall    = np.zeros(damping.shape)
+    
+    st = time.time()
+    for l in range(nlag):
+        lag = lags[l]
+        for m in range(12):
+            
+            lm = m-lag # Get Lag Month
+            
+            # Restrict to time ----
+            flxmon = indexwindow(flx,m,monwin,combinetime=True,verbose=False)
+            sstmon = indexwindow(sst,m,monwin,combinetime=True,verbose=False)
+            if var_denom is None:
+                sstlag = indexwindow(sst,lm,monwin,combinetime=True,verbose=False)
+            else:
+                sstlag = indexwindow(var_denom,lm,monwin,combinetime=True,verbose=False)
+            
+            # Compute Correlation Coefficients ----
+            crosscorr[m,l,:] = pearsonr_2d(flxmon,sstlag,0) # [space]
+            autocorr[m,l,:]  = pearsonr_2d(sstmon,sstlag,0) # [space]
+            
+            # Calculate covariance ----
+            cov     = covariance2d(flxmon,sstlag,0)
+            autocov = covariance2d(sstmon,sstlag,0)
+            
+            # Compute damping
+            damping[m,l,:] = cov/autocov
+            
+            # Save covariances
+            covall[m,l,:]     = cov
+            autocovall[m,l,:] = autocov
+            
+            print("Completed Month %02i for Lag %s (t = %.2fs)" % (m+1,lag,time.time()-st))
+            
+    # Reshape output variables
+    damping     = damping.reshape(12,nlag,nlat,nlon)  
+    autocorr    = autocorr.reshape(damping.shape)
+    crosscorr   = crosscorr.reshape(damping.shape)
+    covall      = covall.reshape(damping.shape)
+    autocovall  = autocovall.reshape(damping.shape)
+    
+    # Check sign
+    if posatm:
+        if np.nansum(np.sign(crosscorr)) < 0:
+            print("WARNING! sst-flx correlation is mostly negative, sign will be flipped")
+            crosscorr*=-1
+            covall*=-1
+    
+    if return_dict:
+        outdict = {
+            'damping':damping,
+            'autocorr':autocorr,
+            'crosscorr':crosscorr,
+            'autocovall':autocovall,
+            'covall':covall
+            }
+        return outdict
+    if return_cov:
+        return damping,autocorr,crosscorr,autocovall,covall
+    return damping,autocorr,crosscorr
 
 #%% ~ Dimension Gymnastics
 """
@@ -3338,6 +3742,7 @@ def format_ds(da,latname='lat',lonname='lon',timename='time',lon180=True,verbose
         
     # Transpose the datase
     da = da.transpose('time','lat','lon')
+    
     return da
 
 def savefig_pub(savename,fig=None,
@@ -3475,6 +3880,12 @@ def get_monstr(nletters=3):
         return [cal.month_name[i][:] for i in np.arange(1,13,1)]
     else:
         return [cal.month_name[i][:nletters] for i in np.arange(1,13,1)]
+
+def mon2str(selmon):
+    mons3 = get_monstr()
+    """Return String with First Letter of Each Month"""
+    
+    return ''.join([mons3[a][0] for a in selmon])
 
 def addstrtoext(name,addstr,adjust=0):
     """

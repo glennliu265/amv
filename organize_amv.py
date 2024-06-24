@@ -130,7 +130,7 @@ Functions:
     maxid_2d            : Find indices along each dimension for a 2D matrix. Ignores NaN values.
     sort_by_axis        : Sort arrays along axis by values from a single array 
     get_nearest         : Get indices of the closest value to an input (absolute diff)
-    
+    index_window        : Index a moving window of values (from scm.)
     
     -----------------------------------
     |||  Interpolation & Regridding ||| ****************************************************
@@ -151,7 +151,10 @@ Functions:
     calc_AMVquick       : Compute AMV Index and Pattern (uses ann_avg,calc_AMV,regress2ts)
     calc_DMI            : Calculate Dipole Mode Index over the Indian Ocean (Saji et al. 1999)
     calc_remidx_simple  : Compute the Re-emergence Index (Bjyu et al ____)
+    calc_remidx_xr      : Same as above, but works with 1D input array of [lags] for xr.apply_ufunc support.
     calc_T2             : Compute the recorrelation timescale
+    remove_enso         : Copied from scm, remove ENSO from variable using regression
+    calc_HF             : Calculate heat flux feedback (copied from scm)
     
     
     ----------------------------
