@@ -26,7 +26,7 @@ import pandas as pd
 import datetime
 
 #%% Optional Yobox Import
-import_yobox = True
+import_yobox = False
 if import_yobox:
     import sys
     yopath = "/Users/gliu/Downloads/02_Research/01_Projects/01_AMV/00_Commons/03_Scripts/"
