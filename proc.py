@@ -1021,7 +1021,8 @@ def regress_2d(A,B,nanwarn=1,verbose=True):
         # Calculate denominator, summing over N
         Aanom2 = np.power(Aanom,2)
         denom = np.sum(Aanom2,axis=a_axis,keepdims=True)
-        if bothND:
+        if not bothND:
+            
             denom = denom[:,None] # Broadcast
             
         # Calculate Beta
@@ -3674,9 +3675,13 @@ def ds_dropvars(ds,keepvars):
     return ds
 
 def make_encoding_dict(ds,encoding_type='zlib'):
-    keys   = list(ds.keys())
-    values = ({encoding_type:True},) * len(keys)
-    encoding_dict = { k:v for (k,v) in zip(keys,values)}
+    if type(ds) == xr.core.dataarray.DataArray:
+        vname         = ds.name
+        encoding_dict = {vname : {encoding_type:True}}
+    else:
+        keys          = list(ds.keys())
+        values        = ({encoding_type:True},) * len(keys)
+        encoding_dict = { k:v for (k,v) in zip(keys,values)}
     return encoding_dict
 
 def npz_to_dict(npz,drop_pickle=True):
