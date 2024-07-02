@@ -132,8 +132,11 @@ def load_htr(vname,N,datpath=None,atm=True,return_da=True):
         model_string = "pop.h"
         comp         = "ocn"
         
-    if datpath is None:
-        datpath = "/vortex/jetstream/climate/data1/yokwon/CESM1_LE/downloaded/%s/proc/tseries/monthly/" % comp
+    if datpath is None: # Stormtrack path
+        if (N > 105) and vname == "HMXL":
+            datpath = "/stormtrack/data4/glliu/01_Data/CESM1_LE/" # Ens 41 and 42 for HMXL downloaded separately...
+        else:
+            datpath = "/vortex/jetstream/climate/data1/yokwon/CESM1_LE/downloaded/%s/proc/tseries/monthly/" % comp
     
     # Append variable name to path
     vdatpath = "%s%s/" % (datpath,vname)
@@ -295,7 +298,66 @@ def load_bsf(datpath=None,stormtrack=0,ensavg=True,ssh=False):
         
     ds = xr.open_dataset(nc).load()
     return ds
+
+def load_current(datpath=None,stormtrack=0,z=0):
+    # Lead monthly mean UVEL and VVEL, regridded to CAM5
+    # z is the index of the depth. Loads surface values by default
+    
+    if datpath is None:
+        datpath = "/Users/gliu/Downloads/02_Research/01_Projects/01_AMV/00_Commons/01_Data/CESM1_LE/proc/NATL/"
+    else:
+        print("WARNING this is currently not supported on alternate datpaths")
+        return None
+        #datpath = "/home/glliu/01_Data/"
+    ds_uvel = xr.open_dataset(datpath + "CESM1_HTR_UVEL_NATL_scycle.nc").isel(z_t=z).load()
+    ds_vvel = xr.open_dataset(datpath + "CESM1_HTR_VVEL_NATL_scycle.nc").isel(z_t=z).load()
+    return ds_uvel,ds_vvel
+
+def load_monmean(vname,datpath=None):
+    
+    # Loads monthly mean output [ens x mon x lat x lon] from the [calc_monmean_CESM1.py] script
+    if datpath is None:
+        datpath = "/Users/gliu/Downloads/02_Research/01_Projects/01_AMV/00_Commons/01_Data/CESM1_LE/proc/NATL/"
+    else:
+        print("WARNING this is currently not supported on alternate datpaths")
+        return None
+    
+    ncname = "CESM1_HTR_%s_NATL_scycle.nc" % (vname)
+    ds     = xr.open_dataset(datpath+ncname).load()
+    
+    return ds
+
+def load_gs(datpath=None):
+    # Loads lat/lon for gulf stream computed using [calc_gulfstream_position.py]
+    # Using the maximum sea-level anomaly standard deviation
+    # based on a function written by Lilli Enders
+    if datpath is None:
+        datpath = "/Users/gliu/Downloads/02_Research/01_Projects/01_AMV/00_Commons/01_Data/CESM1_LE/proc/NATL/" # Uses Astraeus datpath
+    ncname = "GSI_Location_CESM1_HTR_MaxStdev.nc"
+    ds = xr.open_dataset(datpath+ncname)
+    return ds
+
+#%%
+
+def load_smoutput(expname,output_path,debug=True):
+    # Load output from [run_SSS_basinwide.py]
+    # Copied from [pointwise_crosscorrelation]
+    # Load NC Files
+    expdir       = output_path + expname + "/Output/"
+    nclist       = glob.glob(expdir +"*.nc")
+    nclist.sort()
+    if debug:
+        print(nclist)
         
+    # Load DS, deseason and detrend to be sure
+    ds_all   = xr.open_mfdataset(nclist,concat_dim="run",combine='nested').load()
+    return ds_all
+    
+    
+
+# Get mean SST.SSS gradient
+
+    
 # def get_cesm1_ocn_nclist(varname,scenario="HTR",path=None):
     
 #     """
