@@ -102,6 +102,7 @@ def load_rcp85(vname,N,datpath=None,atm=True,return_da=True):
         return ds
 
 def load_htr(vname,N,datpath=None,atm=True,return_da=True):
+    
     """
     Load a given variable for an ensemble member for the historical period.
     **Accounts for different length of ensemble member 1 by cropping to 1920 onwards...
@@ -132,11 +133,15 @@ def load_htr(vname,N,datpath=None,atm=True,return_da=True):
         model_string = "pop.h"
         comp         = "ocn"
         
-    if datpath is None: # Stormtrack path
+    if datpath is None: # Stormtrack path (need to generalize this)
+        datpath = "/vortex/jetstream/climate/data1/yokwon/CESM1_LE/downloaded/%s/proc/tseries/monthly/" % comp
+        
+        # Change Datpath for Salt
+        if vname == "SALT":
+            datpath = "/stormtrack/data4/glliu/01_Data/CESM1_LE/SALT"
+        # Change Datpath for HMXL (Ens Member 41 and 42)
         if (N > 105) and vname == "HMXL":
             datpath = "/stormtrack/data4/glliu/01_Data/CESM1_LE/" # Ens 41 and 42 for HMXL downloaded separately...
-        else:
-            datpath = "/vortex/jetstream/climate/data1/yokwon/CESM1_LE/downloaded/%s/proc/tseries/monthly/" % comp
     
     # Append variable name to path
     vdatpath = "%s%s/" % (datpath,vname)
