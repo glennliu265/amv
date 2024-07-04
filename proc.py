@@ -376,7 +376,7 @@ def remove_ss_sinusoid(ts,t=None,dt=12,semiannual=True,Winv=None):
 
 #%% ~ Detrending
 
-def detrend_dim(invar,dim,return_dict=False):
+def detrend_dim(invar,dim,return_dict=False,debug=False):
     
     """
     Detrends n-dimensional variable [invar] at each point along axis [dim].
@@ -410,20 +410,24 @@ def detrend_dim(invar,dim,return_dict=False):
     newvar = np.transpose(invar,newshape)
     
     # Combine all other dims and reshape to [time x otherdims]
-    tdim = newvar.shape[0]
-    otherdims = newvar.shape[1::]
-    proddims = np.prod(otherdims)
-    newvar = np.reshape(newvar,(tdim,proddims))
+    tdim        = newvar.shape[0]
+    otherdims   = newvar.shape[1::]
+    proddims    = np.prod(otherdims)
+    newvar      = np.reshape(newvar,(tdim,proddims))
     
     # Find non nan points
     varok,knan,okpts = find_nan(newvar,0)
     
     # Ordinary Least Squares Regression
-    tper = np.arange(0,tdim)
-    m,b = regress_2d(tper,varok)
+    tper    = np.arange(0,tdim)
+    m,b     = regress_2d(tper,varok)
     
-    # Detrend
-    ymod = (m[:,None]*tper + b[:,None]).T
+    # Squeeze things? (temp fix, need to check)
+    m       = m.squeeze()
+    b       = b.squeeze()
+    
+    # Detrend [Space,1][1,Time]
+    ymod = (m[:,None] * tper + b[:,None]).T
     dtvarok = varok - ymod
     
     # Replace into variable of original size
@@ -432,10 +436,10 @@ def detrend_dim(invar,dim,return_dict=False):
     beta   = np.zeros(okpts.shape) * np.nan
     intercept = np.copy(beta)
     
-    dtvar[:,okpts] = dtvarok
-    linmod[:,okpts] = ymod
-    beta[okpts] = m
-    intercept[okpts] = b
+    dtvar[:,okpts]      = dtvarok
+    linmod[:,okpts]     = ymod
+    beta[okpts]         = m
+    intercept[okpts]    = b
     
     # Reshape to original size
     dtvar  = np.reshape(dtvar,((tdim,)+otherdims))
@@ -447,6 +451,29 @@ def detrend_dim(invar,dim,return_dict=False):
     oldshape = [dtvar.shape.index(x) for x in varshape]
     dtvar = np.transpose(dtvar,oldshape)
     linmod = np.transpose(linmod,oldshape)
+    
+    # Debug Plot
+    if debug:
+        klon = 33
+        klat = 33
+        
+        mvmean = lambda x,w:  np.convolve(x, np.ones(w), 'same') / w
+        w     = 120
+        raw_y = invar[:,klat,klon]
+        dt_y  = dtvar[:,klat,klon]
+        x     = np.arange(0,len(dt_y))
+        
+        fig,ax = plt.subplots(1,1)
+        ax.scatter(x,mvmean(raw_y,w),s=1.5,label="raw")
+        ax.scatter(x,mvmean(dt_y,w),s=1.5,label='detrend')
+        ax.plot(x,linmod[:,klat,klon],label="fit")
+        ax.legend()
+        plt.show()
+        
+        
+                         
+                          
+    
     if return_dict:
         outdict = dict(detrended_var=dtvar,linearmodel=linmod,beta=beta,intercept=intercept)
         return outdict
@@ -1020,7 +1047,7 @@ def regress_2d(A,B,nanwarn=1,verbose=True):
 
         # Calculate denominator, summing over N
         Aanom2 = np.power(Aanom,2)
-        denom = np.sum(Aanom2,axis=a_axis,keepdims=True)
+        denom  = np.sum(Aanom2,axis=a_axis,keepdims=True)
         if not bothND:
             
             denom = denom[:,None] # Broadcast
