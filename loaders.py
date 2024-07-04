@@ -138,7 +138,7 @@ def load_htr(vname,N,datpath=None,atm=True,return_da=True):
         
         # Change Datpath for Salt
         if vname == "SALT":
-            datpath = "/stormtrack/data4/glliu/01_Data/CESM1_LE/SALT"
+            datpath = "/stormtrack/data4/glliu/01_Data/CESM1_LE/SALT/"
         # Change Datpath for HMXL (Ens Member 41 and 42)
         if (N > 105) and vname == "HMXL":
             datpath = "/stormtrack/data4/glliu/01_Data/CESM1_LE/" # Ens 41 and 42 for HMXL downloaded separately...
