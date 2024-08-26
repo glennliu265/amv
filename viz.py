@@ -47,6 +47,7 @@
     plot_freqxpower     : Quick Frequency x Power plot  (log x   , linear y)
     plot_freqlin        : Linear Frequency x Power plot (linear x, linear y)
     plot_freqlog        : Log-Log plot                  (log x   , log y)
+    init_logspec        : Initialize log-log plot (from viz_regional_spectra.py)
 
         ~ Spatial/2-D Plots/Contours
     plot_contoursign    : Contour line plot with solid as positive and dashed as negative
@@ -60,6 +61,7 @@
     plot_AMV_spatial    : Visualize AMV Pattern
     init_acplot         : Initialized monthly lagged autocorrelation plot
     prep_monlag_labels  : Add month laevls below lag for autocorrelation plots
+    plot_profile        : Initialize vertical profile plot (copied from viz_temp_v_salt.py)
 
         ~ Quick Visualization (qv) series
     qv_seasonal         : Plot the seasonal cycle of 2D variable
@@ -1223,6 +1225,44 @@ def plot_freqlog(specs,freqs,enames,ecolors,
         return ax,htax
     return ax
 
+
+def init_logspec(nrows,ncols,figsize=(10,4.5),ax=None,
+                 xtks=None,dtplot=None,
+                 fsz_axis=16,fsz_ticks=14,toplab=True,botlab=True):
+    if dtplot is None:
+        dtplot     = 3600*24*365  # Assume Annual data
+    if xtks is None:
+        xpers      = [100, 50,25, 20, 15,10, 5, 2]
+        xtks       = np.array([1/(t) for t in xpers])
+    
+    if ax is None:
+        newfig = True
+        fig,ax = plt.subplots(nrows,ncols,constrained_layout=True,figsize=figsize)
+    else:
+        newfig = False
+        
+    ax = add_ticks(ax)
+    
+    #ax.set_xticks(xtks,labels=xpers)
+    ax.set_xscale('log')
+    ax.set_xlim([xtks[0], xtks[-1]])
+    if botlab:
+        ax.set_xlabel("Frequency (Cycles/Year)",fontsize=fsz_axis)
+    ax.tick_params(labelsize=fsz_ticks)
+    
+    ax2 = ax.twiny()
+    ax2.set_xscale('log')
+    ax2.set_xticks(xtks,labels=xpers,fontsize=fsz_ticks)
+    ax2.set_xlim([xtks[0], xtks[-1]])
+    if toplab:
+        ax2.set_xlabel("Period (Years)",fontsize=fsz_axis)
+    ax2.grid(True,ls='dotted',c="gray")
+    
+    if newfig:
+        return fig,ax
+    return ax
+
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #%% Spatial/2-D Plots/Contours
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1770,6 +1810,38 @@ def prep_monlag_labels(kmonth,lagtick,label_interval,useblank=True):
                 lbl = tk
         mon_labels.append(lbl)
     return mon_labels
+
+
+def init_profile(ax,
+                    vnames=['SALT', 'TEMP'],
+                    vunits=['psu', '$\\degree C$'],
+                    vcolors=['navy', 'hotpink'],
+                    ):
+    # Initialize profile plot on axis [ax]
+    # See implementation in viz_temp_v_salt.py
+    # Returns ax (for vnames[0]) and ax2 (for vnames[1])
+    
+    # Make Additional Axis
+    ax2 = ax.twiny()
+    axs = [ax,ax2]
+    
+    for vv in range(2):
+        # Get Axis, Set Labels/Colors
+        axin = axs[vv]
+        axin.set_xlabel("%s [%s]" % (vnames[vv],vunits[vv]),c=vcolors[vv])
+        axin.tick_params(axis='x', colors=vcolors[vv])
+        
+    # Adjust the Axis Colors and Orientation
+    plt.gca().invert_yaxis()
+    ax.set_ylabel("Depth [m]")
+    
+    # Adjust Axis Colors
+    ax2.spines['bottom'].set_color(vcolors[0])
+    ax2.spines['top'].set_color(vcolors[1])
+    
+    return [ax,ax2]
+
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #%% Quick Visualization (qv) series
