@@ -97,6 +97,11 @@ def nan_inv(invar):
     inverted[invar == False] = True
     return inverted
 
+def check_equal_nan(a,b):
+    # 2 ND arrays a and b. Check if they are equal, ignoring nans, and return True/False.
+    chk   = ((a == b) | (np.isnan(a) & np.isnan(b))).all()
+    return chk
+
 #%% ~ Averaging
 
 def ann_avg(ts,dim,monid=None,nmon=12):
@@ -976,8 +981,8 @@ def regress_2d(A,B,nanwarn=1,verbose=True):
             b_axis = 0
             
             # Compute anomalies along appropriate axis        
-            Aanom = A - np.nanmean(A,axis=a_axis)[:,None] # Anomalize w.r.t. dim 1 of A
-            Banom = B - np.nanmean(B,axis=b_axis)[None,:] # Anonalize w.r.t. dim 0 of B
+            Aanom = A - np.nanmean(A,axis=a_axis,keepdims=True)#[:,None] # Anomalize w.r.t. dim 1 of A
+            Banom = B - np.nanmean(B,axis=b_axis,keepdims=True)# # Anonalize w.r.t. dim 0 of B
             
         # Calculate denominator, summing over N
         Aanom2 = np.power(Aanom,2)
@@ -985,7 +990,10 @@ def regress_2d(A,B,nanwarn=1,verbose=True):
         
         # Calculate Beta
         #if 
-        beta = Aanom @ Banom / denom[:,None] # Denom is [A[mode,time]@ B[time x space]], output is [mode x pts]
+        if len(denom.shape)==1 or not bothND: # same as both not ND
+            print("Adding singleton dimension to denom")
+            denom = denom[:,None]
+        beta = Aanom @ Banom / denom#[:,None] # Denom is [A[mode,time]@ B[time x space]], output is [mode x pts]
         
         b = (np.nansum(B,axis=b_axis,keepdims=True) - beta * np.nansum(A,axis=a_axis,keepdims=True))/A.shape[a_axis]
         # b is [mode x pts] [or P x M]
@@ -1871,6 +1879,31 @@ def ttest_rho(p,tails,dof,return_str=False):
         return corrthres,ttest_str
     return corrthres
 
+def calc_stderr(x,dim,p=0.05,tails=2):
+    """
+    Parameters
+    ----------
+    x   : ARRAY of values
+    dim : INT, dimension along which to compute the standard error
+
+    Returns
+    -------
+    SE : FLOAT:  
+    
+    Calculates the standard error assuming a normal distribution + independent
+    samples,
+                        SE  = sigma / sqrt(n) * FAC, 
+    where:
+        sigma is the sample standard deviation
+        n is the sample size
+        FAC is the factor associated with confidence interval (ex. 1.96 = 95%)
+    """
+    sigma = np.nanstd(x,dim)            # Get sample standard dev
+    n     = x.shape[dim]                # Number of samples      
+    conf  = 1 - p/tails                 # Get confidence interval
+    FAC   = stats.norm.ppf(conf)        # Get factor
+    SE    = sigma / np.sqrt(n) * FAC    # Compute Standard Error
+    return SE
 
 #%% ~ Other
 
@@ -3129,8 +3162,8 @@ def calc_remidx_simple(ac,kmonth,monthdim=-2,lagdim=-1,
         return rei
     return maxmincorr
 
-    
-def calc_remidx_xr(ac,minref=6,maxref=12,tolerance=3,debug=False,return_rei=False):
+def calc_remidx_xr(ac,minref=6,maxref=12,tolerance=3,debug=False,
+                   return_rei=False):
     # Rewritten to work with just an input of acf [lags].
     # For use case, see [calc_remidx_general.py]
     # Rather than explicitly computing # years based on starting month, just assume 12 lags = 1 year
@@ -3188,7 +3221,8 @@ def calc_remidx_xr(ac,minref=6,maxref=12,tolerance=3,debug=False,return_rei=Fals
             ax.scatter(minid,acplot[minid],marker="x")
             ax.scatter(maxid,acplot[maxid],marker="+")
             
-            
+    # if return_max:
+    #     return maxmincorr[1,...]
     if debug:
         return maxmincorr,maxids,minids
     if return_rei:
@@ -3692,6 +3726,9 @@ def convert_datenum(matlab_datenum,datestr=False,fmt="%d-%b-%Y %H:%M:%S",autores
         python_datetime=python_datetime.reshape(dims) 
     return python_datetime
 
+def noleap_tostr(timestep):
+    timestr = "%04i-%02i-%02i" % (timestep.item().year,timestep.item().month,timestep.item().day)
+    return timestr
 
 def ds_dropvars(ds,keepvars):
     '''Drop variables in ds whose name is not in the list [keepvars]'''
