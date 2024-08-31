@@ -705,6 +705,61 @@ def checkpoint(checkpoints,invar,debug=True):
             ids_all.append(ids)
     return ids_all
     
+def classify_bythres(var_in,thres,use_quantile=True,debug=False):
+    """
+    Parameters
+    ----------
+    var_in : DataArray [lat x lon]
+        2-D input with the values to classify by
+    thres  : ARRAY or LIST (Numeric)
+        List of either quantiles or threshold values
+    use_quantile : BOOL, optional
+        True to compute quantiles over space. The default is True.
+    debug : BOOL, optional
+        True to do quick visualization of output. The default is False.
+
+    Returns
+    -------
+    TYPE
+        DESCRIPTION.
+
+    """
+    
+    if use_quantile: # Get Quantiles based on flattened Data
+        var_flat    = var_in.data.flatten()
+        thresvals   = np.nanquantile(var_flat,thres)
+    else: # Or just used provided values
+        thresvals   = thres
+
+    # Make a map of the values
+    classmap = xr.zeros_like(var_in)
+    
+    boolmap = []
+    nthres  = len(thres) + 1
+    for nn in range(nthres):
+        print(nn)
+        if nn == 0:
+            print("x < %f" % (thresvals[nn]))
+            #boolmap.append(var_in < thresvals[nn])
+            classmap = xr.where(var_in < thresvals[nn],nn,classmap)
+        elif nn == (nthres-1):
+            print("x >= %f" % (thresvals[nn-1]))
+            #boolmap.append(var_in >= thresvals[nn-1])
+            classmap = xr.where(var_in >= thresvals[nn-1],nn,classmap)
+        else:
+            print("%f < x <= %f" % (thresvals[nn-1],thresvals[nn]))
+            #boolmap.append( (var_in > thresvals[nn-1]) & (var_in <= thresvals[nn]))
+            classmap = xr.where( (var_in > thresvals[nn-1]) & (var_in <= thresvals[nn]),nn,classmap)
+        if debug:
+            classmap.plot(),plt.title("nn=%i" % nn),plt.show()
+    # Set NaN points to NaN
+    classmap = xr.where(np.isnan(var_in),np.nan,classmap)
+    if debug:
+        classmap.plot(),plt.show()
+    if use_quantile:
+        return classmap,thresvals
+    return classmap
+
 
 #%% ~ Spatial Analysis/Wrangling
 
@@ -1543,8 +1598,8 @@ def eof_filter(eofs,varexp,eof_thres,axis=0,return_all=False):
         nmodes_needed : [mon] # of modes needed to reach threshold (first exceedence)
         varexps_filt  : [mode x mon] filtered variances explained by mode
     """
-    varexp_cumu   = np.cumsum(varexp,axis=0) # Cumulative sum of variance
-    above_thres   = varexp_cumu >= eof_thres        # Check exceedances
+    varexp_cumu   = np.cumsum(varexp,axis=0)        # Cumulative sum of variance [Mode x Mon]
+    above_thres   = varexp_cumu >= eof_thres        # Check exceedances [Mode x mon]
     nmodes_needed = np.argmax(above_thres,0)        # Get first exceedance
     
     eofs_filtered = eofs.copy()
@@ -1557,7 +1612,6 @@ def eof_filter(eofs,varexp,eof_thres,axis=0,return_all=False):
     # Here's a check"
     # print(np.sum(varexps_filt,0)) # Should be all below the variance threshold
     return eofs_filtered
-
 
 #%% ~ Correlation
 def pearsonr_2d(A,B,dim,returnsig=0,p=0.05,tails=2,dof='auto'):
@@ -1585,7 +1639,7 @@ def pearsonr_2d(A,B,dim,returnsig=0,p=0.05,tails=2,dof='auto'):
     7) dof: "auto" or INT
         Degress of freedom method. Set to "auto" for ndim - 2, or
         manually enter an integer value.
-    
+
     Outputs
     --------
     1) rho : ARRAY
@@ -3825,6 +3879,48 @@ def format_ds(da,latname='lat',lonname='lon',timename='time',lon180=True,verbose
     da = da.transpose('time','lat','lon')
     
     return da
+
+
+def format_ds_dims(ds,start_1=True):
+    
+    # Format Dimensions of Dataset according to specifications for the
+    # Stochastic model/re-emergence project...
+    
+    # Format the dimensions of a dataset
+    dimnames = list(ds.dims)
+    rename_dict = {}
+    if 'ensemble' in dimnames:
+        print("Rename <ensemble> --> <ens>")
+        rename_dict['ensemble']='ens'
+    if 'run' in dimnames:
+        print("Rename <run> --> <ens>")
+        rename_dict['run'] = 'ens'
+    if 'month' in dimnames:
+        print("Rename <month> --> <mon>")
+        rename_dict['month']='mon'
+    ds = ds.rename(rename_dict)
+    
+    # Format the numbering to start from 1
+    if start_1:
+        print("Checking dimension indices so that they start numbering from 1...")
+        dimnames_new = list(ds.dims)
+        formatdims   = ['ens','mode','mon']
+        for dd in formatdims:
+            if dd in dimnames_new:
+                if ds[dd][0].item() == 0:
+                    print("\tRenumbering %s starting from 1" % dd)
+                    ndim = len(ds[dd])
+                    ds[dd] = np.arange(1,ndim+1,1)
+    return ds
+
+        
+
+
+    
+    
+    
+    
+    
 
 def savefig_pub(savename,fig=None,
                 dpi=1200,transparent=False,format='eps'):
