@@ -27,6 +27,7 @@ Functions:
     maxabs              : Return max absolute value for a variable
     minabs              : Return min absolute value for a variable
     nan_inv             : Invert boolean array with NaNs
+    check_equal_nan     : Check if two N-D arrays are equal, ignoring NaNs
     
         ~ Averaging ~
     ann_avg             : Take annual average of monthly time series
@@ -38,6 +39,7 @@ Functions:
     deseason            : Calculate monthly anomalies by removing the seasonal cycle
     xrdeseason          : Deseason DataArray by removing mean seasonal cycle <xarray>
     calc_savg           : Caclulate seasonal average of an ND input
+    calc_savg_mon       : Same but using xarray groupby functions
     calc_clim           : Compute climatological monthly mean
     remove_ss_sinusoid  : Moves annual and semiannual seasonal cycles using least squares fit to sinusoids
     
@@ -50,6 +52,7 @@ Functions:
         ~ Classification/Grouping ~
     make_classes_nd     : Make classes based on given thresholds.
     checkpoint          : Groups values based on thresholds and returns indices
+    classify_bythres    : Assign classes based on threshold values from 2D map.
     
         ~ Spatial Analysis/Operations/Wrangling ~
     lon360to180         : Flip longitude from degrees East to West
@@ -92,6 +95,7 @@ Functions:
         ~ Significance Testing ~
     calc_dof            : Compute effective degrees of freedom
     ttest_rho           : Perform T-Test
+    calc_stderr         : Compute Standard Error (assuming normal distr)
     
         ~ Other ~
     covariance_2d       : Calculate covariance for 2 2D arrays
@@ -168,7 +172,6 @@ Functions:
     restoredim          : Revert array back to oldshape (reverse dim2front)
     flipdims            : Reverse axis/dimension order
     
-    
     ---------------------
     |||  Convenience ||| ****************************************************
     ---------------------
@@ -176,6 +179,7 @@ Functions:
         
     numpy_to_da         : Convert NumPy array into DataArray (and save)
     cftime2str          : Convert array of cftime objects to string
+    noleap_tostr        : Convert Noleap to string
     ds_dropvars         : Drop all variables except those included in the list.
     make_encoding_dict  : Make encoding dictionary for each variable of an xarray dataset
     npz_to_dict         : Make loaded npz file a dict

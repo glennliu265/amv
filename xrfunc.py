@@ -4,6 +4,7 @@
 
 Xarray Functions (xrfunc)
 Builds upon functions in proc, etc.
+Recipes from various scripts
 
 Description of Functions
 
@@ -21,6 +22,8 @@ from amv import proc
 
 import numpy as np
 import xarray as xr
+import time
+import yo_box as ybx
 
 #%% Compute Lag Correlations
 
@@ -58,5 +61,81 @@ def leadlagcorr_pt(ds1,dspt,lags):
     crosscorrs['lags'] = leadlags
     return crosscorrs
 
-#%%
+#%% Compute Monthly ACF (from check_intraregional_metrics)
 
+# Compute Monthly ACFs
+def compute_monthly_acf(tsin,nlags):
+    
+    # Pointwise script acting on array [time]
+    ts = tsin.copy()
+    
+    # Stupid fix, set NaNs to zeros
+    if np.any(np.isnan(ts)):
+        if np.all(np.isnan(tsin)):
+            return np.zeros((12,nlags)) * np.nan # Return all NaNs
+        nnan = np.isnan(tsin).sum()
+        print("Warning, NaN points found within timeseries. Setting NaN to zero" % nnan)
+        ts[np.isnan(ts)] = 0.
+    
+    # Set up lags, separate to month x yrear
+    lags    = np.arange(nlags)
+    ntime   = len(ts)
+    nyr     = int(ntime/12)
+    tsmonyr = ts.reshape(nyr,12).T # Transpose to [month x year]
+    
+    # Preallocate
+    sst_acfs = np.zeros((12,nlags)) * np.nan # base month x lag
+    for im in range(12):
+        ac= proc.calc_lagcovar(tsmonyr,tsmonyr,lags,im+1,0,yr_mask=None,debug=False)
+        sst_acfs[im,:] = ac.copy()
+    return sst_acfs
+
+
+def pointwise_acf(ds,nlags):
+    st = time.time()
+    #ds1  = dsreg[0] # Need to assign dummy ds here
+    acffunc = lambda x: compute_monthly_acf(x,37)
+    acfs = xr.apply_ufunc(
+        acffunc,
+        ds,
+        input_core_dims=[['time']],
+        output_core_dims=[['basemon','lags']],
+        vectorize=True,
+        )
+    print("Computed Pointwise ACF computation in %.2fs" % (time.time()-st))
+    acfs['basemon'] = np.arange(1,13,1)
+    return acfs
+    
+
+#%% Compute Spectra (as in visualize atmospheric persistenc      --e)
+
+
+# Compute the power spectra (Testbed function from xrfunc)
+def pointwise_spectra(tsens,nsmooth=1, opt=1, dt=None, clvl=[.95], pct=0.1):
+    calc_spectra = lambda x: proc.point_spectra(x,nsmooth=nsmooth,opt=opt,
+                                                dt=dt,clvl=clvl,pct=pct)
+    
+    # Change NaN to Zeros for now
+    tsens_nonan = xr.where(np.isnan(tsens),0,tsens)
+    
+    # Compute Spectra
+    specens = xr.apply_ufunc(
+        proc.point_spectra,  # Pass the function
+        tsens_nonan,  # The inputs in order that is expected
+        # Which dimensions to operate over for each argument...
+        input_core_dims=[['time'],],
+        output_core_dims=[['freq'],],  # Output Dimension
+        exclude_dims=set(("freq",)),
+        vectorize=True,  # True to loop over non-core dims
+    )
+    
+    # # Need to Reassign Freq as this dimension is not recorded
+    ts1  = tsens.isel(ens=0).values
+    freq = proc.get_freqdim(ts1)
+    specens['freq'] = freq
+    return specens
+
+# # Get the frequency dimension by selecting a 1d version of the variable
+# da_1d           = da_sm.isel(var=0,ens=0,exp=0).values # Example
+# freq            = proc.get_freqdim(da_1d)
+# sm_spec['freq'] = freq
