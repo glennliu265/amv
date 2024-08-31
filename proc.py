@@ -761,6 +761,22 @@ def classify_bythres(var_in,thres,use_quantile=True,debug=False):
     return classmap
 
 
+def make_thres_labels(thresvals):
+    # Make labels for a series of input values
+    # Assumes equal to on the larger value...
+    labels = []
+    nthres = len(thresvals) + 1
+    for nn in range(nthres):
+        if nn == 0:
+            lab = "x < %f" % (thresvals[nn])
+        elif nn == (nthres-1):
+            lab = "x >= %f" % (thresvals[nn-1])
+        else:
+            lab = "%f < x <= %f" % (thresvals[nn-1],thresvals[nn])
+        labels.append(lab)
+    return labels
+
+
 #%% ~ Spatial Analysis/Wrangling
 
 def lon360to180(lon360,var,autoreshape=False,debug=True):

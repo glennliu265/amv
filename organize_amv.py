@@ -53,6 +53,7 @@ Functions:
     make_classes_nd     : Make classes based on given thresholds.
     checkpoint          : Groups values based on thresholds and returns indices
     classify_bythres    : Assign classes based on threshold values from 2D map.
+    make_thres_labels   : Make Threshold Labels
     
         ~ Spatial Analysis/Operations/Wrangling ~
     lon360to180         : Flip longitude from degrees East to West
