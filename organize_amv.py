@@ -28,6 +28,9 @@ Functions:
     minabs              : Return min absolute value for a variable
     nan_inv             : Invert boolean array with NaNs
     check_equal_nan     : Check if two N-D arrays are equal, ignoring NaNs
+    nanargmaxds         : Take nanargmax for dataarray with masking
+    nanargminds         : Take nanargmin for dataarray with masking
+    make_mask           : Create a mask from a dataarray using specified nan values
     
         ~ Averaging ~
     ann_avg             : Take annual average of monthly time series
@@ -62,7 +65,6 @@ Functions:
     lon360to180_ds      : Flip longitude in a DataArray (repeat?)
     linear_crop         : Remove points above/below a specified line
     calc_dx_dy          : Retrieve 2d array of distances between grid points in meters
-    
     
     ------------------------------
     |||  Statistical Analysis  ||| ****************************************************
@@ -128,6 +130,7 @@ Functions:
     sel_region          : Select bounding box and optinally perform average or sum (uses area_avg)
     sel_region_cv       : Select region for curvilienear/2D points in POP
     sel_region_xr       : Select region for xarray DataSet or DataArray <xarray>
+    sel_region_xr_cv    : Same as sel_region_cv but for Dataset or DataArray
     get_bbox            : Get bounding box of a dataset from "lon" and "lat" dimensions <xarray>
     resize_ds           : Given list of datasets, resize all to the smallest bounding box <xarray>
     get_posneg          : get positive/negative years of a variable from an index/timeseries
@@ -189,6 +192,7 @@ Functions:
     check_sum_ds        : Check summed output of DataArray
     get_xryear          : use xr.cftime to make dummy "year" for calculations
     rep_ds              : Repeat ds certain number of times along a specified dimension
+    check_latlon_ds     : Check to make sure datasets of the same size have the same lat/lon coordinates
     
     -----------------
     |||  Labeling ||| ****************************************************

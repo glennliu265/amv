@@ -32,12 +32,6 @@ if import_yobox:
     yopath = "/Users/gliu/Downloads/02_Research/01_Projects/01_AMV/00_Commons/03_Scripts/"
     sys.path.append(yopath)
     import yo_box as ybx
-    
-
-
-
-#%%
-
 
 """
 -----------------------
@@ -474,10 +468,6 @@ def detrend_dim(invar,dim,return_dict=False,debug=False):
         ax.plot(x,linmod[:,klat,klon],label="fit")
         ax.legend()
         plt.show()
-        
-        
-                         
-                          
     
     if return_dict:
         outdict = dict(detrended_var=dtvar,linearmodel=linmod,beta=beta,intercept=intercept)
@@ -2212,7 +2202,7 @@ def find_latlon(lonf,latf,lon,lat,verbose=True):
         print(msg2)
     return klon,klat
 
-def find_tlatlon(ds,lonf,latf,verbose=True):
+def find_tlatlon(ds,lonf,latf,verbose=True,return_index=False):
 
     # Get minimum index of flattened array
     kmin      = np.argmin( (np.abs(ds.TLONG-lonf) + np.abs(ds.TLAT-latf)).values)
@@ -2224,6 +2214,8 @@ def find_tlatlon(ds,lonf,latf,verbose=True):
         foundlon = ds.TLONG.isel(nlat=klat,nlon=klon).values
         print("Closest lon to %.2f was %.2f" % (lonf,foundlon))
         print("Closest lat to %.2f was %.2f" % (latf,foundlat))
+    if return_index:
+        return klon,klat
     return ds.isel(nlon=klon,nlat=klat)
 
 def find_nan(data,dim,val=None,return_dict=False,verbose=True):
@@ -2468,6 +2460,66 @@ def sel_region_xr(ds,bbox):
         Subsetted datasetor dataarray
     """
     return ds.sel(lon=slice(bbox[0],bbox[1]),lat=slice(bbox[2],bbox[3]))
+
+
+def sel_region_xr_cv(ds2,bbox,debug=False):
+    # Select region with curvilinear coordinates TLONG and TLAT
+    # Copied from preprocess_by_level (but removed the vname requirement)
+    
+    # Get mesh
+    tlat = ds2.TLAT.values
+    tlon = ds2.TLONG.values
+    
+    # Make Bool Mask
+    latmask = (tlat >= bbox[2]) * (tlat <= bbox[3])
+    
+    # Three Cases
+    # Case 1. Both are degrees west
+    # Case 2. Crossing prime meridian (0,360)
+    # Case 3. Crossing international date line (180,-180)
+    # Case 4. Both are degrees east
+    if np.any(np.array(bbox)[:2] < 0):
+        print("Degrees West Detected")
+        
+        if np.all(np.array(bbox[:2])) < 0: # Case 1 Both are degrees west
+            print("Both are degrees west")
+            lonmask = (tlon >= bbox[0]+360) * (tlon <= bbox[1]+360)
+            
+        elif (bbox[0] < 0) and (bbox[1] >= 0): # Case 2 (crossing prime meridian)
+            print("Crossing Prime Meridian")
+            lonmaskE = (tlon >= bbox[0]+360) * (tlon <= 360) # [lonW to 360]
+            if bbox[1] ==0:
+                lonmaskW = 1
+            else:
+                lonmaskW = (tlon >= 0)           * (tlon <= bbox[1])       # [0 to lonE]
+            
+            lonmask = lonmaskE * lonmaskW
+        elif (bbox[0] > 0) and (bbox[1] < 0): # Case 3 (crossing dateline)
+            print("Crossing Dateline")
+            lonmaskE = (tlon >= bbox[0]) * (tlon <= 180) # [lonW to 180]
+            lonmaskW = (tlon >= 180)     * (tlon <= bbox[1]+360) # [lonW to 180]
+            lonmask = lonmaskE * lonmaskW
+    else:
+        print("Everything is degrees east")
+        lonmask = (tlon >= bbox[0]) * (tlon <= bbox[1])
+    
+    regmask = lonmask*latmask
+
+    # Select the box
+    if debug:
+        plt.pcolormesh(lonmask*latmask),plt.colorbar(),plt.show()
+    
+    # Make a mask
+    #ds2 = ds2[vname]#.isel(z_t=1)
+    
+    ds2.coords['mask'] = (('nlat', 'nlon'), regmask)
+    
+    st = time.time()
+    ds2 = ds2.where(ds2.mask,drop=True)
+    print("Loaded in %.2fs" % (time.time()-st))
+    return ds2
+
+
 
 def get_bbox(ds):
     # Get bounding box of a dataset from "lon" and "lat" dimensions
@@ -3929,15 +3981,6 @@ def format_ds_dims(ds,start_1=True):
                     ds[dd] = np.arange(1,ndim+1,1)
     return ds
 
-        
-
-
-    
-    
-    
-    
-    
-
 def savefig_pub(savename,fig=None,
                 dpi=1200,transparent=False,format='eps'):
     """
@@ -3986,7 +4029,6 @@ def check_sum_ds(add_list,sum_ds,lonf=50,latf=-30,t=0,fmt="%.2f"):
     print(chkstr)
     return chkstr
 
-
 def get_xryear(ystart="0000",nmon=12):
     # Get an xarray year (dummy operation). Can indicate startyear or month
     return xr.cftime_range(start='0000',periods=nmon,freq="MS",calendar="noleap")
@@ -3998,6 +4040,54 @@ def rep_ds(ds,repdim,dimname):
     dsrep  = xr.concat(dsrep,dim=dimname)
     dsrep  = dsrep.reindex(**{ dimname :repdim})
     return dsrep
+
+def nanargmaxds(ds,dimname):
+    # Take nanargmax for ds, asmking out nan slices with zero
+    # First used in reemergence/monvar_analysis
+    mask   = xr.where(~np.isnan(ds),1,np.nan) # Make Mask
+    mask   = mask.prod(dimname,skipna=False)
+    tempds = xr.where(np.isnan(ds),0,ds) # Set to Zero
+    argmax = tempds.argmax(dimname) # Take NanArg
+    return argmax * mask
+
+def nanargminds(ds,dimname):
+    # Take nanargmin for ds, asmking out nan slices with zero
+    # First used in reemergence/monvar_analysis
+    mask   = xr.where(~np.isnan(ds),1,np.nan) # Make Mask
+    mask   = mask.prod(dimname,skipna=False)
+    tempds = xr.where(np.isnan(ds),0,ds) # Set to Zero
+    argmin = tempds.argmin(dimname) # Take NanArg
+    return argmin * mask
+
+def make_mask(ds_all,nanval=np.nan):
+    # From compare_reipy, given a list of dataarrays, make mask
+    # that propagates NaNs across all datasets
+    if ~np.isnan(nanval):
+        ds_all = [xr.where((ds == nanval),np.nan,ds) for ds in ds_all]
+    mask    = [xr.where(~np.isnan(ds),1,np.nan) for ds in ds_all]
+    mask    = xr.concat(mask,dim='exp')
+    mask  = mask.prod('exp',skipna=False)
+    return mask
+
+
+def check_latlon_ds(ds_list,refid=0):
+    # Checks "lat" and "lon" in list of reference datasets/dataarrays
+    # that are of the same size. Compares it to the lat from the reference
+    # ds (whose index/position in the list is indicated by refid)
+    lats = [ds.lat.data for ds in ds_list]
+    lons = [ds.lon.data for ds in ds_list]
+    latref = lats[refid]
+    lonref = lons[refid]
+    nds    = len(ds_list)
+    for dd in range(nds):
+        if ~np.all(latref==lats[dd]):
+            print("Warning: lat for ds %02i is not matching! Reassigning...")
+            ds_list[dd]['lat'] = latref
+        if ~np.all(lonref==lons[dd]):
+            print("Warning: lon for ds %02i is not matching! Reassigning...")
+            ds_list[dd]['lon'] = lonref
+    return ds_list
+
 
 """
 -----------------
