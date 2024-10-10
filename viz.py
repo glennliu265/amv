@@ -787,7 +787,16 @@ def init_monplot(row,col,figsize=(6,4),constrained_layout=True,skipaxis=False):
         axs.set_xticklabels(tks)
         axs = add_ticks(axs,minorx=False)
     return fig,axs
-        
+
+def format_monplot(ax):
+    
+    tks = proc.get_monstr(nletters=3)
+    ax.set_xlim([0,11])
+    ax.set_xticks(np.arange(0,12,1))
+    ax.set_xticklabels(tks)
+    ax = add_ticks(ax,minorx=False)
+    
+    return ax
     
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1920,6 +1929,35 @@ def hcbar(mpl_obj,ax=None,fig=None,fraction=0.035,pad=.01):
                       pad=pad,orientation='horizontal',)
     return cb
     
+
+def init_regplot(regname,fontsize=20):
+    # Based on plots in reemergence/viz_CESM_HTR_meanstates, visualize plots over analysis regions
+    """
+    Regions:
+        SAR (Sargasso Sea)
+        NAC (North Atlantic Current)
+        IRM (Irminger Sea)
+    
+    """
+    if regname == "SAR":
+        print("Initializing map for Sargasso Sea...")
+        bboxin  = [-80,-40,30,50]
+        centlon = -60
+        figsize = (25,14)
+    elif regname == "NAC":
+        print("Initializing map for North Atlantic Current...")
+        bboxin  = [-60,-10,35,55]
+        centlon = -35
+        figsize = (25,14)
+    elif regname == "IRM":
+        print("Initializing map for Irminger Sea...")
+        bboxin  = [-60,-20,45,70]
+        centlon = -40
+        figsize = (25,14)
+    fig,ax,_  = init_orthomap(1,1,bboxin,figsize=figsize,centlon=centlon)
+    ax        = add_coast_grid(ax,bbox=bboxin,fill_color='lightgray',fontsize=fontsize)
+    return fig,ax,bboxin
+
 #%% Spectral Analysis
 
 
