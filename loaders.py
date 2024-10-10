@@ -305,9 +305,10 @@ def load_bsf(datpath=None,stormtrack=0,ensavg=True,ssh=False):
     ds = xr.open_dataset(nc).load()
     return ds
 
-def load_current(datpath=None,stormtrack=0,z=0,regrid=False):
+def load_current(datpath=None,stormtrack=0,z=0,regrid=False,mldavg=False):
     # Lead monthly mean UVEL and VVEL, regridded to CAM5
     # z is the index of the depth. Loads surface values by default
+    # Note mldavg not implemented yet... need to take seasonal average and add
     
     if datpath is None:
         datpath = "/Users/gliu/Downloads/02_Research/01_Projects/01_AMV/00_Commons/01_Data/CESM1_LE/proc/NATL/"
