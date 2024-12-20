@@ -131,7 +131,7 @@ def ann_avg(ts,dim,monid=None,nmon=12):
     annavg = np.nanmean(annavg,axis=dim+1)
     return annavg
 
-def area_avg(data,bbox,lon,lat,wgt):
+def area_avg(data,bbox,lon,lat,wgt=None):
     """
     Function to find the area average of [data] within bounding box [bbox], 
     based on wgt type (see inputs)
@@ -140,10 +140,11 @@ def area_avg(data,bbox,lon,lat,wgt):
         2) bbox: bounding box [lonW, lonE, latS, latN]
         3) lon:  longitude coordinate
         4) lat:  latitude coodinate
-        5) wgt:  number to indicate weight type
-                    0 = no weighting
-                    1 = cos(lat)
-                    2 = sqrt(cos(lat))
+        5) wgt:  number (or str) to indicate weight type
+                    0 or None     no weighting
+                    1 or 'cos'  = cos(lat)
+                    2 or 'cossq' = sqrt(cos(lat))
+                
     
     Output:
         1) data_aa: Area-weighted array of size [otherdims]
@@ -153,6 +154,7 @@ def area_avg(data,bbox,lon,lat,wgt):
     
 
     """
+    
     # Check order of longitude
     # vshape = data.shape
     #nlon = lon.shape[0]
@@ -168,15 +170,15 @@ def area_avg(data,bbox,lon,lat,wgt):
     sel_data = data[kw:ke+1,ks:kn+1,:]
     
     # If wgt == 1, apply area-weighting 
-    if wgt != 0:
+    if (wgt != 0) or (wgt is not None):
         
         # Make Meshgrid
         _,yy = np.meshgrid(lon[kw:ke+1],lat[ks:kn+1])
         
         # Calculate Area Weights (cosine of latitude)
-        if wgt == 1:
+        if (wgt == 1) or (wgt == "cos"):
             wgta = np.cos(np.radians(yy)).T
-        elif wgt == 2:
+        elif (wgt == 2) or (wgt == "cossq"):
             wgta = np.sqrt(np.cos(np.radians(yy))).T
         
         # Remove nanpts from weight, ignoring any pt with nan in otherdims
@@ -188,7 +190,7 @@ def area_avg(data,bbox,lon,lat,wgt):
         sel_data  = sel_data * wgta[:,:,None]
     
     # Take average over lon and lat
-    if wgt != 0:
+    if (wgt != 0) or (wgt is not None):
 
         # Sum weights to get total area
         sel_lat  = np.sum(wgta,(0,1))
@@ -207,6 +209,13 @@ def area_avg_cosweight(ds,sqrt=False):
         weights = np.sqrt(weights)
     ds_weighted = ds.weighted(weights)
     return ds_weighted.mean(('lat','lon'))
+
+# def area_avg_xr(ds):
+#     # Based on https://docs.xarray.dev/en/latest/examples/area_weighted_temperature.html
+#     weights = np.cos(np.deg2rad(ds.lat))
+#     weights.name = 'weights'
+#     ds_weighted = ds.weighted(weights)
+#     return ds_weighted.mean('lat','lon')
 
 #%% ~ Seasonal Cycle
 
@@ -988,7 +997,7 @@ def regress_2d(A,B,nanwarn=1,verbose=True):
     if np.any(np.isnan(A)) or np.any(np.isnan(B)):
         if nanwarn == 1:
             print("NaN Values Detected...")
-            
+        
         # 2D Matrix is in A [MxN]
         if len(A.shape) > len(B.shape):
             
@@ -1964,6 +1973,86 @@ def calc_stderr(x,dim,p=0.05,tails=2):
     FAC   = stats.norm.ppf(conf)        # Get factor
     SE    = sigma / np.sqrt(n) * FAC    # Compute Standard Error
     return SE
+
+def regress_ttest(in_var,in_ts,dof=None,p=0.05,tails=2):
+    """
+    Given a timeseries (in_ts) and variable (in_ts), compute regression
+    coefficients and perform t-test to get significance
+    Note: only tested for single value DOF, need to check for map of dofs...
+    h0: regression coeffs are significantly different from zero
+    
+    Inputs:
+    -------
+    invar (ARRAY: [Lon x Lat x Time])   : Input pattern to regress
+    in_ts (ARRAY: [time])               : Timeseries to regress to
+    dof   (NUMERIC)                     : Degrees of Freedom to use. Defaults to nt-2
+    p     (NUMERIC)                     : p-value for significance testing; Default: 0.05
+    tails (INT)                         : # of Tails for t-test (1 or 2); Default: 2
+    
+    Outputs: (all (ARRAY: [Lon x Lat] ezcept t_critval)
+    --------
+    regression_coeff : Map of Regression Coefficients
+    intercept        : Map of Intercepts
+    SSE              : Squared Sum of Errors
+    se               : Residual Standard Error
+    t_statistic      : T-statistic at each point
+    t_critval        : Critical T-value
+    sigmask          : Mask where t_statistic > t_critval
+    
+    """
+    
+    # Step (1), get needed dimensions
+    nt          = in_ts.shape[0]
+    nlon,nlat,_ = in_var.shape # Assume [lon x lat x time]
+    invar_rs    = in_var.reshape(nlon*nlat,nt)
+    
+    # Step (2), Remove NaNs
+    nandict     = find_nan(invar_rs,1,return_dict=True) # Sum along time in 1
+    invar_rs    = nandict['cleaned_data']
+    
+    # Define function to replace NaN
+    def replace(x):
+        outvar = np.zeros((nlon*nlat))
+        outvar[nandict['ok_indices']] = x
+        return outvar.reshape(nlon,nlat)
+    
+    # A1. Compute the Slopes
+    m,b = regress_2d(in_ts,invar_rs) # [1 x pts]
+    
+    # A2. Calculate SSE and residual standard error
+    # https://www.geo.fu-berlin.de/en/v/soga-r/Basics-of-statistics/Hypothesis-Tests/Inferential-Methods-in-Regression-and-Correlation/Inferences-About-the-Slope/index.html
+    yhat    = in_ts[None,:] * m.T  + b.T # Re-make the model
+    epsilon = invar_rs - yhat # Residual
+    SSE     = (epsilon**2).sum(1) # Errors are generally large along NAC
+    if dof is None:
+        print("Using DOF len(time) - 2...")
+        dof     = nt-2 # Note you can set DOF to be different here. I think 2 is just 2 parameters for linear regr
+    se      = np.sqrt(SSE/ (dof)) # Residual Standard Error. 
+    
+    # A3. Compute the t-statistic
+    rss_x = np.sqrt( np.sum( (in_ts - in_ts.mean()) **2))# Root Sum Square of x
+    denom = se / rss_x
+    tstat = m.squeeze() / denom
+    
+    # A4. Get Critical T
+    ptilde = p/tails
+    critval = stats.t.ppf(1-ptilde,dof)
+    
+    # Make significance Mask
+    sigmask = tstat > critval
+    sigmask = replace(sigmask)
+    
+    # Return all values
+    outdict = {}
+    outdict["regression_coeff"] = replace(m.squeeze())
+    outdict["intercept"] = replace(b.squeeze())
+    outdict["SSE"] = replace(SSE)
+    outdict["se"] = replace(se)
+    outdict["t_statistic"] = replace(tstat)
+    outdict["t_critval"] = critval
+    outdict["sigmask"] = sigmask
+    
+    return outdict
 
 #%% ~ Other
 
@@ -3085,15 +3174,14 @@ def calc_AMV(lon,lat,sst,bbox,order,cutofftime,awgt,runmean=False):
     numpy as np
     from scipy.signal import butter,filtfilt
     """
-    
     # Take the weighted area average
-    aa_sst = area_avg(sst,bbox,lon,lat,awgt)
+    aa_sst   = area_avg(sst,bbox,lon,lat,awgt)
 
     # Design Butterworth Lowpass Filter
     filtfreq = len(aa_sst)/cutofftime
     nyquist  = len(aa_sst)/2
-    cutoff = filtfreq/nyquist
-    b,a    = butter(order,cutoff,btype="lowpass")
+    cutoff   = filtfreq/nyquist
+    b,a      = butter(order,cutoff,btype="lowpass")
     
     # fs = 1/(12*30*24*3600)
     # xtk     = [fs/100,fs/10,fs,fs*12,fs*12*30]
@@ -3156,6 +3244,7 @@ def calc_AMVquick(var_in,lon,lat,bbox,order=5,cutofftime=10,anndata=False,
         numpy as np
     
     """
+    
     if monid is None:
         monid = np.arange(0,nmon,1)
     

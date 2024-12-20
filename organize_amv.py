@@ -99,6 +99,7 @@ Functions:
     calc_dof            : Compute effective degrees of freedom
     ttest_rho           : Perform T-Test
     calc_stderr         : Compute Standard Error (assuming normal distr)
+    regress_ttest       : Perform regression and also compute significance via t-test
     
         ~ Other ~
     covariance_2d       : Calculate covariance for 2 2D arrays
