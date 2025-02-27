@@ -250,10 +250,14 @@ def deseason(ts,dim=0,return_scycle=False):
         return tsanom,scycle
     return tsanom
 
-def xrdeseason(ds):
+def xrdeseason(ds,check_mon=True):
     """ Remove seasonal cycle, given an Dataarray with dimension 'time'"""
-    if ds.time[0].values.item().month != 1:
-        print("Warning, first month is not Jan...")
+    if check_mon:
+        try: 
+            if ds.time[0].values.item().month != 1:
+                print("Warning, first month is not Jan...")
+        except:
+            print("Warning, not checking for feb start")
     return ds.groupby('time.month') - ds.groupby('time.month').mean('time')
 
 def calc_savg(invar,debug=False,return_str=False,axis=-1,ds=False):
