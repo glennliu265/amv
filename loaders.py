@@ -353,7 +353,7 @@ def load_gs(datpath=None,load_u2=False):
 
 #%%
 
-def load_smoutput(expname,output_path,debug=True):
+def load_smoutput(expname,output_path,debug=True,return_nclist=False):
     # Load output from [run_SSS_basinwide.py]
     # Copied from [pointwise_crosscorrelation]
     
@@ -366,6 +366,8 @@ def load_smoutput(expname,output_path,debug=True):
         print(nclist)
     
     nclist = [nc for nc in nclist if "ravgparams" not in nc]
+    if return_nclist: # Just return the nclist
+        return nclist
     
     # Load DS, deseason and detrend to be sure
     if len(nclist) == 1:
