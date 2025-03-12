@@ -4036,6 +4036,11 @@ def format_ds(da,latname='lat',lonname='lon',timename='time',lon180=True,verbose
             newcoord = {lonname : ((da[lonname] + 360) % 360)}
             da       = da.assign_coords(newcoord).sortby(lonname)
         
+    # Check if time is divisble by 12 (and send warning if now)
+    if (len(da.time)%12):
+        print("Warning! Time dimension is not evenly divisible by 12...")
+        print("\tMight be missing months of data.")
+    
     # Transpose the datase
     da = da.transpose('time','lat','lon')
     
@@ -4189,7 +4194,7 @@ def check_latlon_ds(ds_list,refid=0):
 """
 #%% ~ Labeling
 
-def make_locstring(lon,lat,pres=None,lon360=False):
+def make_locstring(lon,lat,pres=None,lon360=False,fancy=True):
     if lon360 and lon < 0:
         lon += 360
         
@@ -4197,10 +4202,34 @@ def make_locstring(lon,lat,pres=None,lon360=False):
             
         locfn    = "lon%.4f_lat%.4f" % (lon,lat)
         loctitle = "Lon: %.4f, Lat: %.4f" % (lon,lat)
+        if fancy:
+            if lon < 0:
+                lonsign = "W"
+            else:
+                lonsign = "E"
+            if lat < 0:
+                latsign = "S"
+            else:
+                latsign = "N"
+            loctitle = "%i$\degree$%s, %i$\degree$%s" % (np.abs(lon),lonsign,
+                                                         np.abs(lat),latsign)
     else:
 
         locfn    = "lon%03i_lat%02i" % (lon,lat)
         loctitle = "Lon: %i, Lat: %i" % (lon,lat)
+        
+        if fancy:
+            if lon < 0:
+                lonsign = "W"
+            else:
+                lonsign = "E"
+            if lat < 0:
+                latsign = "S"
+            else:
+                latsign = "N"
+            loctitle = "%i$\degree$%s, %i$\degree$%s" % (np.abs(lon),lonsign,
+                                                         np.abs(lat),latsign)
+            
     return locfn,loctitle
 
 def make_locstring_bbox(bbox):
