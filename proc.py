@@ -1387,7 +1387,6 @@ def calc_lagcovar_nd(var1,var2,lags,basemonth,detrendopt):
     
     for i in lags:
         
-        
         lagm = (basemonth + i)%12
         
         if lagm == 0:
@@ -3701,6 +3700,30 @@ def calc_HF(sst,flx,lags,monwin,verbose=True,posatm=True,return_cov=False,
     if return_cov:
         return damping,autocorr,crosscorr,autocovall,covall
     return damping,autocorr,crosscorr
+
+
+
+def check_flx(da_flx,flxname=None,return_flag=True,bbox_gs=None):
+    if flxname is not None:
+        da_in = da_flx[flxname]
+    else:
+        da_in = da_flx
+    
+    if bbox_gs is None:
+        bbox_gs = [-80,-60,20,40]
+    flx_gs   = sel_region_xr(da_in,bbox_gs) # Take Gulf Stream Region
+    flx_savg = flx_gs.groupby('time.season').mean('time') # Take Seasonal Avg
+    flx_wint = flx_savg.sel(season='DJF') # Select Winter
+    wintsum  = flx_wint.sum(['lat','lon']).data.item() # Sum over winter
+    if wintsum < 0:
+        print("Warning, wintertime avg values are NEGATIVE over the Gulf Stream.")
+        print("\tSign will be flipped to be Positive Upwards (into the atmsophere)")
+        #if flxname is not None:
+        da_flx = da_flx * -1
+        #da_in = da_in * -1
+    return da_flx
+    
+        
 
 #%% ~ Dimension Gymnastics
 """

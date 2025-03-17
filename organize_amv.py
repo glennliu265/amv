@@ -4,7 +4,7 @@
 organize_amv
 
 An attempt to catalogue and organize functions I've written in the amv module
-'
+
 
 Created on Sun Jan 15 18:40:30 2023
 
@@ -165,6 +165,7 @@ Functions:
     calc_T2             : Compute the recorrelation timescale
     remove_enso         : Copied from scm, remove ENSO from variable using regression
     calc_HF             : Calculate heat flux feedback (copied from scm)
+    check_flx           : Check the sign of heat flux, copied from (calc_Fprime_lens)
     
     
     ----------------------------
