@@ -16,6 +16,7 @@
     return_mon_label    : Return month labels for a given month
     set_xlim_auto       : Automatically set x-limits to x-tick max/min
     add_ticks           : Helper function to add ticks and gridlines
+    add_fontborder      : Add border/highlight with PathEffects
     
     
         ~ Subplot Management
@@ -62,6 +63,7 @@
     init_acplot         : Initialized monthly lagged autocorrelation plot
     prep_monlag_labels  : Add month laevls below lag for autocorrelation plots
     plot_profile        : Initialize vertical profile plot (copied from viz_temp_v_salt.py)
+    init_NATL           : Initialize a North Atlantic Plot (single panel)
 
         ~ Quick Visualization (qv) series
     qv_seasonal         : Plot the seasonal cycle of 2D variable
@@ -76,7 +78,7 @@ import cmocean
 import string
 
 import numpy as np
-import colorcet as cc
+#import colorcet as cc
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtransforms
 import cartopy.crs as ccrs
@@ -218,6 +220,11 @@ def add_ticks(ax=None,add_grid=True,grid_lw=0.5,grid_ls="dotted",grid_col="gray"
     ax.set_facecolor(facecolor)
     ax.spines[:].set_color(spinecolor)
     return ax
+
+def add_fontborder(labels,c='white',w=5):
+    """ Add border to font """
+    [tt.set_path_effects([PathEffects.withStroke(linewidth=w, foreground=c)]) for tt in labels]
+    return None
 
 # ~~~~~~~~~~~~~~~~~~~~~~
 #%% Subplot Management
@@ -547,7 +554,7 @@ def init_blabels():
 def init_orthomap(nrow,ncol,bboxplot,centlon=-40,centlat=35,precision=40,
                   dx=10,dy=5,
                   frame_lw=2,frame_col="k",
-                  figsize=(8,4.5),constrained_layout=True):
+                  figsize=(8,4.5),constrained_layout=True,ax=None):
     # Intiailize Ortograpphic map over North Atlantic.
     # Based on : https://stackoverflow.com/questions/74124975/cartopy-fancy-box
     # The default lat/lon projection
@@ -595,6 +602,8 @@ def init_orthomap(nrow,ncol,bboxplot,centlon=-40,centlat=35,precision=40,
         'polygon'    : polygon1s,
         }
     return fig,axs,mapdict
+
+        
 
 # ~~~~~~~~~~~~~~~~~~~~~~
 #%% Time Series/1-D Plot
@@ -1412,7 +1421,8 @@ def viz_kprev(h,kprev,locstring="",ax=None,lw=1,msize=25,mstyle="x",
     connex = [([im+1,kprev[im]],[h[im],h[im]]) for im in range(12) if kprev[im] != 0]
     # Set colormap
     if cmap is None:
-        cmap = cc.glasbey[:len(connex)]
+        cmap = cmocean.curl # Temp Fix
+        #cmap = cc.glasbey[:len(connex)]
     else:
         cmap = cmap[:len(connex)]
     for m in range(len(connex)):
@@ -1930,15 +1940,25 @@ def hcbar(mpl_obj,ax=None,fig=None,fraction=0.035,pad=.01):
     return cb
     
 
-def init_regplot(regname,fontsize=20):
+def init_regplot(regname=None,fontsize=20,bboxin=None):
     # Based on plots in reemergence/viz_CESM_HTR_meanstates, visualize plots over analysis regions
     """
+    Note: Automatically sets bounding box except for NAT region...
     Regions:
+        NAT (North Atlantic, Default)
         SAR (Sargasso Sea)
         NAC (North Atlantic Current)
         IRM (Irminger Sea)
     
     """
+    if regname is None:
+        print("Setting name as NAT")
+        regname = "NAT"
+        
+    bbauto = False
+    if bboxin is None:
+        bbauto=True
+    
     if regname == "SAR":
         print("Initializing map for Sargasso Sea...")
         bboxin  = [-80,-40,30,50]
@@ -1954,8 +1974,19 @@ def init_regplot(regname,fontsize=20):
         bboxin  = [-60,-20,45,70]
         centlon = -40
         figsize = (25,14)
+    elif regname == "NAT":
+        print("Initializing map for North Atlantic")
+        if bboxin is None:
+            bboxin = [-80,0,0,65]
+        figsize = (24,6.5)
+        centlon = -40
+        
+            
+        
     fig,ax,_  = init_orthomap(1,1,bboxin,figsize=figsize,centlon=centlon)
     ax        = add_coast_grid(ax,bbox=bboxin,fill_color='lightgray',fontsize=fontsize)
+    if bbauto is False:
+        return fig,ax
     return fig,ax,bboxin
 
 #%% Spectral Analysis
