@@ -109,7 +109,6 @@ def pointwise_acf(ds,nlags):
 
 #%% Compute Spectra (as in visualize atmospheric persistenc      --e)
 
-
 # Compute the power spectra (Testbed function from xrfunc)
 def pointwise_spectra(tsens,nsmooth=1, opt=1, dt=None, clvl=[.95], pct=0.1):
     calc_spectra = lambda x: proc.point_spectra(x,nsmooth=nsmooth,opt=opt,
@@ -139,3 +138,32 @@ def pointwise_spectra(tsens,nsmooth=1, opt=1, dt=None, clvl=[.95], pct=0.1):
 # da_1d           = da_sm.isel(var=0,ens=0,exp=0).values # Example
 # freq            = proc.get_freqdim(da_1d)
 # sm_spec['freq'] = freq
+
+#%% Polynomial Detrend (copied form hfcalc/scrap/compute_t2_rei_spg)
+
+def pointwise_detrend(ds,order):
+    # Apply Polynomial Detrend, looping over Lat and Lon
+    # 
+    def point_detrend(ts,order):
+        ntime  = len(ts)
+        times  = np.arange(ntime)
+        if np.any(np.isnan(ts)):
+            dt_out = times*np.nan
+        else:
+            dt_out = proc.polyfit_1d(times,ts,order)
+        return dt_out[2]
+    detrend_pt = lambda x: point_detrend(x,order)
+    
+    st = time.time()
+    ds_detrended = xr.apply_ufunc(
+        detrend_pt,
+        ds,
+        input_core_dims=[['time']],
+        output_core_dims=[['time']],
+        vectorize=True,
+        )
+    print("Detrended in %.2fs" % (time.time()-st))
+    return ds_detrended
+
+#%%
+
