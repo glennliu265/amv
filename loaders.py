@@ -353,7 +353,7 @@ def load_gs(datpath=None,load_u2=False):
 
 #%%
 
-def load_smoutput(expname,output_path,debug=True,return_nclist=False):
+def load_smoutput(expname,output_path,debug=True,return_nclist=False,runids=None,load=True):
     # Load output from [run_SSS_basinwide.py]
     # Copied from [pointwise_crosscorrelation]
     
@@ -361,6 +361,9 @@ def load_smoutput(expname,output_path,debug=True,return_nclist=False):
     expdir       = output_path + expname + "/Output/"
     nclist       = glob.glob(expdir +"*.nc")
     nclist.sort()
+    
+    if runids is not None:
+        nclist = np.array(nclist)[runids]
     
     if debug:
         print(nclist)
@@ -372,9 +375,12 @@ def load_smoutput(expname,output_path,debug=True,return_nclist=False):
     # Load DS, deseason and detrend to be sure
     if len(nclist) == 1:
         print("Only found 1 file")
-        ds_all = xr.open_dataset(nclist[0]).load()
+        ds_all = xr.open_dataset(nclist[0])#.load()
     else:
-        ds_all   = xr.open_mfdataset(nclist,concat_dim="run",combine='nested').load()
+        ds_all   = xr.open_mfdataset(nclist,concat_dim="run",combine='nested')#.load()
+    
+    if load:
+        return ds_all.load()
     return ds_all
 
 def load_rei(expname,output_path,maxmin=False):
