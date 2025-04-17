@@ -423,9 +423,12 @@ def detrend_dim(invar,dim,return_dict=False,debug=False):
     
     # Combine all other dims and reshape to [time x otherdims]
     tdim        = newvar.shape[0]
+    if len(varshape) <= 1:
+        print("Warning, function will not work for 1-D arrays...")
     otherdims   = newvar.shape[1::]
     proddims    = np.prod(otherdims)
     newvar      = np.reshape(newvar,(tdim,proddims))
+
     
     # Find non nan points
     varok,knan,okpts = find_nan(newvar,0)
@@ -548,6 +551,7 @@ def polyfit_1d(x,y,order):
 
 
 def xrdetrend(ds,timename='time',verbose=True):
+    
     st          = time.time()
     # Simple Linear detrend along dimension 'time'
     tdim        = list(ds.dims).index(timename) # Locate Time Dim
@@ -4208,6 +4212,17 @@ def check_latlon_ds(ds_list,refid=0):
             print("Warning: lon for ds %02i is not matching! Reassigning...")
             ds_list[dd]['lon'] = lonref
     return ds_list
+
+
+def splittime_ds(ds_in,cutyear):
+    # Crop ds_time by cutyear into chunk 1 (earlier) and 2 (later) periods
+    # Assumes monthly data and that name of time dimension is "time"
+    # See use case in reemergence/era5_acf_sensitivty_analysis
+    cutyear = int(cutyear)
+    chunk1  = ds_in.sel(time=slice(None,'%04i-12-31' % (cutyear-1)))
+    chunk2  = ds_in.sel(time=slice('%04i-01-01' % (cutyear),None))
+    return chunk1,chunk2
+
 
 
 """
