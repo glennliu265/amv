@@ -1926,7 +1926,7 @@ def qv_seasonal(lon,lat,var,
         
     return ax
 
-def hcbar(mpl_obj,ax=None,fig=None,fraction=0.035,pad=.01):
+def hcbar(mpl_obj,ax=None,fig=None,fraction=0.035,pad=.01,fontsize=12,rotation=0):
     """
     Make quick horizontal colorbar. Arguments are same as ax.colorbar()
     
@@ -1937,6 +1937,7 @@ def hcbar(mpl_obj,ax=None,fig=None,fraction=0.035,pad=.01):
         fig = plt.gcf()
     cb = plt.colorbar(mpl_obj,ax=ax,fraction=fraction,
                       pad=pad,orientation='horizontal',)
+    cb.ax.tick_params(labelsize=fontsize,rotation=rotation)
     return cb
     
 
