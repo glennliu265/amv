@@ -21,7 +21,6 @@ import scipy
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import scipy as sp
-
 import pandas as pd
 import datetime
 
@@ -2273,6 +2272,72 @@ def get_freqdim(ts, dt=None, opt=1, nsmooth=1, pct=0.10, verbose=False, debug=Fa
     return sps[1]/dt
 
 
+def calc_confspec(alpha,nu):
+    """
+    Based on code written by Tom Farrar for 12.805 @ MIT (see the func. confid).
+    Copied from the 12.805 tbx.py on 2025.04.22
+    
+    Compute the upper and lower confidence limits for a chi-square variate.
+    
+    
+    Parameters
+    ----------
+    alpha : numeric
+        Significance value (For example, alpha=0.05 gives 95% confidence interval.)
+    nu : numeric
+        Number of degrees of freedom
+
+    Returns
+    -------
+    lower: lower bound of confidence interval
+    upper: upper bound of confidence interval
+    
+    """
+    # requires:
+    # from scipy import stats
+    upperv=stats.chi2.isf(1-alpha/2,nu)
+    lowerv=stats.chi2.isf(alpha/2,nu)
+    lower=nu / lowerv
+    upper=nu / upperv
+    return (lower,upper)
+
+def plot_conflog(loc,bnds,ax=None,color='k',cflabel=None):
+    """
+    Plot confidence intervals for spectral density on a log scale
+    Copied from the 12.805 tbx.py on 2025.04.22
+    
+    params
+    ------
+        1) loc : array
+            [x-coordinate,y-coordinate] for confidence interval point
+        2) bnds : array
+            [lower,upper] bounds of confidence interval (nu/chi_alpha)
+        Optional...
+        3) ax : matplotlib axes to plot on
+        4) color : string - color of confidence interval
+        5) cflabel : string - label for the confidence interval
+    
+    outputs
+        1) ax : matplotlib axes with confidence interval plotted
+        2) bar : matplotlib object with error bars
+    """
+
+    if ax is None:
+        ax = plt.gca()
+        
+    if cflabel is None:
+        cflabel = "95% Confidence"
+    
+    confx,confy = loc
+    lower,upper=bnds
+    errbounds = confy*np.array([[lower],[upper]])
+    #print(errbounds)
+    bars = ax.errorbar([confx],[confy],
+                       yerr=errbounds,
+                       marker='o',capsize=3,
+                       color=color,label=cflabel)
+    return ax,bars
+
 
 """
 -------------------------------
@@ -3448,7 +3513,7 @@ def calc_remidx_xr(ac,minref=6,maxref=12,tolerance=3,debug=False,
         return rei
     return maxmincorr
 
-def calc_T2(rho,axis=0,ds=False):
+def calc_T2(rho,axis=0,ds=False,verbose=False):
     """
     Calculate Decorrelation Timescale (DelSole 2001)
     Inputs:
@@ -3457,7 +3522,15 @@ def calc_T2(rho,axis=0,ds=False):
     """
     # if ds:
     #     return (1+2*(rho**2).sum(axis))
-    return (1+2*np.nansum(rho**2,axis=axis))
+    # if np.take(rho,0,axis=axis).squeeze() == 1: # (Take first lag)
+    if np.any(rho == 1):
+        if verbose:
+            print("Replacing %i values of Corr=1.0 with 0." % (np.sum(rho==1)))
+        rho_in = np.where(rho == 1,0,rho)
+    else:
+        rho_in = rho
+        
+    return (1+2*np.nansum(rho_in**2,axis=axis))
 
 def remove_enso(invar,ensoid,ensolag,monwin,reduceyr=True,verbose=True,times=None):
     """
@@ -4223,7 +4296,24 @@ def splittime_ds(ds_in,cutyear):
     chunk2  = ds_in.sel(time=slice('%04i-01-01' % (cutyear),None))
     return chunk1,chunk2
 
+def get_dtmon(nyrs=None,leap=False):
+    # Get number of seconds in a month (unfortunately hard-coded, look into
+    # calendar package)
+    # Tiling does not support leap year currently...
+    ndays = np.array([31,28,31,30,31,30,31,31,30,31,30,31])
+    if leap:
+        ndays[1] = 29
+    dtmon = ndays * 60*60*24
+    if nyrs is not None: # Tile to timeseries length
+        return np.tile(dtmon,nyrs)
+    return dtmon
 
+def stdsqsum_da(invar,dim):
+    """
+    Take the Square root of the sum of squares for [invar] along dimension [dim]. 
+    Copied from reemergence/analysis/viz_inputs_paper_draft.py
+    """
+    return np.sqrt((invar**2).sum(dim))
 
 """
 -----------------

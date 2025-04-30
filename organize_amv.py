@@ -116,6 +116,10 @@ Functions:
     
     lp_butter           : Design and apply a low-pass butterworth filter
     calc_specvar        : Calculate variance of spectra below a certain frequency threshold
+    point_spectra       : Compute power spectra for a single timeseries
+    get_freqdim         : Get frequency dimension for a yspectra calculation using yo_spec
+    calc_confspec       : Calculate confidence interval of spectra
+    plot_conflog        : Plot confidence intervals for spectral density on a log scale
     
     
     ----------------------------
@@ -195,6 +199,9 @@ Functions:
     get_xryear          : use xr.cftime to make dummy "year" for calculations
     rep_ds              : Repeat ds certain number of times along a specified dimension
     check_latlon_ds     : Check to make sure datasets of the same size have the same lat/lon coordinates
+    splittime_ds        : Crop ds around a specific year
+    get_dtmon           : Get number of seconds in each month
+    stdsqsum_da         : Take the square root of the sum of squares for a DataArray
     
     -----------------
     |||  Labeling ||| ****************************************************
