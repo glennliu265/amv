@@ -78,7 +78,7 @@ import cmocean
 import string
 
 import numpy as np
-#import colorcet as cc
+import colorcet as cc
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtransforms
 import cartopy.crs as ccrs
@@ -1421,14 +1421,15 @@ def viz_kprev(h,kprev,locstring="",ax=None,lw=1,msize=25,mstyle="x",
     connex = [([im+1,kprev[im]],[h[im],h[im]]) for im in range(12) if kprev[im] != 0]
     # Set colormap
     if cmap is None:
-        cmap = cmocean.curl # Temp Fix
-        #cmap = cc.glasbey[:len(connex)]
+        #cmap = cmocean.cm.curl # Temp Fix
+        cmap = cc.glasbey[:len(connex)]
     else:
         cmap = cmap[:len(connex)]
     for m in range(len(connex)):
         if connex[m][0][0] < connex[m][0][1]: # The first point comes before last point
             connex[m][0][0] += 12 # Shift 1 year ahead
     
+    cmap_in = cmap#cmap(np.arange(12))
     # Indicate entraining months
     foundmon = kprev[kprev!=0]
     foundmld = h[kprev!=0]
@@ -1463,14 +1464,14 @@ def viz_kprev(h,kprev,locstring="",ax=None,lw=1,msize=25,mstyle="x",
             ary  = connex[m][1][1]
             ardx = connex[m][0][0] - connex[m][0][1]
             ardy = connex[m][1][0] - connex[m][1][1]
-            ln   = ax.arrow(arx,ary,ardx,ardy,color=cmap[m],zorder=1,head_starts_at_zero=False,
+            ln   = ax.arrow(arx,ary,ardx,ardy,color=cmap_in[m],zorder=1,head_starts_at_zero=False,
                             head_length=hl,head_width=hw)
             lns.append(ln)
             clrs.append(ln.get_facecolor())
             
     else:
         lns  = [ax.plot(connex[m][0],connex[m][1],
-                        lw=lw,color=cmap[m],zorder=-1) for m in range(len(connex))]
+                        lw=lw,color=cmap_in[m],zorder=-1) for m in range(len(connex))]
         clrs = [ln[0].get_color() for ln in lns] 
     
     # Plot markers
@@ -1975,12 +1976,24 @@ def init_regplot(regname=None,fontsize=20,bboxin=None):
         bboxin  = [-60,-20,45,70]
         centlon = -40
         figsize = (25,14)
+    elif regname == "SPG":
+        print("Initializing map for SPG...")
+        bboxin  = [-80,0,40,65]
+        centlon = -40
+        figsize = (25,14)
+    elif regname == "SPGE":
+        print("Initializing map for SPG East...")
+        bboxin  = [-50,0,50,65]
+        centlon = -25
+        figsize = (25,14)
+        
     elif regname == "NAT":
         print("Initializing map for North Atlantic")
         if bboxin is None:
             bboxin = [-80,0,0,65]
         figsize = (24,6.5)
         centlon = -40
+
         
             
         
