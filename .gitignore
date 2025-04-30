@@ -4,3 +4,5 @@ __pycache__/
 .DS_Store
 
 debugging_amv.py
+
+.ipynb_checkpoints/map_demo-checkpoint.ipynb
