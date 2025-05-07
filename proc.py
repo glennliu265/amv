@@ -4360,8 +4360,12 @@ def make_locstring(lon,lat,pres=None,lon360=False,fancy=True):
             
     return locfn,loctitle
 
-def make_locstring_bbox(bbox):
-    locfn       = "lon%ito%i_lat%ito%i" % (bbox[0],bbox[1],bbox[2],bbox[3])
+def make_locstring_bbox(bbox,lon360=False):
+    if lon360:
+        for ii in range(4):
+            if bbox[ii] < 0:
+                bbox[ii] += 360
+    locfn       = "lon%03ito%03i_lat%03ito%03i" % (bbox[0],bbox[1],bbox[2],bbox[3])
     loctitle    = "Lon: %i to %i, Lat: %i to %i" % (bbox[0],bbox[1],bbox[2],bbox[3])
     return locfn,loctitle
 
