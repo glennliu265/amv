@@ -4361,12 +4361,13 @@ def make_locstring(lon,lat,pres=None,lon360=False,fancy=True):
     return locfn,loctitle
 
 def make_locstring_bbox(bbox,lon360=False):
+    bbox_in = bbox.copy()
     if lon360:
         for ii in range(4):
-            if bbox[ii] < 0:
-                bbox[ii] += 360
-    locfn       = "lon%03ito%03i_lat%03ito%03i" % (bbox[0],bbox[1],bbox[2],bbox[3])
-    loctitle    = "Lon: %i to %i, Lat: %i to %i" % (bbox[0],bbox[1],bbox[2],bbox[3])
+            if bbox_in[ii] < 0:
+                bbox_in[ii] += 360
+    locfn       = "lon%03ito%03i_lat%03ito%03i" % (bbox_in[0],bbox_in[1],bbox_in[2],bbox_in[3])
+    loctitle    = "Lon: %i to %i, Lat: %i to %i" % (bbox_in[0],bbox_in[1],bbox_in[2],bbox_in[3])
     return locfn,loctitle
 
 def makedir(expdir):
