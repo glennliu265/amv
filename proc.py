@@ -209,6 +209,15 @@ def area_avg_cosweight(ds,sqrt=False):
     ds_weighted = ds.weighted(weights)
     return ds_weighted.mean(('lat','lon'))
 
+
+def area_avg_cosweight_cv(ds,vname,sqrt=False):
+    # Take area average of dataset, applying cos weighting
+    weights     = np.cos(np.deg2rad(ds.TLAT))
+    if sqrt: # Take squareroot if option is set
+        weights = np.sqrt(weights)
+    ds_weighted = ds[vname].weighted(weights)
+    return ds_weighted.mean(('nlat','nlon'))
+
 # def area_avg_xr(ds):
 #     # Based on https://docs.xarray.dev/en/latest/examples/area_weighted_temperature.html
 #     weights = np.cos(np.deg2rad(ds.lat))
@@ -552,10 +561,14 @@ def polyfit_1d(x,y,order):
 def xrdetrend(ds,timename='time',verbose=True):
     
     st          = time.time()
-    # Simple Linear detrend along dimension 'time'
-    tdim        = list(ds.dims).index(timename) # Locate Time Dim
-    dt_dict     = detrend_dim(ds.values,tdim,return_dict=True) # ASSUME TIME in first axis
-    ds_anom_out = xr.DataArray(dt_dict['detrended_var'],dims=ds.dims,coords=ds.coords,name=ds.name)
+    if len(ds.shape) == 1: 
+        ts_dt       = sp.signal.detrend(ds.data)
+    else:
+        # Simple Linear detrend along dimension 'time'
+        tdim        = list(ds.dims).index(timename) # Locate Time Dim
+        dt_dict     = detrend_dim(ds.values,tdim,return_dict=True) # ASSUME TIME in first axis
+        ts_dt       = dt_dict['detrended_var']
+    ds_anom_out = xr.DataArray(ts_dt,dims=ds.dims,coords=ds.coords,name=ds.name)
     if verbose:
         print("Detrended in %.2fs" % (time.time()-st))
     return ds_anom_out
@@ -1884,11 +1897,13 @@ def calc_dof(ts,ts1=None,calc_r1=True,ntotal=None):
         
     """
     if calc_r1:
-        
-        n_tot = ntotal
+        if ntotal is None:
+            n_tot = len(ts)
+        else:
+            n_tot = ntotal
     else:
         n_tot = len(ts)
-    print("Setting base DOF to %i" % ntotal)
+    print("Setting base DOF to %s" % str(n_tot))
     
     # Compute R1 for first timeseries
     if calc_r1:
@@ -4314,6 +4329,11 @@ def stdsqsum_da(invar,dim):
     Copied from reemergence/analysis/viz_inputs_paper_draft.py
     """
     return np.sqrt((invar**2).sum(dim))
+
+
+def printtime(st,print_str="Completed"):
+    # Given start time, print the elapsed time in seconds
+    print("%s in %.2fs" % (print_str,time.time()-st))
 
 """
 -----------------

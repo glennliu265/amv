@@ -36,6 +36,7 @@ Functions:
     ann_avg             : Take annual average of monthly time series
     area_avg            : Take (weighted) area average within bounding box
     area_avg_cosweight  : Take area-weighted average of xr.Dataset <xarray>
+    area_avg_cosweight_cv : Curvilinear case of above
     
         ~ Seasonal Cycle ~
     year2mon            : Separate mon x year dimensions
@@ -50,7 +51,7 @@ Functions:
     detrend_dim         : Linear detrend along a dimension
     detrend_poly        : Perform polynomial detrend (2D)
     polyfit_1d          : 1-D polynomial fitting/detrending. Returns residuals and coeffs.
-    xrdetrend          : Apply detrend_dim to xarray DataArray
+    xrdetrend           : Apply detrend_dim to xarray DataArray
 
         ~ Classification/Grouping ~
     make_classes_nd     : Make classes based on given thresholds.
@@ -202,6 +203,7 @@ Functions:
     splittime_ds        : Crop ds around a specific year
     get_dtmon           : Get number of seconds in each month
     stdsqsum_da         : Take the square root of the sum of squares for a DataArray
+    printtime           : Print time elapsed in seconds
     
     -----------------
     |||  Labeling ||| ****************************************************
