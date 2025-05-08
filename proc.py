@@ -200,15 +200,15 @@ def area_avg(data,bbox,lon,lat,wgt=None):
         # Take explicit average
         data_aa = np.nanmean(sel_data,(0,1))
     return data_aa
-
+    
 def area_avg_cosweight(ds,sqrt=False):
     # Take area average of dataset, applying cos weighting
+    # Based on https://docs.xarray.dev/en/latest/examples/area_weighted_temperature.html
     weights     = np.cos(np.deg2rad(ds.lat))
     if sqrt: # Take squareroot if option is set
         weights = np.sqrt(weights)
     ds_weighted = ds.weighted(weights)
     return ds_weighted.mean(('lat','lon'))
-
 
 def area_avg_cosweight_cv(ds,vname,sqrt=False):
     # Take area average of dataset, applying cos weighting
@@ -217,13 +217,6 @@ def area_avg_cosweight_cv(ds,vname,sqrt=False):
         weights = np.sqrt(weights)
     ds_weighted = ds[vname].weighted(weights)
     return ds_weighted.mean(('nlat','nlon'))
-
-# def area_avg_xr(ds):
-#     # Based on https://docs.xarray.dev/en/latest/examples/area_weighted_temperature.html
-#     weights = np.cos(np.deg2rad(ds.lat))
-#     weights.name = 'weights'
-#     ds_weighted = ds.weighted(weights)
-#     return ds_weighted.mean('lat','lon')
 
 #%% ~ Seasonal Cycle
 
@@ -2657,7 +2650,7 @@ def sel_region_xr_cv(ds2,bbox,debug=False):
     if np.any(np.array(bbox)[:2] < 0):
         print("Degrees West Detected")
         
-        if np.all(np.array(bbox[:2])) < 0: # Case 1 Both are degrees west
+        if np.all(np.array(bbox[:2]) < 0): # Case 1 Both are degrees west
             print("Both are degrees west")
             lonmask = (tlon >= bbox[0]+360) * (tlon <= bbox[1]+360)
             
