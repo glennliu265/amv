@@ -5,20 +5,30 @@
 Loaders
 
 Scripts to load particular model output. Mostly works with data paths
-on stormtrack.
+on stormtrack or Astraeus.
 
 Functions:
     
 >>> CESM1 Specific <<<<
-    get_scenario_str : Get CESM1 scenario names
-    load_rcp85       : Load CESM1 rcp85 DataArray for 1 ens. member, combining separate files
-    load_htr         : Load CESM1 historical DataArray for 1 ens. member, crop to 1920-onwards
+    get_scenario_str    : Get CESM1 scenario names
+    load_rcp85          : Load CESM1 rcp85 DataArray for 1 ens. member, combining separate files
+    load_htr            : Load CESM1 historical DataArray for 1 ens. member, crop to 1920-onwards
+    
+    load_bsf            : Load Mean Barotropic Streamfunction
+    load_monmean        : Load monthly mean pattern of variables
+    load_current        : Load Mean Gulf Stream position
     
 >>> Other Models <<<
-    get_lens_nc      : Get netcdf list for different model LENS (historical and rpc85)
+    get_lens_nc         : Get netcdf list for different model LENS (historical and rpc85)
+    
+>>> Stochastic Model <<< from /reemergence/ stochastic model inputs/outputs
+    load_smoutpur       : Load output from the stochastic model
+    load_rei            : Load Re-emergence Index (REI), and max/min seasonal correlations
+    load_mask           : Load Land-Ice Mask 
 
 Created on Fri Jan 20 14:24:31 2023
 @author: gliu
+
 """
 
 import glob
@@ -389,12 +399,28 @@ def load_rei(expname,output_path,maxmin=False):
     else:
         ncname = output_path + expname + "/Metrics/REI_Pointwise.nc"
     return xr.open_dataset(ncname)
-    
 
+def load_mask(expname,maskpath=None):
+    # Set Path to masks (based on Astraeus)
+    if maskpath is None:
+        maskpath = "/Users/gliu/Downloads/02_Research/01_Projects/01_AMV/03_reemergence/01_Data/proc/model_input/masks/"
+    
+    if "ERA5" in expname:
+        print("Loading ERA5 Land Ice Mask, 1979-2024")
+        ncname = "ERA5_1979_2024_limask_0.05p.nc"
+    elif "CESM1" in expname and "HTR" in expname:
+        print("Loading CESM1-LE Historical Land Ice Mask, 1920-2005")
+        ncname = "CESM1LE_HTR_limask_pacificmask_enssum_lon-90to20_lat0to90.nc"
+    elif "cesm2" in expname and "pic" in expname:
+        print("Loading CESM2-PiControl Land Ice Mask, 200-2000")
+        ncname = "cesm2_pic_limask_0.3p_0.05p_0200to2000.nc"
+    
+    return xr.open_dataset(maskpath + ncname).load()
+
+    
 
 # Get mean SST.SSS gradient
 
-    
 # def get_cesm1_ocn_nclist(varname,scenario="HTR",path=None):
     
 #     """
