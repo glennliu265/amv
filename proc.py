@@ -507,7 +507,7 @@ def detrend_poly(x,y,deg):
         y = y.T
     
     # Get the fit
-    fit = np.polyfit(x,y,deg=deg)
+    fit    = np.polyfit(x,y,deg=deg)
     # Prepare matrix (x^n, x^n-1 , ... , x^0)
     #inputs = np.array([np.power(x,d) for d in range(len(fit))])
     inputs = np.array([np.power(x,d) for d in reversed(range(len(fit)))])
@@ -566,6 +566,51 @@ def xrdetrend(ds,timename='time',verbose=True):
         print("Detrended in %.2fs" % (time.time()-st))
     return ds_anom_out
     
+def xrdetrend_1d(ds,order,return_model=False):
+    ntime = len(ds.time)
+    x     = np.arange(ntime)
+    y     = ds.data
+    ydetrended,model=detrend_poly(x,y,order)
+    if ds.name is None:
+        ds = ds.rename('detrended_input')
+    dsout  = xr.DataArray(ydetrended,coords=dict(time=ds.time),dims=dict(time=ds.time),name=ds.name)
+    if return_model:
+        dsfit  = xr.DataArray(model,coords=dict(time=ds.time),dims=dict(time=ds.time),name='fit')
+        dsout2 = xr.merge([dsout,dsfit])
+        return dsout2
+    return dsout
+
+
+def detrend_by_regression(invar,in_ts):
+    # Given an DataArray [invar] and Timeseries [in_ts]
+    # Detrend the timeseries by regression
+    
+    # Change to [lon x lat x time]
+    invar       = invar.transpose('lon','lat','time')
+    invar_arr   = invar.data # [lon x lat x time]
+    ints_arr    = in_ts.data # [time]
+    
+    # Perform the regression
+    outdict     = regress_ttest(invar_arr,ints_arr)
+    beta        = outdict['regression_coeff'] # Lon x Lat
+    intercept   = outdict['intercept'] 
+    
+    # Remove the Trend
+    ymodel      = beta[:,:,None] * ints_arr[None,None,:] + intercept[:,:,None]
+    ydetrend    = invar_arr - ymodel
+    
+    # Prepare Output as DataArrays # [(time) x lat x lon]
+    coords_full     = dict(time=invar.time,lat=invar.lat,lon=invar.lon)
+    coords          = dict(lat=invar.lat,lon=invar.lon)
+    da_detrend      = xr.DataArray(ydetrend.transpose(2,1,0),coords=coords_full,dims=coords_full,name=invar.name)
+    da_fit          = xr.DataArray(ymodel.transpose(2,1,0),coords=coords_full,dims=coords_full,name='fit')
+    da_pattern      = xr.DataArray(beta.T,coords=coords,dims=coords,name='regression_pattern')
+    da_intercept    = xr.DataArray(intercept.T,coords=coords,dims=coords,name='intercept')
+    da_sig          = xr.DataArray(outdict['sigmask'].T,coords=coords,dims=coords,name='sigmask')
+    dsout = xr.merge([da_detrend,da_fit,da_pattern,da_intercept,da_sig])
+    
+    return dsout
+
 
 #%% ~ Classification/Grouping
 
@@ -2067,6 +2112,14 @@ def regress_ttest(in_var,in_ts,dof=None,p=0.05,tails=2):
     outdict["sigmask"] = sigmask
     
     return outdict
+
+
+def calc_pval_rho(rho,dof):
+    # Compute p-value (two-tailed) given pearson R correaltion and Degrees of freedom
+    # From https://stats.libretexts.org/Bookshelves/Introductory_Statistics/Mostly_Harmless_Statistics_(Webb)/12%3A_Correlation_and_Regression/12.01%3A_Correlation/12.1.02%3A_Hypothesis_Test_for_a_Correlation
+    tstat = rho * np.sqrt(dof/(1-rho**2))
+    pval  = sp.stats.t.sf(np.abs(tstat), dof)*2  # two-sided pvalue = Prob(abs(t)>tt)
+    return pval
 
 #%% ~ Other
 

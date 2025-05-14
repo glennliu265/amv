@@ -52,7 +52,9 @@ Functions:
     detrend_poly        : Perform polynomial detrend (2D)
     polyfit_1d          : 1-D polynomial fitting/detrending. Returns residuals and coeffs.
     xrdetrend           : Apply detrend_dim to xarray DataArray
-
+    xrdetrend_1d        : Fit line for single timeseries and detrend (works on DataArrays with dim "time")
+    detrend_by_regression : Detrend by regression to a timeseries....
+    
         ~ Classification/Grouping ~
     make_classes_nd     : Make classes based on given thresholds.
     checkpoint          : Groups values based on thresholds and returns indices
@@ -84,7 +86,6 @@ Functions:
     tilebylag           : Tile a monthly variable along a lag sequence
     leadlag_corr        : Compute lead/lag correlation of 2 variables (all months)
     
-        
         ~ EOF Analysis ~
     eof_simple          : Perform EOF Analysis (cr. Yu-Chiao Liang)
     eof_filter          : Discard modes above a percentage threshold
@@ -101,6 +102,7 @@ Functions:
     ttest_rho           : Perform T-Test
     calc_stderr         : Compute Standard Error (assuming normal distr)
     regress_ttest       : Perform regression and also compute significance via t-test
+    calc_pval_rho       : Calculate the p-value given correlations and DOF.
     
         ~ Other ~
     covariance_2d       : Calculate covariance for 2 2D arrays
