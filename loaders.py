@@ -401,6 +401,23 @@ def load_rei(expname,output_path,maxmin=False):
     return xr.open_dataset(ncname)
 
 def load_mask(expname,maskpath=None):
+    """
+    Load Land Ice Mask.
+
+    Parameters
+    ----------
+    expname : str
+        Name of the dataset/model experiment.
+        Currently available: ERA5,CESM1 HTR, cesm2 pic
+    maskpath : str, optional
+        Path to mask location. The default is the path on Astraeus (to rememergence model inputs).
+
+    Returns
+    -------
+    mask : xr.DataArray
+        Land Ice Mask.
+
+    """
     # Set Path to masks (based on Astraeus)
     if maskpath is None:
         maskpath = "/Users/gliu/Downloads/02_Research/01_Projects/01_AMV/03_reemergence/01_Data/proc/model_input/masks/"

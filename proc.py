@@ -3842,6 +3842,7 @@ def calc_HF(sst,flx,lags,monwin,verbose=True,posatm=True,return_cov=False,
 
 
 def check_flx(da_flx,flxname=None,return_flag=True,bbox_gs=None):
+    # Check to see if it is positive into the atmosphere (and flip it not..)
     if flxname is not None:
         da_in = da_flx[flxname]
     else:
