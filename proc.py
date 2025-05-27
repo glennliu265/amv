@@ -2123,7 +2123,7 @@ def calc_pval_rho(rho,dof):
 
 #%% ~ Other
 
-def covariance2d(A,B,dim):
+def covariance2d(A,B,dim,normalize=False):
     """
     Calculate Covariancefor two 2-D Arrays
     along the specified dimension. Input arrays are anomalized.
@@ -2152,6 +2152,10 @@ def covariance2d(A,B,dim):
     
     # Calculate covariance
     cov = np.sum(AB,dim)/A.shape[dim]
+    
+    # Normalize to return correlation if desired
+    if normalize:
+        cov = cov / (np.nanstd(A,dim) * np.nanstd(B,dim))
     return cov
 
 def make_ar1(r1,sigma,simlen,t0=0,savenoise=False,usenoise=None):
