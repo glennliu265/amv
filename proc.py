@@ -1460,7 +1460,7 @@ def calc_lagcovar_nd(var1,var2,lags,basemonth,detrendopt):
         corr_ts[i,:] = pearsonr_2d(varbase,varlag,0)       
     return corr_ts
 
-def calc_lag_covar_ann(var1,var2,lags,dim,detrendopt,):
+def calc_lag_covar_ann(var1,var2,lags,dim,detrendopt):
     
     # Move time to the first dimension (assume var1.shape==var2.shape)
     invars      = [var1,var2]
@@ -2691,10 +2691,15 @@ def sel_region_xr(ds,bbox):
 def sel_region_xr_cv(ds2,bbox,debug=False):
     # Select region with curvilinear coordinates TLONG and TLAT
     # Copied from preprocess_by_level (but removed the vname requirement)
-    
+    # Note, assumes tlon is degrees east and converts if not
     # Get mesh
     tlat = ds2.TLAT.values
     tlon = ds2.TLONG.values
+    
+    # Adjust to degrees east
+    if np.any(tlon < 0):
+        print("Converting longitude to degrees east")
+        tlon = np.where(tlon<0,tlon+360,tlon)
     
     # Make Bool Mask
     latmask = (tlat >= bbox[2]) * (tlat <= bbox[3])
@@ -2714,12 +2719,12 @@ def sel_region_xr_cv(ds2,bbox,debug=False):
         elif (bbox[0] < 0) and (bbox[1] >= 0): # Case 2 (crossing prime meridian)
             print("Crossing Prime Meridian")
             lonmaskE = (tlon >= bbox[0]+360) * (tlon <= 360) # [lonW to 360]
-            if bbox[1] ==0:
+            if bbox[1] == 0:
                 lonmaskW = 1
             else:
                 lonmaskW = (tlon >= 0)           * (tlon <= bbox[1])       # [0 to lonE]
             
-            lonmask = lonmaskE * lonmaskW
+            lonmask = lonmaskE | lonmaskW
         elif (bbox[0] > 0) and (bbox[1] < 0): # Case 3 (crossing dateline)
             print("Crossing Dateline")
             lonmaskE = (tlon >= bbox[0]) * (tlon <= 180) # [lonW to 180]
@@ -4386,6 +4391,10 @@ def printtime(st,print_str="Completed"):
     # Given start time, print the elapsed time in seconds
     print("%s in %.2fs" % (print_str,time.time()-st))
 
+def darkname(figname):
+    #Append "_dark" to end of figure name
+    return addstrtoext(figname,"_dark")
+
 """
 -----------------
 |||  Labeling ||| ****************************************************
@@ -4532,5 +4541,6 @@ def fix_febstart(ds):
         correctedtime = xr.cftime_range(start=startyr,periods=nmon,freq="MS",calendar="noleap")
         ds = ds.assign_coords(time=correctedtime) 
     return ds
+
 
 
