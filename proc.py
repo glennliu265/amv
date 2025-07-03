@@ -2720,7 +2720,7 @@ def sel_region_xr_cv(ds2,bbox,debug=False):
             print("Crossing Prime Meridian")
             lonmaskE = (tlon >= bbox[0]+360) * (tlon <= 360) # [lonW to 360]
             if bbox[1] == 0:
-                lonmaskW = 1
+                lonmaskW = lonmaskE
             else:
                 lonmaskW = (tlon >= 0)           * (tlon <= bbox[1])       # [0 to lonE]
             
