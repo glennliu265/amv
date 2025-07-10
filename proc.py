@@ -586,8 +586,16 @@ def detrend_by_regression(invar,in_ts):
     # Detrend the timeseries by regression
     
     # Change to [lon x lat x time]
-    invar       = invar.transpose('lon','lat','time')
-    invar_arr   = invar.data # [lon x lat x time]
+    reshape_flag = False
+    try:
+        invar       = invar.transpose('lon','lat','time')
+        invar_arr   = invar.data # [lon x lat x time]
+    except:
+        print("Warning, input is not 3d or doesn't have ('lon','lat','time')")
+        reshape_output = make_2d_ds(invar,keepdim='time')
+        invar_arr      = reshape_output[0].data
+        reshape_flag = True
+    
     ints_arr    = in_ts.data # [time]
     
     # Perform the regression
@@ -600,16 +608,61 @@ def detrend_by_regression(invar,in_ts):
     ydetrend    = invar_arr - ymodel
     
     # Prepare Output as DataArrays # [(time) x lat x lon]
-    coords_full     = dict(time=invar.time,lat=invar.lat,lon=invar.lon)
-    coords          = dict(lat=invar.lat,lon=invar.lon)
-    da_detrend      = xr.DataArray(ydetrend.transpose(2,1,0),coords=coords_full,dims=coords_full,name=invar.name)
-    da_fit          = xr.DataArray(ymodel.transpose(2,1,0),coords=coords_full,dims=coords_full,name='fit')
-    da_pattern      = xr.DataArray(beta.T,coords=coords,dims=coords,name='regression_pattern')
-    da_intercept    = xr.DataArray(intercept.T,coords=coords,dims=coords,name='intercept')
-    da_sig          = xr.DataArray(outdict['sigmask'].T,coords=coords,dims=coords,name='sigmask')
-    dsout = xr.merge([da_detrend,da_fit,da_pattern,da_intercept,da_sig])
+    if reshape_flag is False:
+        coords_full     = dict(time=invar.time,lat=invar.lat,lon=invar.lon)
+        coords          = dict(lat=invar.lat,lon=invar.lon)
+        da_detrend      = xr.DataArray(ydetrend.transpose(2,1,0),coords=coords_full,dims=coords_full,name=invar.name)
+        da_fit          = xr.DataArray(ymodel.transpose(2,1,0),coords=coords_full,dims=coords_full,name='fit')
+        da_pattern      = xr.DataArray(beta.T,coords=coords,dims=coords,name='regression_pattern')
+        da_intercept    = xr.DataArray(intercept.T,coords=coords,dims=coords,name='intercept')
+        da_sig          = xr.DataArray(outdict['sigmask'].T,coords=coords,dims=coords,name='sigmask')
+    else:
+        da_detrend      = reshape_2d_ds(ydetrend,invar,reshape_output[2],reshape_output[1])
+        da_fit          = reshape_2d_ds(ymodel,invar,reshape_output[2],reshape_output[1])
+        da_pattern      = reshape_2d_ds(beta.T,invar.isel(time=0).squeeze(),reshape_output[2][:-1],reshape_output[1][:-1]) # Drop time dim
+        da_intercept    = reshape_2d_ds(intercept.T,invar.isel(time=0).squeeze(),reshape_output[2][:-1],reshape_output[1][:-1]) # Drop time dim
+        da_sig          = reshape_2d_ds(outdict['sigmask'].T,invar.isel(time=0).squeeze(),reshape_output[2][:-1],reshape_output[1][:-1]) # Drop time dim
+    dsout = xr.merge([da_detrend,da_fit,da_pattern,da_intercept,da_sig],compat='override',join='override')
     
     return dsout
+
+def make_2d_ds(ds,keepdim='time'):
+    # Get List of Dims, move time to front
+    oldshape      = ds.shape
+    dimnames      = ds.dims
+    otherdims     = list(dimnames)#.remove(keepdim)
+    otherdims.remove(keepdim)
+    newdims        = otherdims  + [keepdim,] 
+    dstranspose    = ds.transpose(*newdims)
+    
+    # Convert to 3D intput where time is last [1 x otherdims x time]
+    dsarr          = dstranspose.data
+    oldshape_trans = dsarr.shape
+    ntime          = oldshape_trans[-1]
+    notherdims     = np.array(oldshape_trans[:-1]).prod()
+    dsarr          = dsarr.reshape(1,notherdims,ntime)
+    coords_rs      = dict(lon=[1,],lat=np.arange(notherdims),time=ds.time)
+    dsreshape      = xr.DataArray(dsarr,dims=coords_rs,coords=coords_rs,name=ds.name)
+    return dsreshape,newdims,oldshape_trans
+
+def reshape_2d_ds(inarr,ds_ori,oldshape_trans,newdims):
+    inarr_rs    = inarr.reshape(oldshape_trans)
+    coords_new  = {}
+    for dname in newdims:
+        coords_new[dname] = ds_ori[dname]
+    #coords_new = ds_ori.transpose(*newdims).coords 
+    da_inarr_rs = xr.DataArray(inarr_rs,coords=ds_ori.coords,dims=coords_new,name=ds_ori.name,)
+    
+    da_inarr_rs = da_inarr_rs.transpose(*ds_ori.dims)
+    return da_inarr_rs
+    
+    
+    
+    
+    
+    
+    
+    newdims,oldshape_trans
 
 
 #%% ~ Classification/Grouping
@@ -3860,8 +3913,15 @@ def check_flx(da_flx,flxname=None,return_flag=True,bbox_gs=None):
     if bbox_gs is None:
         bbox_gs = [-80,-60,20,40]
     flx_gs   = sel_region_xr(da_in,bbox_gs) # Take Gulf Stream Region
-    flx_savg = flx_gs.groupby('time.season').mean('time') # Take Seasonal Avg
-    flx_wint = flx_savg.sel(season='DJF') # Select Winter
+    if 'time' in flx_gs.dims:
+        flx_savg = flx_gs.groupby('time.season').mean('time') # Take Seasonal Avg
+        flx_wint = flx_savg.sel(season='DJF') # Select Winter
+    elif 'month' in flx_gs.dims:
+        flx_wint = flx_gs.isel(month=[0,1,2]).mean('month')
+    elif 'mon' in flx_gs.dims:
+        flx_wint = flx_gs.isel(mon=[0,1,2]).mean('mon')
+    else:
+        flx_wint = flx_gs # Not selecting time dimension (already simplfied)
     wintsum  = flx_wint.sum(['lat','lon']).data.item() # Sum over winter
     if wintsum < 0:
         print("Warning, wintertime avg values are NEGATIVE over the Gulf Stream.")
