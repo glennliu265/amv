@@ -206,6 +206,7 @@ Functions:
     get_dtmon           : Get number of seconds in each month
     stdsqsum_da         : Take the square root of the sum of squares for a DataArray
     printtime           : Print time elapsed in seconds
+    darkname            : Append "_dark" to end of figure name
     
     -----------------
     |||  Labeling ||| ****************************************************

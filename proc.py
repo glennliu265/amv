@@ -25,7 +25,7 @@ import pandas as pd
 import datetime
 
 #%% Optional Yobox Import
-import_yobox = False
+import_yobox = True
 if import_yobox:
     import sys
     yopath = "/Users/gliu/Downloads/02_Research/01_Projects/01_AMV/00_Commons/03_Scripts/"
@@ -536,7 +536,7 @@ def polyfit_1d(x,y,order):
     Returns
     -------
     coeffs : LIST
-        Coefficients of fitted polynomial in decenting order
+        Coefficients of fitted polynomial in descending order
     newmodel : ARR
         The fitted model.
     residual : ARR
@@ -581,52 +581,170 @@ def xrdetrend_1d(ds,order,return_model=False):
     return dsout
 
 
-def detrend_by_regression(invar,in_ts):
+
+def detrend_by_regression(invar,in_ts,regress_monthly=False):
     # Given an DataArray [invar] and Timeseries [in_ts]
     # Detrend the timeseries by regression
     
     # Change to [lon x lat x time]
+    
     reshape_flag = False
     try:
         invar       = invar.transpose('lon','lat','time')
         invar_arr   = invar.data # [lon x lat x time]
+        
     except:
         print("Warning, input is not 3d or doesn't have ('lon','lat','time')")
-        reshape_output = make_2d_ds(invar,keepdim='time')
+        reshape_output = make_2d_ds(invar,keepdim='time') #[1 x otherdims x time]
         invar_arr      = reshape_output[0].data
         reshape_flag = True
+    ints_arr         = in_ts.data # [time]
     
-    ints_arr    = in_ts.data # [time]
-    
-    # Perform the regression
-    outdict     = regress_ttest(invar_arr,ints_arr)
-    beta        = outdict['regression_coeff'] # Lon x Lat
-    intercept   = outdict['intercept'] 
-    
-    # Remove the Trend
-    ymodel      = beta[:,:,None] * ints_arr[None,None,:] + intercept[:,:,None]
-    ydetrend    = invar_arr - ymodel
-    
+    if regress_monthly: # Do regression separately for each month
+        
+        nlon,nlat,ntime = invar_arr.shape
+        nyr             = int(ntime/12)
+        ints_monyr      = ints_arr.reshape(nyr,12)
+        invar_monyr     = invar_arr.reshape(nlon,nlat,nyr,12) # [lat x lon x yr x mon]
+        
+        betas      = []
+        intercepts = []
+        ymodels    = []
+        ydetrends  = []
+        sigmasks   = []
+        for im in range(12):
+            
+            outdict     = regress_ttest(invar_monyr[:,:,:,im],ints_monyr[:,im])
+            beta        = outdict['regression_coeff'] # Lon x Lat
+            intercept   = outdict['intercept'] 
+            
+            
+            # Remove the Trend
+            ymodel      = beta[:,:,None] * ints_monyr[None,None,:,im] + intercept[:,:,None]
+            ydetrend    = invar_monyr[:,:,:,im] - ymodel
+            
+            betas.append(beta)
+            intercepts.append(intercept)
+            ymodels.append(ymodel)
+            ydetrends.append(ydetrend)
+            sigmasks.append(outdict['sigmask'])
+        
+        beta        = np.array(betas)       # [Month x lon x lat]
+        intercept   = np.array(intercepts)  # [Month x lon x lat]
+        ymodel      = np.array(ymodels)     # [Month x lon x lat x yr]
+        ydetrend    = np.array(ydetrends)   # [Month x lon x lat x yr]
+        sigmasks    = np.array(sigmasks)
+        
+        ymodel      = ymodel.transpose(1,2,3,0).reshape(nlon,nlat,ntime)
+        ydetrend    = ydetrend.transpose(1,2,3,0).reshape(nlon,nlat,ntime)
+        
+        # Flip to [time x lat x lon]
+        sigmask_out     = sigmasks.transpose(0,2,1) 
+        beta            = beta.transpose(0,2,1)
+        intercept       = intercept.transpose(0,2,1)
+        
+    else:
+        # Perform the regression (all months)
+        outdict     = regress_ttest(invar_arr,ints_arr)
+        beta        = outdict['regression_coeff'] # Lon x Lat
+        intercept   = outdict['intercept'] 
+        
+        # Remove the Trend
+        ymodel      = beta[:,:,None] * ints_arr[None,None,:] + intercept[:,:,None]
+        ydetrend    = invar_arr - ymodel
+        
+        # Prepare for input [lat x lon]
+        sigmask_out     = outdict['sigmask'].T
+        beta            = beta.T
+        intercept       = intercept.T
+        
     # Prepare Output as DataArrays # [(time) x lat x lon]
-    if reshape_flag is False:
+    if reshape_flag is False: # Directly transpose and assign coords [time x lat x lon]
         coords_full     = dict(time=invar.time,lat=invar.lat,lon=invar.lon)
-        coords          = dict(lat=invar.lat,lon=invar.lon)
+        if regress_monthly: # Add "mon" coordinate for monthly regression
+            coords          = dict(mon=np.arange(1,13,1),lat=invar.lat,lon=invar.lon)
+        else:
+            coords          = dict(lat=invar.lat,lon=invar.lon)
+        
         da_detrend      = xr.DataArray(ydetrend.transpose(2,1,0),coords=coords_full,dims=coords_full,name=invar.name)
         da_fit          = xr.DataArray(ymodel.transpose(2,1,0),coords=coords_full,dims=coords_full,name='fit')
-        da_pattern      = xr.DataArray(beta.T,coords=coords,dims=coords,name='regression_pattern')
-        da_intercept    = xr.DataArray(intercept.T,coords=coords,dims=coords,name='intercept')
-        da_sig          = xr.DataArray(outdict['sigmask'].T,coords=coords,dims=coords,name='sigmask')
-    else:
+        
+        da_pattern      = xr.DataArray(beta,coords=coords,dims=coords,name='regression_pattern')
+        da_intercept    = xr.DataArray(intercept,coords=coords,dims=coords,name='intercept')
+        da_sig          = xr.DataArray(sigmask_out,coords=coords,dims=coords,name='sigmask')
+        
+    else: # Need to undo reshaping and reassign old coords...
+        
         da_detrend      = reshape_2d_ds(ydetrend,invar,reshape_output[2],reshape_output[1])
         da_fit          = reshape_2d_ds(ymodel,invar,reshape_output[2],reshape_output[1])
-        da_pattern      = reshape_2d_ds(beta.T,invar.isel(time=0).squeeze(),reshape_output[2][:-1],reshape_output[1][:-1]) # Drop time dim
-        da_intercept    = reshape_2d_ds(intercept.T,invar.isel(time=0).squeeze(),reshape_output[2][:-1],reshape_output[1][:-1]) # Drop time dim
-        da_sig          = reshape_2d_ds(outdict['sigmask'].T,invar.isel(time=0).squeeze(),reshape_output[2][:-1],reshape_output[1][:-1]) # Drop time dim
+        
+        if regress_monthly: # Add additional "Month" variable at the end
+            ref_da        = invar.isel(time=0).squeeze().expand_dims(dim={'mon':np.arange(1,13,1)},axis=-1)
+            newshape      = list(reshape_output[2][:-1]) + [12,] # [Lon x Lat x Time]
+            newshape_dims = reshape_output[1][:-1] + ['mon',]
+        else:
+            ref_da        = invar.isel(time=0).squeeze() #
+            newshape      = reshape_output[2][:1] # Just Drop Time Dimension # [Lat x Lon]
+            newshape_dims = reshape_output[1][:-1]
+            
+        da_pattern      = reshape_2d_ds(beta, ref_da, reshape_output[2][:-1],reshape_output[1][:-1]) # Drop time dim
+        da_intercept    = reshape_2d_ds(intercept, ref_da, reshape_output[2][:-1],reshape_output[1][:-1]) # Drop time dim
+        da_sig          = reshape_2d_ds(sigmask_out, ref_da,reshape_output[2][:-1],reshape_output[1][:-1]) # Drop time dim
+
     dsout = xr.merge([da_detrend,da_fit,da_pattern,da_intercept,da_sig],compat='override',join='override')
     
     return dsout
 
+
+# Commented out version, prior to adding monthly support...
+# def detrend_by_regression(invar,in_ts):
+#     # Given an DataArray [invar] and Timeseries [in_ts]
+#     # Detrend the timeseries by regression
+    
+#     # Change to [lon x lat x time]
+#     reshape_flag = False
+#     try:
+#         invar       = invar.transpose('lon','lat','time')
+#         invar_arr   = invar.data # [lon x lat x time]
+#     except:
+#         print("Warning, input is not 3d or doesn't have ('lon','lat','time')")
+#         reshape_output = make_2d_ds(invar,keepdim='time')
+#         invar_arr      = reshape_output[0].data
+#         reshape_flag = True
+    
+#     ints_arr    = in_ts.data # [time]
+    
+#     # Perform the regression
+#     outdict     = regress_ttest(invar_arr,ints_arr)
+#     beta        = outdict['regression_coeff'] # Lon x Lat
+#     intercept   = outdict['intercept'] 
+    
+#     # Remove the Trend
+#     ymodel      = beta[:,:,None] * ints_arr[None,None,:] + intercept[:,:,None]
+#     ydetrend    = invar_arr - ymodel
+    
+#     # Prepare Output as DataArrays # [(time) x lat x lon]
+#     if reshape_flag is False:
+#         coords_full     = dict(time=invar.time,lat=invar.lat,lon=invar.lon)
+#         coords          = dict(lat=invar.lat,lon=invar.lon)
+#         da_detrend      = xr.DataArray(ydetrend.transpose(2,1,0),coords=coords_full,dims=coords_full,name=invar.name)
+#         da_fit          = xr.DataArray(ymodel.transpose(2,1,0),coords=coords_full,dims=coords_full,name='fit')
+#         da_pattern      = xr.DataArray(beta.T,coords=coords,dims=coords,name='regression_pattern')
+#         da_intercept    = xr.DataArray(intercept.T,coords=coords,dims=coords,name='intercept')
+#         da_sig          = xr.DataArray(outdict['sigmask'].T,coords=coords,dims=coords,name='sigmask')
+#     else:
+#         da_detrend      = reshape_2d_ds(ydetrend,invar,reshape_output[2],reshape_output[1])
+#         da_fit          = reshape_2d_ds(ymodel,invar,reshape_output[2],reshape_output[1])
+#         da_pattern      = reshape_2d_ds(beta.T,invar.isel(time=0).squeeze(),reshape_output[2][:-1],reshape_output[1][:-1]) # Drop time dim
+#         da_intercept    = reshape_2d_ds(intercept.T,invar.isel(time=0).squeeze(),reshape_output[2][:-1],reshape_output[1][:-1]) # Drop time dim
+#         da_sig          = reshape_2d_ds(outdict['sigmask'].T,invar.isel(time=0).squeeze(),reshape_output[2][:-1],reshape_output[1][:-1]) # Drop time dim
+#     dsout = xr.merge([da_detrend,da_fit,da_pattern,da_intercept,da_sig],compat='override',join='override')
+    
+#     return dsout
+
 def make_2d_ds(ds,keepdim='time'):
+    
+    
     # Get List of Dims, move time to front
     oldshape      = ds.shape
     dimnames      = ds.dims
@@ -655,14 +773,8 @@ def reshape_2d_ds(inarr,ds_ori,oldshape_trans,newdims):
     
     da_inarr_rs = da_inarr_rs.transpose(*ds_ori.dims)
     return da_inarr_rs
-    
-    
-    
-    
-    
-    
-    
-    newdims,oldshape_trans
+
+    #newdims,oldshape_trans
 
 
 #%% ~ Classification/Grouping
@@ -1514,7 +1626,11 @@ def calc_lagcovar_nd(var1,var2,lags,basemonth,detrendopt):
     return corr_ts
 
 def calc_lag_covar_ann(var1,var2,lags,dim,detrendopt):
+    """
+    Note: (2025.07.16), Names are confusingly reversed... it seems that
+    var1 is lagged, var2 remains the same
     
+    """
     # Move time to the first dimension (assume var1.shape==var2.shape)
     invars      = [var1,var2]
     oldshape    = var1.shape
@@ -1542,7 +1658,7 @@ def calc_lag_covar_ann(var1,var2,lags,dim,detrendopt):
     corr_ts        = np.zeros((lagdim,npts)) * np.nan
     window_lengths = []
     for l,lag in enumerate(lags):
-        varbase = var1[lag:,:]
+        varbase = var1[lag:,:] # 2025.07.16 Names are confusingly reversed... this is actually lagged
         varlag  = var2[:(ntime-lag),:]
         window_lengths.append(varbase.shape[0])
         
@@ -2088,7 +2204,7 @@ def calc_stderr(x,dim,p=0.05,tails=2):
 
 def regress_ttest(in_var,in_ts,dof=None,p=0.05,tails=2):
     """
-    Given a timeseries (in_ts) and variable (in_ts), compute regression
+    Given a timeseries (in_ts) and variable (in_var), compute regression
     coefficients and perform t-test to get significance
     Note: only tested for single value DOF, need to check for map of dofs...
     h0: regression coeffs are significantly different from zero

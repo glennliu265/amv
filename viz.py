@@ -78,7 +78,7 @@ import cmocean
 import string
 
 import numpy as np
-import colorcet as cc
+#import colorcet as cc
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtransforms
 import cartopy.crs as ccrs
