@@ -509,8 +509,8 @@ def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_
     ax.set_extent(bbox,proj)
     
     gl = ax.gridlines(crs=proj, draw_labels=True,
-                  linewidth=2, color=grid_color, alpha=0.5, linestyle="dotted",
-                  lw=0.75)
+                  linewidth=0.75, color=grid_color, alpha=0.5, linestyle="dotted",
+                  )
     
     # Remove the degree symbol
     if ignore_error:
@@ -525,10 +525,10 @@ def add_coast_grid(ax,bbox=[-180,180,-90,90],proj=None,blabels=[1,0,0,1],ignore_
     if fix_lat is not False:
         gl.ylocator = mticker.FixedLocator(fix_lat)
     
-    gl.left_labels = blabels[0]
-    gl.right_labels = blabels[1]
-    gl.top_labels   = blabels[2]
-    gl.bottom_labels = blabels[3]
+    gl.left_labels      = blabels[0]
+    gl.right_labels     = blabels[1]
+    gl.top_labels       = blabels[2]
+    gl.bottom_labels    = blabels[3]
     
     # Set Fontsize
     gl.xlabel_style = {'size':fontsize}
