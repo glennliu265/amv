@@ -582,7 +582,7 @@ def xrdetrend_1d(ds,order,return_model=False):
 
 
 
-def detrend_by_regression(invar,in_ts,regress_monthly=False):
+def detrend_by_regression(invar,in_ts,regress_monthly=False,return_pattern_only=False):
     # Given an DataArray [invar] and Timeseries [in_ts]
     # Detrend the timeseries by regression
     
@@ -690,8 +690,11 @@ def detrend_by_regression(invar,in_ts,regress_monthly=False):
         da_pattern      = reshape_2d_ds(beta, ref_da, reshape_output[2][:-1],reshape_output[1][:-1]) # Drop time dim
         da_intercept    = reshape_2d_ds(intercept, ref_da, reshape_output[2][:-1],reshape_output[1][:-1]) # Drop time dim
         da_sig          = reshape_2d_ds(sigmask_out, ref_da,reshape_output[2][:-1],reshape_output[1][:-1]) # Drop time dim
-
-    dsout = xr.merge([da_detrend,da_fit,da_pattern,da_intercept,da_sig],compat='override',join='override')
+    
+    if return_pattern_only: # Do not return detrended variable
+        dsout = xr.merge([da_fit,da_pattern,da_intercept,da_sig],compat='override',join='override')
+    else:
+        dsout = xr.merge([da_detrend,da_fit,da_pattern,da_intercept,da_sig],compat='override',join='override')
     
     return dsout
 
@@ -1624,7 +1627,7 @@ def calc_lagcovar_nd(var1,var2,lags,basemonth,detrendopt):
         # Calculate correlation
         corr_ts[i,:] = pearsonr_2d(varbase,varlag,0)       
     return corr_ts
-
+    
 def calc_lag_covar_ann(var1,var2,lags,dim,detrendopt):
     """
     Note: (2025.07.16), Names are confusingly reversed... it seems that
@@ -2265,9 +2268,16 @@ def regress_ttest(in_var,in_ts,dof=None,p=0.05,tails=2):
     # A4. Get Critical T
     ptilde = p/tails
     critval = stats.t.ppf(1-ptilde,dof)
+    if tails == 2:
+        critval_lower = stats.t.ppf(ptilde,dof)
     
     # Make significance Mask
-    sigmask = tstat > critval
+    if tails == 2:
+        sigmask = (tstat > critval) | (tstat < critval_lower)
+    else:
+        sigmask = tstat > critval
+    
+    
     sigmask = replace(sigmask)
     
     # Return all values
@@ -3174,6 +3184,44 @@ def indexwindow(invar,m,monwin,combinetime=False,verbose=False):
         varout = varout.reshape((varout.shape[0]*varout.shape[1],varout.shape[2])) # combine dims
     return varout
     
+def match_time_month(var_in,ts_in):
+    # Crops the start and end times for var_in and ts_in (xr.DataArrays/Datasets)
+    # Note works for datetime64[ns] format in xr.DataArray
+    # See ensobase/calculate_enso_response.py for working example
+    
+    if len(var_in.time) != len(ts_in.time): # Check if they match
+        
+        # Warning: Only checking Year and Date
+        vstart = str(np.array((var_in.time.data[0])))[:7]
+        tstart = str(np.array((ts_in.time.data[0])))[:7]
+        
+        if vstart != tstart:
+            print("Start time (v1=%s,v2=%s) does not match..." % (vstart,tstart))
+            if vstart > tstart:
+                print("Cropping to start from %s" % vstart)
+                ts_in = ts_in.sel(time=slice(vstart+"-01",None))
+            elif vstart < tstart:
+                print("Cropping to start from %s" % tstart)
+                var_in = var_in.sel(time=slice(tstart+"-01",None))
+        
+        vend = str(np.array((var_in.time.data[-1])))[:7]
+        tend = str(np.array((ts_in.time.data[-1])))[:7]
+        
+        
+        if vend != tend:
+            
+            print("End times (v1=%s,v2=%s) does not match..." % (vend,tend))
+            
+            if vend > tend:
+                print("\nCropping to start from %s" % tend)
+                var_in = var_in.sel(time=slice())
+            elif vend < tend:
+                print("\nCropping to start from %s" % vend)
+                ts_in = ts_in.sel(time=slice(None,vend+"-31"))
+                
+        print(len(var_in.time) == len(ts_in.time))  
+    return var_in,ts_in
+
 
 
 """
