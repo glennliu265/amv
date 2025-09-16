@@ -1372,10 +1372,10 @@ def plot_mask(lon,lat,mask,reverse=False,color="k",marker="o",markersize=1.5,
     yy,xx = np.meshgrid(lat,lon)
     if geoaxes:
         smap = ax.plot(np.ma.array(xx,mask=mask),yy,
-                       c=color,marker=marker,markersize=markersize,ls="",transform=proj)
+                       c=color,marker=marker,markersize=markersize,ls="None",transform=proj)
     else:
         smap = ax.plot(np.ma.array(xx,mask=mask),yy,
-                       c=color,marker=marker,markersize=markersize,ls="")
+                       c=color,marker=marker,markersize=markersize,ls="None")
     return smap 
 
 def return_clevels(cmax,cstep,lstep=None):
