@@ -581,13 +581,142 @@ def xrdetrend_1d(ds,order,return_model=False):
     return dsout
 
 
+def xrdetrend_nd(invar,order,regress_monthly=False,return_fit=False):
+    """
+    Given an DataArray [invar] and [order] of polynomial fit,
+    fit the timeseries and detrend.
+    Option to do so separately by month [regress_monthly=True]
+    and return the fit [return_fit=True].
+    Based on detrend_by_regression
+    
+    Note: Assumes the DataArray as [time] dimension names and merges
+          the rest as ["space"] dimensions...
+    See: /smio/scrap/check_enso_monthly_regression.py for testing script
+    """
+    # Change to [lon x lat x time]
+    reshape_flag = False
+    try:
+        invar       = invar.transpose('lon','lat','time')
+        invar_arr   = invar.data # [lon x lat x time]
+        
+    except:
+        print("Warning, input is not 3d or doesn't have ('lon','lat','time')")
+        reshape_output = make_2d_ds(invar,keepdim='time') #[1 x otherdims x time]
+        invar_arr      = reshape_output[0].data
+        reshape_flag = True
+    
+    # Filter out NaN points
+    nlon,nlat,ntime = invar_arr.shape
+    invar_rs = invar_arr.reshape(nlon*nlat,ntime) # Space x Time
+    nandict  = find_nan(invar_rs,1,return_dict=True)
+    
+    if regress_monthly: # Do regression separately for each month
+    
+        # Reshape to space x yr x mon
+        cleaned_data = nandict['cleaned_data']
+        nok,_        = cleaned_data.shape
+        nyr          = int(ntime/12)
+        cd_yrmon     = cleaned_data.reshape((nok,nyr,12)) # Check 
+        
+        # Preallocate and detrend separately for each month
+        detrended_bymon = np.zeros(cd_yrmon.shape)*np.nan # Detrended Variable
+        fit_bymon       = detrended_bymon.copy() # n-order polynomial fit
+        for im in range(12):
+            # Get data for month
+            cdmon                   = cd_yrmon[:,:,im]
+            xdim                    = np.arange(nyr)
+            detrended_mon,fit_mon   = detrend_poly(xdim,cdmon,order)
+            detrended_bymon[:,:,im] = detrended_mon.T
+            fit_bymon[:,:,im]       = fit_mon
+            
+            # Debug Plot (by month)
+            # ii = 22
+            # fig,ax = plt.subplots(1,1)
+            # ax.plot(xdim,detrended_mon[:,ii],label="Detrended",color='blue')
+            # ax.plot(xdim,fit_mon[ii,:],label="Fit",color="red")
+            # ax.plot(xdim,cdmon[ii,:],label="Raw",color='gray',ls='dashed')
+            # ax.legend()
+        
+        # Reshape the variables
+        detrended_bymon = detrended_bymon.reshape(nok,ntime) # [Space x Time]
+        fit_bymon = fit_bymon.reshape(nok,ntime) # [Space x Time]
+        
+        # # Debug Plot (full timeseries)
+        # ii = 77
+        # fig,ax = plt.subplots(1,1)
+        # xdim = np.arange(ntime)
+        # ax.plot(xdim,detrended_bymon.T[:,ii],label="Detrended",color='blue')
+        # ax.plot(xdim,data_fit[ii,:],label="Fit",color="red")
+        # ax.plot(xdim,nandict['cleaned_data'][ii,:],label="Raw",color='gray',ls='dashed')
+        # ax.legend()
+        
+        # Replace Detrended data in original array
+        arrout = np.zeros((nlon*nlat,ntime)) * np.nan
+        arrout[nandict['ok_indices'],:] = detrended_bymon
+        arrout = arrout.reshape(nlon,nlat,ntime).transpose(2,1,0) # Flip to time x lat x lon
+        
+        if return_fit:
+            fitout = np.zeros((nlon*nlat,ntime)) * np.nan
+            fitout[nandict['ok_indices'],:] = fit_bymon
+            fitout = fitout.reshape(nlon,nlat,ntime).transpose(2,1,0)
+        
+    else: # Do regression for all months together...
+        
+        # Apply a fit using proc.detrend_poly
+        xdim = np.arange(invar.shape[-1]) # Length of time dimension
+        data_detrended,data_fit = detrend_poly(xdim,nandict['cleaned_data'],order)
+        #data_detrended         # [time x space]
+        #data_fit               # [space x Time]
+        #nandict['cleaned_data' # [space x time]
+        
+        # # Debug Plot
+        ii = 77
+        fig,ax = plt.subplots(1,1)
+        ax.plot(xdim,data_detrended[:,ii],label="Detrended",color='blue')
+        ax.plot(xdim,data_fit[ii,:],label="Fit",color="red")
+        ax.plot(xdim,nandict['cleaned_data'][ii,:],label="Raw",color='gray',ls='dashed')
+        ax.legend()
+        
+        # Replace Detrended data in original array
+        arrout = np.zeros((nlon*nlat,ntime)) * np.nan
+        arrout[nandict['ok_indices'],:] = data_detrended.T
+        arrout = arrout.reshape(nlon,nlat,ntime).transpose(2,1,0) # Flip to time x lat x lon
+        
+        if return_fit:
+            fitout = np.zeros((nlon*nlat,ntime)) * np.nan
+            fitout[nandict['ok_indices'],:] = data_fit
+            fitout = fitout.reshape(nlon,nlat,ntime).transpose(2,1,0)
+    
+    # Replace into data array
+    
+    
+    # Prepare Output as DataArrays # [(time) x lat x lon]
+    if reshape_flag is False: # Directly transpose and assign coords [time x lat x lon]
+        coords_full         = dict(time=invar.time,lat=invar.lat,lon=invar.lon)
+        if regress_monthly: # Add "mon" coordinate for monthly regression
+            coords          = dict(mon=np.arange(1,13,1),lat=invar.lat,lon=invar.lon)
+        else:
+            coords          = dict(lat=invar.lat,lon=invar.lon)
+        
+        da_detrend      = xr.DataArray(arrout,coords=coords_full,dims=coords_full,name=invar.name)
+        if return_fit:
+            da_fit          = xr.DataArray(fitout,coords=coords_full,dims=coords_full,name='fit')
+    
+    else: # Need to undo reshaping and reassign old coords...
+        da_detrend      = reshape_2d_ds(arrout,invar,reshape_output[2],reshape_output[1])
+        da_fit          = reshape_2d_ds(fitout,invar,reshape_output[2],reshape_output[1])
+        
+    if return_fit:
+        dsout = xr.merge([da_detrend,da_fit])
+    else:
+        dsout = da_detrend
+    return dsout
 
 def detrend_by_regression(invar,in_ts,regress_monthly=False,return_pattern_only=False):
     # Given an DataArray [invar] and Timeseries [in_ts]
     # Detrend the timeseries by regression
     
     # Change to [lon x lat x time]
-    
     reshape_flag = False
     try:
         invar       = invar.transpose('lon','lat','time')
@@ -1841,6 +1970,7 @@ def eof_filter(eofs,varexp,eof_thres,axis=0,return_all=False):
         varexp_cumu   : [mode x mon] cumulative variance explained
         nmodes_needed : [mon] # of modes needed to reach threshold (first exceedence)
         varexps_filt  : [mode x mon] filtered variances explained by mode
+    Note: Currently doesn't support DataArrays, see [calc_EOF_forcing_ERA5] for example.
     """
     varexp_cumu   = np.cumsum(varexp,axis=0)        # Cumulative sum of variance [Mode x Mon]
     above_thres   = varexp_cumu >= eof_thres        # Check exceedances [Mode x mon]

@@ -53,6 +53,7 @@ Functions:
     polyfit_1d          : 1-D polynomial fitting/detrending. Returns residuals and coeffs.
     xrdetrend           : Apply detrend_dim to xarray DataArray
     xrdetrend_1d        : Fit line for single timeseries and detrend (works on DataArrays with dim "time")
+    xrdetrend_nd        : Fit + remove n-th order polynomial for an multi-dimensional DataArray along the "time" dimension
     detrend_by_regression : Detrend by regression to a timeseries....
     
         ~ Classification/Grouping ~
@@ -148,6 +149,7 @@ Functions:
     sort_by_axis        : Sort arrays along axis by values from a single array 
     get_nearest         : Get indices of the closest value to an input (absolute diff)
     index_window        : Index a moving window of values (from scm.)
+    match_time_month    : Crop two Datasets/DataArrays to start/end from same Year-Month
     
     -----------------------------------
     |||  Interpolation & Regridding ||| ****************************************************
