@@ -809,16 +809,16 @@ def detrend_by_regression(invar,in_ts,regress_monthly=False,return_pattern_only=
         
         if regress_monthly: # Add additional "Month" variable at the end
             ref_da        = invar.isel(time=0).squeeze().expand_dims(dim={'mon':np.arange(1,13,1)},axis=-1)
-            newshape      = list(reshape_output[2][:-1]) + [12,] # [Lon x Lat x Time]
+            newshape      = list(reshape_output[2][:-1]) + [12,] # [Lon x Lat x Mon]
             newshape_dims = reshape_output[1][:-1] + ['mon',]
         else:
             ref_da        = invar.isel(time=0).squeeze() #
             newshape      = reshape_output[2][:1] # Just Drop Time Dimension # [Lat x Lon]
             newshape_dims = reshape_output[1][:-1]
             
-        da_pattern      = reshape_2d_ds(beta, ref_da, reshape_output[2][:-1],reshape_output[1][:-1]) # Drop time dim
-        da_intercept    = reshape_2d_ds(intercept, ref_da, reshape_output[2][:-1],reshape_output[1][:-1]) # Drop time dim
-        da_sig          = reshape_2d_ds(sigmask_out, ref_da,reshape_output[2][:-1],reshape_output[1][:-1]) # Drop time dim
+        da_pattern      = reshape_2d_ds(beta, ref_da, newshape, newshape_dims) # Drop time dim
+        da_intercept    = reshape_2d_ds(intercept, ref_da, newshape, newshape_dims) # Drop time dim
+        da_sig          = reshape_2d_ds(sigmask_out, ref_da, newshape, newshape_dims) # Drop time dim
     
     if return_pattern_only: # Do not return detrended variable
         dsout = xr.merge([da_fit,da_pattern,da_intercept,da_sig],compat='override',join='override')
