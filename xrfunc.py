@@ -165,5 +165,14 @@ def pointwise_detrend(ds,order):
     print("Detrended in %.2fs" % (time.time()-st))
     return ds_detrended
 
-#%%
+#%% Get first Nan Example (taken from smio/investigate_blowup_sm)
+
+# Use Xr_ufunc
+dsid = xr.apply_ufunc(
+    proc.getfirstnan,
+    dsin,
+    input_core_dims=[['time']],
+    output_core_dims=[[]],
+    vectorize=True,
+    )
 

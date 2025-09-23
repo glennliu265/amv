@@ -150,6 +150,8 @@ Functions:
     get_nearest         : Get indices of the closest value to an input (absolute diff)
     index_window        : Index a moving window of values (from scm.)
     match_time_month    : Crop two Datasets/DataArrays to start/end from same Year-Month
+    getfirstnan         : Find Index of first NaN in a 1-D array (can use with xr.ufunc)
+    
     
     -----------------------------------
     |||  Interpolation & Regridding ||| ****************************************************

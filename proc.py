@@ -813,7 +813,7 @@ def detrend_by_regression(invar,in_ts,regress_monthly=False,return_pattern_only=
             newshape_dims = reshape_output[1][:-1] + ['mon',]
         else:
             ref_da        = invar.isel(time=0).squeeze() #
-            newshape      = reshape_output[2][:1] # Just Drop Time Dimension # [Lat x Lon]
+            newshape      = reshape_output[2][:-1] # Just Drop Time Dimension # [Lat x Lon]
             newshape_dims = reshape_output[1][:-1]
             
         da_pattern      = reshape_2d_ds(beta, ref_da, newshape, newshape_dims) # Drop time dim
@@ -3352,7 +3352,14 @@ def match_time_month(var_in,ts_in):
         print(len(var_in.time) == len(ts_in.time))  
     return var_in,ts_in
 
-
+def getfirstnan(x):
+    # Find indices if first NaN in a 1-D Array
+    # Designed to be used with xarray.ufunc (see xrfunc and smio/scrap/investigate_blowup_sm for reference)
+    idout =  np.where(np.isnan(x))[0] #[0][0]
+    if len(idout) == 0: # No NaN Found
+        return len(x)
+    else:
+        return idout[0]
 
 """
 -----------------------------------
