@@ -2396,7 +2396,7 @@ def regress_ttest(in_var,in_ts,dof=None,p=0.05,tails=2):
     tstat = m.squeeze() / denom
     
     # A4. Get Critical T
-    ptilde = p/tails
+    ptilde  = p/tails
     critval = stats.t.ppf(1-ptilde,dof)
     if tails == 2:
         critval_lower = stats.t.ppf(ptilde,dof)
@@ -2419,6 +2419,8 @@ def regress_ttest(in_var,in_ts,dof=None,p=0.05,tails=2):
     outdict["t_statistic"] = replace(tstat)
     outdict["t_critval"] = critval
     outdict["sigmask"] = sigmask
+    if tails == 2:
+        outdict['t_critval_lower'] = critval_lower
     
     return outdict
 
