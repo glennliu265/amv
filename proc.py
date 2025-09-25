@@ -23,6 +23,7 @@ import cartopy.crs as ccrs
 import scipy as sp
 import pandas as pd
 import datetime
+import tqdm
 
 #%% Optional Yobox Import
 import_yobox = False
@@ -259,6 +260,7 @@ def xrdeseason(ds,check_mon=True):
                 print("Warning, first month is not Jan...")
         except:
             print("Warning, not checking for feb start")
+    
     return ds.groupby('time.month') - ds.groupby('time.month').mean('time')
 
 def calc_savg(invar,debug=False,return_str=False,axis=-1,ds=False):
@@ -2219,7 +2221,7 @@ def calc_monvar(ts,dim=0):
 #     #n_eff = 
 #     return dof
 
-def calc_dof(ts,ts1=None,calc_r1=True,ntotal=None):
+def calc_dof(ts,ts1=None,calc_r1=True,ntotal=None,verbose=True):
     """
     Calculate effective degrees of freedom for autocorrelated timeseries.
     Assumes time is first dim, but can specify otherwise. Based on Eq. 31
@@ -2243,7 +2245,8 @@ def calc_dof(ts,ts1=None,calc_r1=True,ntotal=None):
             n_tot = ntotal
     else:
         n_tot = len(ts)
-    print("Setting base DOF to %s" % str(n_tot))
+    if verbose:
+        print("Setting base DOF to %s" % str(n_tot))
     
     # Compute R1 for first timeseries
     if calc_r1:
@@ -2503,6 +2506,69 @@ def make_ar1(r1,sigma,simlen,t0=0,savenoise=False,usenoise=None):
     if savenoise:
         return rednoisemodel,noisets
     return rednoisemodel
+
+def calc_r1_sigma(ts):
+    """
+    Given a timeseries [ts]:
+        1. Estimate the lag-1 autocorrelation (r1)
+        2. Recover the noise amplitude assuming an AR(1) model + stationary ts
+            var(ts) = r1^2 var(ts) + sigma^2
+            
+            sigma^2 = var(ts) (1-r1^2)
+            
+            See 12.S992 Class Notes
+            NOTE: not sure about the noise amplitude... should check some refs
+    """
+    r1      = np.corrcoef(ts[:(-1)],ts[1:])[0,1]
+    sigma   = np.sqrt( np.var(ts) * (1-r1**2) )
+    #sigma   = (1-r1**2)
+    return r1,sigma
+
+def montecarlo_ar1(ts1,ts2,mciter,infuncs):
+    """
+    
+    Perform [mciter] MonteCarlo simulations for a set of timeseries [ts1,ts2] 
+    by generating AR(1) models and using specified operations/functions [infuncs]
+    
+    Parameters
+    ----------
+    ts1,ts2 : ARRAY [time]
+        Target timeseries for the analysis. They are assumed to have the same time
+        dimension.
+    mciter : INT
+        Number of iterations.
+    infuncs : LIST of funcs
+        List of functions, each that take ts1 and ts2 as input and output something
+        (using lambda ts1,ts2 = function(ts1,ts2,[other_args...])).
+        Example: [func1, func2, ..., funcN]
+    
+    Returns
+    -------
+    output : LIST of outputs
+        List of [mciter] outputs in the order of each function.
+        Example: [output1[mciter],output2[mciter],..., outputN[mciter]]
+        
+    See analyze_amoc_index_local.py coherence squared calculations for an example
+        
+    """
+    
+    r1,sigma1 = calc_r1_sigma(ts1)
+    r2,sigma2 = calc_r1_sigma(ts2)
+    ntime     = len(ts1)
+    
+    output = [[] for ff in range(len(infuncs))]
+    
+    for mc in tqdm.tqdm(range(mciter)):
+        
+        ar1 = make_ar1(r1,sigma1,ntime)
+        ar2 = make_ar1(r2,sigma2,ntime)
+        
+        # Apply Functions
+        for f,ifunc in enumerate(infuncs):
+            mcout = ifunc(ar1,ar2)
+            output[f].append(mcout)
+    return output
+
 
 def patterncorr(map1,map2,verbose=True):
     # From Taylor 2001,Eqn. 1, Ignore Area Weights

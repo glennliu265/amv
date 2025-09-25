@@ -107,7 +107,9 @@ Functions:
     
         ~ Other ~
     covariance_2d       : Calculate covariance for 2 2D arrays
-    make_ar1            : Create AR1 timeseries given lag 1 correlation coefficient, signa, and length (from slutil)
+    make_ar1            : Create AR1 timeseries given lag 1 correlation coefficient, sigma, and length (from slutil)
+    calc_r1_sigma       : Compute R1 and noise variance for timeseries (note: not sure about latter)
+    montecarlo_ar1      : Perform selected fucntions on simulated AR(1) timeseries pairs
     patterncorr         : Compute pattern correlation between 2 2D variables
     patterncorr_nd      : Compute pattern correlation between 2 ND variables
     calc_binwidth       : Use Freedman Diaconis rule to compute bin width
