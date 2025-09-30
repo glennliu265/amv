@@ -1761,8 +1761,8 @@ def calc_lagcovar_nd(var1,var2,lags,basemonth,detrendopt):
     
 def calc_lag_covar_ann(var1,var2,lags,dim,detrendopt):
     """
-    Note: (2025.07.16), Names are confusingly reversed... it seems that
-    var1 is lagged, var2 remains the same
+    
+    var1 is lagged, var2 remains the same (base)
     
     """
     # Move time to the first dimension (assume var1.shape==var2.shape)
@@ -1792,9 +1792,9 @@ def calc_lag_covar_ann(var1,var2,lags,dim,detrendopt):
     corr_ts        = np.zeros((lagdim,npts)) * np.nan
     window_lengths = []
     for l,lag in enumerate(lags):
-        varbase = var1[lag:,:] # 2025.07.16 Names are confusingly reversed... this is actually lagged
-        varlag  = var2[:(ntime-lag),:]
-        window_lengths.append(varbase.shape[0])
+        varlag   = var1[lag:,:]
+        varbase  = var2[:(ntime-lag),:]
+        window_lengths.append(varlag.shape[0])
         
         # Calculate correlation
         corr_ts[l,:] = pearsonr_2d(varbase,varlag,0)    
