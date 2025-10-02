@@ -3412,7 +3412,7 @@ def match_time_month(var_in,ts_in):
             
             if vend > tend:
                 print("\nCropping to start from %s" % tend)
-                var_in = var_in.sel(time=slice())
+                var_in = var_in.sel(time=slice(None,tend+"-31"))
             elif vend < tend:
                 print("\nCropping to start from %s" % vend)
                 ts_in = ts_in.sel(time=slice(None,vend+"-31"))
