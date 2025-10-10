@@ -1719,7 +1719,7 @@ def calc_lagcovar_nd(var1,var2,lags,basemonth,detrendopt):
     
     # Get lag and lead sizes (in years)
     leadsize = int(np.ceil(len(np.where(lags < 0)[0])/12))
-    lagsize = int(np.ceil(len(np.where(lags > 0)[0])/12))
+    lagsize  = int(np.ceil(len(np.where(lags > 0)[0])/12))
     
     # Detrend variables if option is set
     if detrendopt == 1:
@@ -2338,7 +2338,7 @@ def calc_stderr(x,dim,p=0.05,tails=2):
     SE    = sigma / np.sqrt(n) * FAC    # Compute Standard Error
     return SE
 
-def regress_ttest(in_var,in_ts,dof=None,p=0.05,tails=2):
+def regress_ttest(in_var,in_ts,dof=None,p=0.05,tails=2,verbose=True):
     """
     Given a timeseries (in_ts) and variable (in_var), compute regression
     coefficients and perform t-test to get significance
@@ -2371,7 +2371,7 @@ def regress_ttest(in_var,in_ts,dof=None,p=0.05,tails=2):
     invar_rs    = in_var.reshape(nlon*nlat,nt)
     
     # Step (2), Remove NaNs
-    nandict     = find_nan(invar_rs,1,return_dict=True) # Sum along time in 1
+    nandict     = find_nan(invar_rs,1,return_dict=True,verbose=verbose) # Sum along time in 1
     invar_rs    = nandict['cleaned_data']
     
     # Define function to replace NaN
@@ -2389,7 +2389,8 @@ def regress_ttest(in_var,in_ts,dof=None,p=0.05,tails=2):
     epsilon = invar_rs - yhat # Residual
     SSE     = (epsilon**2).sum(1) # Errors are generally large along NAC
     if dof is None:
-        print("Using DOF len(time) - 2...")
+        if verbose:
+            print("Using DOF len(time) - 2...")
         dof     = nt-2 # Note you can set DOF to be different here. I think 2 is just 2 parameters for linear regr
     se      = np.sqrt(SSE/ (dof)) # Residual Standard Error. 
     
