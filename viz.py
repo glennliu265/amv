@@ -384,7 +384,7 @@ def init_map(bbox,crs=ccrs.PlateCarree(),ax=None,return_gl=False):
 
 
 
-def plot_box(bbox,ax=None,return_line=False,leglab="Bounding Box",lon360=False,
+def plot_box(bbox,ax=None,return_line=False,leglab="Bounding Box",
              color='k',linestyle='solid',linewidth=1,proj=ccrs.PlateCarree()):
     
     """
@@ -401,20 +401,30 @@ def plot_box(bbox,ax=None,return_line=False,leglab="Bounding Box",lon360=False,
     
     
     """
-    if lon360 is False:
-        for i in [0,1]:
-            if bbox[i] > 180:
-                bbox[i] -= 360
+    #if lon360 is False:
+    for i in [0,1]:
+        if bbox[i] > 180:
+            bbox[i] -= 360
             
-            
+    
     if ax is None:
         ax = plt.gca()
     
+    if bbox[0] > bbox[1]:
+        bbox[1] += 360
+        
+    
     # Plot North Boundary
+    # if bbox[0] > bbox[1]: # Crossing Date Line, use 360
+    #     ax.plot([bbox[0],bbox[1]+360],[bbox[3],bbox[3]],color=color,ls=linestyle,lw=linewidth,label='_nolegend_',transform=proj)
+    # else:  
     ax.plot([bbox[0],bbox[1]],[bbox[3],bbox[3]],color=color,ls=linestyle,lw=linewidth,label='_nolegend_',transform=proj)
     # Plot East Boundary
     ax.plot([bbox[1],bbox[1]],[bbox[3],bbox[2]],color=color,ls=linestyle,lw=linewidth,label='_nolegend_',transform=proj)
     # Plot South Boundary
+    # if bbox[0] > bbox[1]: # Crossing Date Line, use 360 
+    #     ax.plot([bbox[1]+360,bbox[0]],[bbox[2],bbox[2]],color=color,ls=linestyle,lw=linewidth,label='_nolegend_',transform=proj)
+    # else:
     ax.plot([bbox[1],bbox[0]],[bbox[2],bbox[2]],color=color,ls=linestyle,lw=linewidth,label='_nolegend_',transform=proj)
     # Plot West Boundary
     ax.plot([bbox[0],bbox[0]],[bbox[2],bbox[3]],color=color,ls=linestyle,lw=linewidth,label='_nolegend_',transform=proj)
