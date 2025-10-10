@@ -384,7 +384,7 @@ def init_map(bbox,crs=ccrs.PlateCarree(),ax=None,return_gl=False):
 
 
 
-def plot_box(bbox,ax=None,return_line=False,leglab="Bounding Box",
+def plot_box(bbox,ax=None,return_line=False,leglab="Bounding Box",lon360=False,
              color='k',linestyle='solid',linewidth=1,proj=ccrs.PlateCarree()):
     
     """
@@ -401,10 +401,11 @@ def plot_box(bbox,ax=None,return_line=False,leglab="Bounding Box",
     
     
     """
-    
-    for i in [0,1]:
-        if bbox[i] > 180:
-            bbox[i] -= 360
+    if lon360 is False:
+        for i in [0,1]:
+            if bbox[i] > 180:
+                bbox[i] -= 360
+            
             
     if ax is None:
         ax = plt.gca()
@@ -1369,7 +1370,7 @@ def plot_mask(lon,lat,mask,reverse=False,color="k",marker="o",markersize=1.5,
         mask      = newcopy.copy()
     
     # Make meshgrid and plot masked array
-    yy,xx = np.meshgrid(lat,lon)
+    yy,xx    = np.meshgrid(lat,lon)
     if geoaxes:
         smap = ax.plot(np.ma.array(xx,mask=mask),yy,
                        c=color,marker=marker,markersize=markersize,ls="None",transform=proj)
