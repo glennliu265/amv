@@ -5040,11 +5040,15 @@ def get_monstr(nletters=3):
     else:
         return [cal.month_name[i][:nletters] for i in np.arange(1,13,1)]
 
-def mon2str(selmon):
+def mon2str(selmon,index=True):
     mons3 = get_monstr()
     """Return String with First Letter of Each Month"""
-    
-    return ''.join([mons3[a][0] for a in selmon])
+    if index:
+        ''.join([mons3[a][0] for a in selmon])
+    else: # Actual month givem so convert to index
+        selmon = np.array(selmon) - 1 
+        ''.join([mons3[a][0] for a in selmon])
+    return 
 
 def addstrtoext(name,addstr,adjust=0):
     """
