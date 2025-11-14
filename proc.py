@@ -1759,9 +1759,9 @@ def calc_lagcovar_nd(var1,var2,lags,basemonth,detrendopt):
         corr_ts[i,:] = pearsonr_2d(varbase,varlag,0)       
     return corr_ts
     
-def calc_lag_covar_ann(var1,var2,lags,dim,detrendopt):
+def calc_lag_covar_ann(var1,var2,lags,dim,detrendopt,verbose=True):
     """
-    
+    Calculate lag **correlation**
     var1 is lagged, var2 remains the same (base)
     
     """
@@ -1777,7 +1777,10 @@ def calc_lag_covar_ann(var1,var2,lags,dim,detrendopt):
     
     # Get total number of lags
     var1,var2=reshapevars
-    lagdim = len(lags)
+    lagdim   = len(lags)
+    if lagdim > var1.shape[0]:
+        if verbose:
+            print("\tWarning! maximum lag  (%i) exceeds the timeseries length (%i)" % (lagdim,var1.shape[0]))
     
     # Get timeseries length # [yr x npts]
     ntime  = var1.shape[0]
@@ -1785,6 +1788,8 @@ def calc_lag_covar_ann(var1,var2,lags,dim,detrendopt):
     
     # Detrend variables if option is set
     if detrendopt == 1:
+        if verbose:
+            print("\tWarning! Variable will be detrended linearly.")
         var1 = signal.detrend(var1,0,type='linear')
         var2 = signal.detrend(var2,0,type='linear')
     
@@ -1803,8 +1808,8 @@ def calc_lag_covar_ann(var1,var2,lags,dim,detrendopt):
     size_combined_dims = tuple(np.array(oldshape)[neworder][1:]) # Get other dims
     reshape_corr       = (lagdim,) + size_combined_dims
     corr_ts            = corr_ts.reshape(reshape_corr)
+    
     return corr_ts,window_lengths
-
 
 def calc_conflag(ac,conf,tails,n):
     """
@@ -1869,7 +1874,6 @@ def tilebylag(kmonth,var,lags):
     vartile = np.concatenate([np.roll(vartile,-kmonth),[var[kmonth]]])
     return vartile
 
-
 def leadlag_corr(varbase,varlag,lags,corr_only=False):
     """
     Compute lead-lag correlation of two 1-D timeseries [time]
@@ -1885,7 +1889,6 @@ def leadlag_corr(varbase,varlag,lags,corr_only=False):
         leadlagcorr (ARRAY, [lags]) Correlation values
     
     """
-    
     ntime = varbase.shape[0]
     nlags = len(lags)
     # Lags
@@ -2090,6 +2093,7 @@ def calc_pearsonconf(rho,conf,tails,n):
     tails : 1 or 2 tailed
     n     : Sample size
     """
+    
     # Get z-critical
     alpha = (1-conf)/tails
     zcrit = stats.norm.ppf(1 - alpha)
@@ -2098,7 +2102,7 @@ def calc_pearsonconf(rho,conf,tails,n):
     zprime = 0.5*np.log((1+rho)/(1-rho))
     
     # Calculate standard error
-    SE = 1/ np.sqrt(n-3)
+    SE     = 1/ np.sqrt(n-3)
     
     # Get Confidence
     z_lower = zprime-zcrit*SE
@@ -2221,7 +2225,7 @@ def calc_monvar(ts,dim=0):
 #     #n_eff = 
 #     return dof
 
-def calc_dof(ts,ts1=None,calc_r1=True,ntotal=None,verbose=True):
+def calc_dof(ts,ts1=None,calc_r1=True,ntotal=None,verbose=True,r1_in=None,r1_in_2=None):
     """
     Calculate effective degrees of freedom for autocorrelated timeseries.
     Assumes time is first dim, but can specify otherwise. Based on Eq. 31
@@ -2255,6 +2259,11 @@ def calc_dof(ts,ts1=None,calc_r1=True,ntotal=None,verbose=True):
         r1              = np.corrcoef(ts_base,ts_lag)[0,1]
     else:
         r1 = ts
+    
+    if r1_in is not None:
+        print("Using provided r1 for timeseries 1")
+        r1 = r1_in
+    
     if np.any(r1<0):
         print("Warning, r1 is less than zero. Taking abs value!")
         r1 = np.abs(r1)
@@ -2270,6 +2279,11 @@ def calc_dof(ts,ts1=None,calc_r1=True,ntotal=None,verbose=True):
             r2          = np.corrcoef(ts1_base,ts1_lag)[0,1]
         else:
             r2          = ts1
+            
+        if r1_in_2 is not None:
+            print("Using provided r1 for timeseries 2")
+            r2 = r1_in_2
+            
         if np.any(r2<0):
             print("Warning, r2 is less than zero. Taking abs value!")
             r2 = np.abs(r2)
@@ -2435,6 +2449,99 @@ def calc_pval_rho(rho,dof):
     tstat = rho * np.sqrt(dof/(1-rho**2))
     pval  = sp.stats.t.sf(np.abs(tstat), dof)*2  # two-sided pvalue = Prob(abs(t)>tt)
     return pval
+
+
+def mcsampler(ts_full,sample_len,mciter,preserve_month=True,scramble_year=False,target_timeseries=None):
+    # Taken from ensobase.utils on 2025.10.30
+    # Given a monthly timeseries [time] and sample length (int), take [mciter] # of random samples.
+    # if preserve_month = True, preserve the 12-month sequence as a chunk
+    # if scramble_year = True, randomize years that you are selecting from (do not preserve year order)
+    # if target_timeseries is not None: also select random samples from list of timeseries (must be same length as ts_full)
+    
+    # Function Start
+    ntime_full        = len(ts_full)
+    
+    # 1 -- month agnostic (subsample sample length, who cares when)
+    if not preserve_month:
+        
+        print("Month with not be preserved.")
+        istarts    = np.arange(ntime_full-sample_len)
+        
+        sample_ids = []
+        samples    = []
+        for mc in range(mciter):
+            # ts_full[istarts[-1]:(istarts[-1]+sample_len)] Test last possible 
+            iistart = np.random.choice(istarts)
+            idsel   = np.arange(iistart,iistart+sample_len) 
+            msample = ts_full[idsel]
+            
+            
+            sample_ids.append(idsel)
+            samples.append(msample) # [iter][sample]
+            
+        samples = np.array(samples) # [iter x sample]
+        # Returns 
+            
+    elif preserve_month:
+        # 2 -- month aware (must select starting points of January + maintain the chunk, preserving the month + year to year autocorrelation)
+        if not scramble_year:
+            
+            # Only start on the year  (to preserve month sequence)
+            istarts    = np.arange(0,ntime_full-sample_len,12)
+            
+            # -------------------- Same as Above
+            sample_ids = []
+            samples    = []
+            for mc in range(mciter):
+                # ts_full[istarts[-1]:(istarts[-1]+sample_len)] Test last possible 
+                iistart = np.random.choice(istarts)
+                idsel   = np.arange(iistart,iistart+sample_len) 
+                msample = ts_full[idsel]
+                
+                sample_ids.append(idsel)
+                samples.append(msample) # [var][iter][sample]
+            samples = np.array(samples) # [var x iter x sample]
+            # -------------------- 
+            
+        # 3 -- month aware, year scramble (randomly select the year of each month, but preserve each month)
+        elif scramble_year: # Scrample Year and Month
+            
+            # Reshape to the year and month
+            nyr_full        = int(ntime_full/12)
+            ts_yrmon        = ts_full.reshape(nyr_full,12)
+            ids_ori         = np.arange(ntime_full)
+            ids_ori_yrmon   = ids_ori.reshape(ts_yrmon.shape)
+            
+            nyr_sample      = int(sample_len/12)
+            sample_ids      = []
+            samples         = []
+            for mc in range(mciter): # For each loop
+                
+                # Get start years
+                startyears = np.random.choice(np.arange(nyr_full),nyr_sample)
+                # Select random years equal to the sample length and combine
+                idsel      = ids_ori_yrmon[startyears,:].flatten() 
+                # ------
+                msample    = ts_full[idsel]
+                sample_ids.append(idsel)
+                samples.append(msample) # [var][iter][sample]
+            samples = np.array(samples) # [var x iter x sample]
+            # -----
+    
+    outdict = dict(sample_ids = sample_ids, samples=samples)    
+    if target_timeseries is not None:
+        
+        sampled_timeseries = []
+        for ts in target_timeseries:
+            if len(ts) != len(ts_full):
+                print("Warning... timeseries do not have the same length")
+            randsamp = [ts[sample_ids[mc]] for mc in range(mciter)]
+            randsamp = np.array(randsamp)
+            sampled_timeseries.append(randsamp) # [var][iter x time]
+        outdict['other_sampled_timeseries'] = sampled_timeseries
+    
+    return outdict
+
 
 #%% ~ Other
 
@@ -2742,6 +2849,7 @@ def calc_confspec(alpha,nu):
     lowerv=stats.chi2.isf(alpha/2,nu)
     lower=nu / lowerv
     upper=nu / upperv
+    
     return (lower,upper)
 
 def plot_conflog(loc,bnds,ax=None,color='k',cflabel=None):
@@ -4016,10 +4124,10 @@ def calc_T2(rho,axis=0,ds=False,verbose=False):
     # if ds:
     #     return (1+2*(rho**2).sum(axis))
     # if np.take(rho,0,axis=axis).squeeze() == 1: # (Take first lag)
-    if np.any(rho == 1):
+    if np.any(rho == 1.):
         if verbose:
             print("Replacing %i values of Corr=1.0 with 0." % (np.sum(rho==1)))
-        rho_in = np.where(rho == 1,0,rho)
+        rho_in = np.where(rho == 1.,0,rho)
     else:
         rho_in = rho
         
@@ -4816,7 +4924,6 @@ def stdsqsum_da(invar,dim):
     """
     return np.sqrt((invar**2).sum(dim))
 
-
 def printtime(st,print_str="Completed"):
     # Given start time, print the elapsed time in seconds
     print("%s in %.2fs" % (print_str,time.time()-st))
@@ -4824,6 +4931,10 @@ def printtime(st,print_str="Completed"):
 def darkname(figname):
     #Append "_dark" to end of figure name
     return addstrtoext(figname,"_dark")
+
+def selmon_ds(ds,selmon):
+    "Select Months [selmon] in a DataArray/DataSet"
+    return ds.sel(time=ds.time.dt.month.isin(selmon))
 
 """
 -----------------
