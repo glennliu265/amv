@@ -3491,28 +3491,32 @@ def indexwindow(invar,m,monwin,combinetime=False,verbose=False):
         varout = varout.reshape((varout.shape[0]*varout.shape[1],varout.shape[2])) # combine dims
     return varout
     
-def match_time_month(var_in,ts_in):
+def match_time_month(var_in,ts_in,timename='time'):
     # Crops the start and end times for var_in and ts_in (xr.DataArrays/Datasets)
     # Note works for datetime64[ns] format in xr.DataArray
     # See ensobase/calculate_enso_response.py for working example
     
-    if len(var_in.time) != len(ts_in.time): # Check if they match
+    if len(var_in[timename]) != len(ts_in[timename]): # Check if they match
         
         # Warning: Only checking Year and Date
-        vstart = str(np.array((var_in.time.data[0])))[:7]
-        tstart = str(np.array((ts_in.time.data[0])))[:7]
+        vstart = str(np.array((var_in[timename].data[0])))[:7]
+        tstart = str(np.array((ts_in[timename].data[0])))[:7]
         
         if vstart != tstart:
             print("Start time (v1=%s,v2=%s) does not match..." % (vstart,tstart))
             if vstart > tstart:
                 print("Cropping to start from %s" % vstart)
-                ts_in = ts_in.sel(time=slice(vstart+"-01",None))
+                ts_in = ts_in.sel( 
+                    {timename : slice(vstart+"-01",None)}
+                    )
             elif vstart < tstart:
                 print("Cropping to start from %s" % tstart)
-                var_in = var_in.sel(time=slice(tstart+"-01",None))
+                var_in = var_in.sel(
+                    {timename : slice(tstart+"-01",None)}
+                    )
         
-        vend = str(np.array((var_in.time.data[-1])))[:7]
-        tend = str(np.array((ts_in.time.data[-1])))[:7]
+        vend = str(np.array((var_in[timename].data[-1])))[:7]
+        tend = str(np.array((ts_in[timename].data[-1])))[:7]
         
         
         if vend != tend:
