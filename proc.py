@@ -5052,11 +5052,11 @@ def mon2str(selmon,index=True):
     mons3 = get_monstr()
     """Return String with First Letter of Each Month"""
     if index:
-        ''.join([mons3[a][0] for a in selmon])
+        return ''.join([mons3[a][0] for a in selmon])
     else: # Actual month givem so convert to index
         selmon = np.array(selmon) - 1 
-        ''.join([mons3[a][0] for a in selmon])
-    return 
+        return ''.join([mons3[a][0] for a in selmon])
+    
 
 def addstrtoext(name,addstr,adjust=0):
     """
