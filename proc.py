@@ -3525,12 +3525,16 @@ def match_time_month(var_in,ts_in,timename='time'):
             
             if vend > tend:
                 print("\nCropping to start from %s" % tend)
-                var_in = var_in.sel(time=slice(None,tend+"-31"))
+                var_in = var_in.sel(
+                    {timename : slice(None,tend+"-31")}
+                    )
             elif vend < tend:
                 print("\nCropping to start from %s" % vend)
-                ts_in = ts_in.sel(time=slice(None,vend+"-31"))
+                ts_in = ts_in.sel(
+                    {timename : slice(None,vend+"-31")}
+                    )
                 
-        print(len(var_in.time) == len(ts_in.time))  
+        print(len(var_in[timename]) == len(ts_in[timename]))  
     return var_in,ts_in
 
 def getfirstnan(x):
