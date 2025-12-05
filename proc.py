@@ -1323,6 +1323,9 @@ def calc_dx_dy(longitude,latitude,centered=False):
     dx = np.repeat(dx[:,np.newaxis],longitude.shape,axis=1)
     return dx, dy
 
+def fliplat(da,latname="lat"):
+    return da.isel(**{latname:slice(None,None,-1)})
+
 """
 ------------------------------
 |||  Statistical Analysis  ||| ****************************************************
