@@ -69,6 +69,7 @@ Functions:
     lon360to180_ds      : Flip longitude in a DataArray (repeat?)
     linear_crop         : Remove points above/below a specified line
     calc_dx_dy          : Retrieve 2d array of distances between grid points in meters
+    fliplat             : Flip latitude to go from negative to positive
     
     ------------------------------
     |||  Statistical Analysis  ||| ****************************************************
@@ -104,6 +105,7 @@ Functions:
     calc_stderr         : Compute Standard Error (assuming normal distr)
     regress_ttest       : Perform regression and also compute significance via t-test
     calc_pval_rho       : Calculate the p-value given correlations and DOF.
+    mcsampler           : Copied from ensobase.utils, take samples of a selected length from longer timeseries
     
         ~ Other ~
     covariance_2d       : Calculate covariance for 2 2D arrays
@@ -126,7 +128,6 @@ Functions:
     get_freqdim         : Get frequency dimension for a yspectra calculation using yo_spec
     calc_confspec       : Calculate confidence interval of spectra
     plot_conflog        : Plot confidence intervals for spectral density on a log scale
-    
     
     ----------------------------
     |||  Indexing & Querying ||| ****************************************************
@@ -213,6 +214,7 @@ Functions:
     stdsqsum_da         : Take the square root of the sum of squares for a DataArray
     printtime           : Print time elapsed in seconds
     darkname            : Append "_dark" to end of figure name
+    selmon_ds           : Select certain months in a DataArray/DataSet
     
     -----------------
     |||  Labeling ||| ****************************************************
