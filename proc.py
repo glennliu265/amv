@@ -3524,12 +3524,12 @@ def match_time_month(var_in,ts_in,timename='time'):
             print("End times (v1=%s,v2=%s) does not match..." % (vend,tend))
             
             if vend > tend:
-                print("\nCropping to start from %s" % tend)
+                print("\nCropping to end at %s" % tend)
                 var_in = var_in.sel(
                     {timename : slice(None,tend+"-31")}
                     )
             elif vend < tend:
-                print("\nCropping to start from %s" % vend)
+                print("\nCropping to end at %s" % vend)
                 ts_in = ts_in.sel(
                     {timename : slice(None,vend+"-31")}
                     )
