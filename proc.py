@@ -891,7 +891,7 @@ def make_2d_ds(ds,keepdim='time'):
     dsarr          = dstranspose.data
     oldshape_trans = dsarr.shape
     ntime          = oldshape_trans[-1]
-    notherdims     = np.array(oldshape_trans[:-1]).prod()
+    notherdims     = int(np.array(oldshape_trans[:-1]).prod())
     dsarr          = dsarr.reshape(1,notherdims,ntime)
     coords_rs      = dict(lon=[1,],lat=np.arange(notherdims),time=ds.time)
     dsreshape      = xr.DataArray(dsarr,dims=coords_rs,coords=coords_rs,name=ds.name)
@@ -3238,6 +3238,35 @@ def sel_region_xr_cv(ds2,bbox,debug=False):
     ds2 = ds2.where(ds2.mask,drop=True)
     print("Loaded in %.2fs" % (time.time()-st))
     return ds2
+
+def get_box_native(ds,bbox,lon='lon',lat='lat',dim='value',to180=False):
+    '''
+    
+    Extract a box on a native grid
+    Modified from original function by Matthias Angenheyster
+    
+    '''
+    x0,x1,y0,y1 = bbox
+    print('get box: [x0,x1,y0,y1]: [%s,%s,%s,%s]' % (x0,x1,y0,y1))
+    
+    coords = {
+        lon: ds[lon].load(),
+        lat: ds[lat].load()
+    }
+    #print(coords)
+    if to180:
+        coords[lon] = np.mod(coords[lon] + 180, 360) - 180
+        #print(coords['lon'].min(), coords['lon'].max())
+    return ds.sel(
+        {
+            dim : (
+                (coords[lat] >= y0)
+                & (coords[lat] <= y1)
+                & (coords[lon] >= x0)
+                & (coords[lon] <= x1)
+            )
+        }
+    )
 
 
 

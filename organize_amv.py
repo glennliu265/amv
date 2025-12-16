@@ -143,6 +143,7 @@ Functions:
     sel_region_cv       : Select region for curvilienear/2D points in POP
     sel_region_xr       : Select region for xarray DataSet or DataArray <xarray>
     sel_region_xr_cv    : Same as sel_region_cv but for Dataset or DataArray
+    get_box_native      : Select box from native grid in Dataset (modified func by Matias)
     get_bbox            : Get bounding box of a dataset from "lon" and "lat" dimensions <xarray>
     resize_ds           : Given list of datasets, resize all to the smallest bounding box <xarray>
     get_posneg          : get positive/negative years of a variable from an index/timeseries
