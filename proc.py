@@ -389,6 +389,20 @@ def remove_ss_sinusoid(ts,t=None,dt=12,semiannual=True,Winv=None):
     x = F@ts
     return x,E
 
+
+def check_scycle(ds,tol=1e-6,verbose=True):
+    # Check if there are values > tol in monthly mean climatology
+    ds = ds.groupby('time.month').mean('time')
+    if np.any(np.abs(ds) > tol):
+        if verbose:
+            ds_flat      = np.abs(ds.data.flatten())
+            id_above_tol = np.where(ds_flat > tol)[0]
+            print("%i values above %.2e were detected in monthly mean!" % (len(id_above_tol),tol))
+            maxval       = np.nanmax(ds_flat[id_above_tol])
+            print("Maximum Value was %.2f" % maxval)
+        return True
+    return False
+
 #%% ~ Detrending
 
 def detrend_dim(invar,dim,return_dict=False,debug=False):
@@ -5000,7 +5014,7 @@ def make_locstring(lon,lat,pres=None,lon360=False,fancy=True):
                 latsign = "S"
             else:
                 latsign = "N"
-            loctitle = u"%i$\degree$%s, %i$\degree$%s" % (np.abs(lon),lonsign,
+            loctitle = r"%i$\degree$%s, %i$\degree$%s" % (np.abs(lon),lonsign,
                                                          np.abs(lat),latsign)
     else:
 
@@ -5016,7 +5030,7 @@ def make_locstring(lon,lat,pres=None,lon360=False,fancy=True):
                 latsign = "S"
             else:
                 latsign = "N"
-            loctitle = u"%i$\degree$%s, %i$\degree$%s" % (np.abs(lon),lonsign,
+            loctitle = r"%i$\degree$%s, %i$\degree$%s" % (np.abs(lon),lonsign,
                                                          np.abs(lat),latsign)
             
     return locfn,loctitle

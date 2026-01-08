@@ -46,6 +46,7 @@ Functions:
     calc_savg_mon       : Same but using xarray groupby functions
     calc_clim           : Compute climatological monthly mean
     remove_ss_sinusoid  : Moves annual and semiannual seasonal cycles using least squares fit to sinusoids
+    check_scycle        : Check if there is a seasonal cycle remaining
     
         ~ Detrending ~
     detrend_dim         : Linear detrend along a dimension
