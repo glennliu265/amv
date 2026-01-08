@@ -17,6 +17,7 @@
     set_xlim_auto       : Automatically set x-limits to x-tick max/min
     add_ticks           : Helper function to add ticks and gridlines
     add_fontborder      : Add border/highlight with PathEffects
+    add_axlines         : Add x/y axes lines at 0.
     
     
         ~ Subplot Management
@@ -49,7 +50,8 @@
     plot_freqlin        : Linear Frequency x Power plot (linear x, linear y)
     plot_freqlog        : Log-Log plot                  (log x   , log y)
     init_logspec        : Initialize log-log plot (from viz_regional_spectra.py)
-
+    
+    
         ~ Spatial/2-D Plots/Contours
     plot_contoursign    : Contour line plot with solid as positive and dashed as negative
     return_clevels      : Return contouring steps
@@ -225,6 +227,12 @@ def add_fontborder(labels,c='white',w=5):
     """ Add border to font """
     [tt.set_path_effects([PathEffects.withStroke(linewidth=w, foreground=c)]) for tt in labels]
     return None
+
+def add_axlines(ax,lw=0.55,ls='solid',c='k'):
+    # Add x and y axis lines at zero
+    ax.axhline([0],lw=lw,ls=ls,c=c)
+    ax.axvline([0],lw=lw,ls=ls,c=c)
+    return ax
 
 # ~~~~~~~~~~~~~~~~~~~~~~
 #%% Subplot Management
@@ -1003,7 +1011,7 @@ def plot_freqxpower(specs,freqs,enames,ecolors,
                         ls="dashed")
 
     # Set Axis Labels
-    ax.set_ylabel("Frequency x Power ($(\degree C)^{2}$)",fontsize=12)
+    ax.set_ylabel(r"Frequency x Power ($(\degree C)^{2}$)",fontsize=12)
     ax.set_xlabel("Frequency (cycles/year)",fontsize=12)
     
     # Twin x-axis for period
@@ -1099,7 +1107,7 @@ def plot_freqlin(specs,freqs,enames,ecolors,
             ax.plot(freqs[n]*plotdt,plotconf[n][:,1]/plotdt,label="",color=ecolors[n],ls="dashed")
 
     # Set Axis Labels, plot Titles
-    ax.set_ylabel("Power ($(\degree C)^{2} / cpy$)",fontsize=12)
+    ax.set_ylabel(r"Power ($(\degree C)^{2} / cpy$)",fontsize=12)
     ax.set_xlabel("Frequency (cycles/year)",fontsize=12)
     ax.set_title(plottitle)
     
@@ -1230,7 +1238,7 @@ def plot_freqlog(specs,freqs,enames,ecolors,
             ax.loglog(freqs[n]*plotdt,plotconf[n][:,1]/plotdt,label="",color=ecolors[n],ls="dashed")
 
     # Set Axis Labels
-    ax.set_ylabel("Power ($(\degree C)^{2} / cpy$)",fontsize=12)
+    ax.set_ylabel(r"Power ($(\degree C)^{2} / cpy$)",fontsize=12)
     ax.set_xlabel("Frequency (cycles/year)",fontsize=12)
     
     # Twin x-axis for period
@@ -1845,7 +1853,7 @@ def prep_monlag_labels(kmonth,lagtick,label_interval,useblank=True):
 
 def init_profile(ax,
                     vnames=['SALT', 'TEMP'],
-                    vunits=['psu', '$\\degree C$'],
+                    vunits=['psu', r'$\\degree C$'],
                     vcolors=['navy', 'hotpink'],
                     ):
     # Initialize profile plot on axis [ax]
@@ -2007,7 +2015,7 @@ def init_regplot(regname=None,fontsize=20,bboxin=None):
 
         
             
-        
+    
     fig,ax,_  = init_orthomap(1,1,bboxin,figsize=figsize,centlon=centlon)
     ax        = add_coast_grid(ax,bbox=bboxin,fill_color='lightgray',fontsize=fontsize)
     if bbauto is False:
