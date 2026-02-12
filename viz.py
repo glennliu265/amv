@@ -5,7 +5,7 @@
     |||  Visualization  ||| ****************************************************
     -----------------------
         General functions for visualizing data. Mostly works with matplotlib and cartopy.
-        
+       
     Created on Wed Jul 29 18:02:18 2020
     @author: gliu
     
@@ -18,6 +18,7 @@
     add_ticks           : Helper function to add ticks and gridlines
     add_fontborder      : Add border/highlight with PathEffects
     add_axlines         : Add x/y axes lines at 0.
+    change_axcol        : Change color of axis line, ticks, and label
     
     
         ~ Subplot Management
@@ -232,6 +233,34 @@ def add_axlines(ax,lw=0.55,ls='solid',c='k'):
     # Add x and y axis lines at zero
     ax.axhline([0],lw=lw,ls=ls,c=c)
     ax.axvline([0],lw=lw,ls=ls,c=c)
+    return ax
+
+def change_axcol(axname,c,ax=None):
+    # Change color of axes line, ticks, and label
+    # change_axcol(axname,c,ax=None)
+    # axname (str)  : "left","right","top", or "bottom"
+    # c (str)       : matplotlib color
+    # ax (mpl.axes) : Target Axes (grabs current by default)
+    # returns: ax
+    # Note, need to test this
+    if ax is None:
+        ax = plt.gca()
+    if axname =="left":
+        ax.tick_params(axis='y',colors=c)
+        ax.spines['left'].set_color(c)
+        ax.yaxis.label.set_color(c)
+    if axname == "right":
+        ax.tick_params(axis='y',colors=c)
+        ax.spines['right'].set_color(c)
+        ax.yaxis.label.set_color(c)
+    if axname == "top":
+        ax.tick_params(axis='x',colors=c)
+        ax.spines['top'].set_color(c)
+        ax.xaxis.label.set_color(c)
+    if axname == "bottom":
+        ax.tick_params(axis='x',colors=c)
+        ax.spines['bottom'].set_color(c)
+        ax.xaxis.label.set_color(c)
     return ax
 
 # ~~~~~~~~~~~~~~~~~~~~~~
