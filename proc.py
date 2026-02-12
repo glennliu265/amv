@@ -2041,7 +2041,7 @@ def xrcorr_leadlag(dsbase,dslag,basemonth,leadlags,seasonal=False,debug=False,co
     lagshift        = 0
     leadshift       = 0
     
-    for lag in tqdm(leadlags):
+    for lag in tqdm.tqdm(leadlags):
         
         # Get Lag month
         lagmon = (basemonth + lag)%12
