@@ -88,6 +88,9 @@ Functions:
     calc_conflag        : Calculate confidence Intervals for autocorrelation function
     tilebylag           : Tile a monthly variable along a lag sequence
     leadlag_corr        : Compute lead/lag correlation of 2 variables (all months)
+    append_window       : Helper function for [xrcorr_leadlag] to create 3-month window
+    xrcorr_leadlag      : Compute lead/lag correlation on Xarray Datasets
+    
     
         ~ EOF Analysis ~
     eof_simple          : Perform EOF Analysis (cr. Yu-Chiao Liang)

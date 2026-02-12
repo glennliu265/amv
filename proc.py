@@ -1923,6 +1923,207 @@ def leadlag_corr(varbase,varlag,lags,corr_only=False):
         return leadlagcorr
     return leadlags,leadlagcorr
 
+def append_window(ds,dsbase,basemonth,baseyears,debug=False):
+    """
+    Helper function for xrcorr_leadlag
+    Creates a 3-month window by including months from either side of the base month, accounting for year shifts.
+    Inputs:
+        ds        : DataArray with full timeseries
+        dsbase    : DataArray already subsetting to include just the basemonth
+        basemonth : Month of anomalies in dsbase
+        baseyears : Years included in dsbase
+        debug     : Bool, set to True for verbose print messages
+    Output:
+        dsnew     : DataArray with 3-month moving windows and year adjustments. Should be 3x the length of dsbase.
+    
+    Created: 2026.02.11, test script: seasonal_radiation_enso_regressions.ipynb
+    """
+    
+    # Define Functions
+    selmon  = lambda ds,mon : ds.sel(time=ds.time.dt.month.isin([mon]))
+    selyear = lambda ds,mon,ystart,yend : ds.sel(time=slice("%04i-%02i-01" % (ystart,mon),"%04i-%02i-01" %(yend,mon)))
+
+    # One Month Before
+    basemonth_m1   = (basemonth - 1)%12
+    if basemonth_m1 == 0: # From Previous year
+        basemonth_m1 = 12
+        baseyears_m1 = baseyears - 1
+    else:
+        baseyears_m1 = baseyears
+    dsm1 = selmon(ds,basemonth_m1)
+    dsm1 = selyear(dsm1,basemonth_m1,baseyears_m1[0],baseyears_m1[-1])
+
+    # One Month After
+    basemonth_p1   = (basemonth+1)%12
+    if basemonth_p1 == 0:
+        basemonth_p1 = 12
+    if basemonth_p1 < basemonth: # To Next Year
+        baseyears_p1 = baseyears + 1
+    else:
+        baseyears_p1 = baseyears
+    dsp1 = selmon(ds,basemonth_p1)
+    dsp1 = selyear(dsp1,basemonth_p1,baseyears_p1[0],baseyears_p1[-1])
+
+    dsnew = xr.concat([dsm1,dsbase,dsp1],dim='time')
+    dsnew = dsnew.sortby('time')
+
+    if debug:
+        print("For Mon %02i, Indexing the Following Window" % (basemonth))
+        print("\tMon %02i : (%s to %s)"% (basemonth_m1,baseyears_m1[0],baseyears_m1[-1]))
+        print("\tMon %02i : (%s to %s)"% (basemonth   ,baseyears[0]   ,baseyears[-1]))
+        print("\tMon %02i : (%s to %s)"% (basemonth_p1,baseyears_p1[0],baseyears_p1[-1]))
+        
+    return dsnew
+
+def xrcorr_leadlag(dsbase,dslag,basemonth,leadlags,seasonal=False,debug=False,cov=False,regression=False):
+    """
+    Calculate the lead-lag correlation separately where lag 0 is the [basemonth] for each month between [dsbase] and [dslag] along the <time> dimension.
+    Currently supports doing seasonal correlations (3 month windows). Note that if the last lag month exceeds the last year, the base timeseries will be
+    truncated accordingly just for that calculation (different DOF).
+
+    Inputs:
+        dsbase    : DataArray with dimension <time>, - Base variable @ monthly frequency (this variable leads for positive lag)
+        dslag     : DataArray with dimension <time>, - Lagged variable @ monthly frequency (negative lag, this variable leads)
+        basemonth : Int,                             - Base month for seasonal correlation (lag 0 is anomalies for this month)
+        leadlags  : Array of Int,                    - Leads (negative values) and Lags (positive values) to compute correlation over
+        seasonal  : Bool,                            - Set to <True> to use a 3-month window for a "seasonal" calculation (i.e. D --> NDJ)
+        debug     : Bool,                            - Set to <True> for verbose messages for debugging
+        cov       : Bool,                            - Set to <True> to compute covariance instead of correlation
+        regression: Bool,                            - Set to <True> to do linear regression
+    Outputs:
+        ds_out    : DataSet,                         - lead lag correlations <corr> for each <lag>, and corresponding <month>, along with degrees of freedom <dofs>
+        
+    Created: 2026.02.11, test script: seasonal_radiation_enso_regressions.ipynb
+    """
+    
+    # Define simple functions
+    selmon  = lambda ds,mon : ds.sel(time=ds.time.dt.month.isin([mon]))
+    selyear = lambda ds,mon,ystart,yend : ds.sel(time=slice("%04i-%02i-01" % (ystart,mon),"%04i-%02i-01" %(yend,mon)))
+    
+    # Extract Lead Lag
+    leads = leadlags[leadlags<0]
+    lags  = leadlags[leadlags>=0]
+    if debug:
+        print("Leads: %s" % (leads))
+        print("Lags: %s" % (lags))
+    
+    # Get Year Information
+    ds               = dsbase # Just Shorthand
+    years            = ds.time.dt.year
+    ystart           = years[0]
+    yend             = years[-1]
+    
+    # Get info on year window
+    yearmax_lead     = np.ceil(np.abs(leads[0]/12)).astype(int) -1
+    yearmax_lag      = np.ceil(lags[-1]/12).astype(int)         +0
+    baseyears        = np.arange(ystart+yearmax_lead,yend-yearmax_lag+1) # +1 --> Add Due to Python Zero Indexing
+    if debug:
+        print("Years to Shift due to lag  : %02i" % (yearmax_lead))
+        print("Years to Shift due to lead : %02i" % (yearmax_lag))
+        print("Full Period is             : %04i to %04i" % (years[0],years[-1]))
+        print("Base Period is             : %04i to %04i (n=%02i)" % (baseyears[0],baseyears[-1],len(baseyears)))
+        
+    base_timeseries = selmon(dsbase,basemonth)
+    base_timeseries = selyear(base_timeseries,basemonth,baseyears[0],baseyears[-1])#base_timeseries.sel(time=slice(base_tstart,base_tend))
+    if debug:
+        print("Basemonth is %02i (Years %i to %i)" % (basemonth,baseyears[0],baseyears[-1]))
+        print("\t%s to %s" % (base_timeseries.time[0].data,base_timeseries.time[-1].data))
+
+    # Add month Window
+    if seasonal:
+        base_timeseries = append_window(dsbase,base_timeseries,basemonth,baseyears,debug=debug)
+    
+    # Initialize Loop
+    lagcorr_shift   = []
+    lagmons         = []
+    dofs            = []
+    change_year     = False
+    lagshift        = 0
+    leadshift       = 0
+    
+    for lag in tqdm(leadlags):
+        
+        # Get Lag month
+        lagmon = (basemonth + lag)%12
+        if lagmon == 0: # Make Adjustment
+            lagmon = 12
+            change_year=True # Prepare to change year for next run
+        
+        # Now Adjust the Years...
+        if lag < 0: # Lead Options
+            lagyears = np.arange(ystart+leadshift, yend-yearmax_lag-yearmax_lead+leadshift+1) # Add Due to Python Stoppage at Final Index
+        if lag >=0: # Lag Options
+            lagyears = np.arange(ystart+yearmax_lead+lagshift, yend-yearmax_lag+lagshift+1) # Add Due to Python Stoppage at Final Index
+        if debug:
+            print("Lag %02i, Month %02i | Years %04i to %04i (n=%02i)" % (lag,lagmon,lagyears[0],lagyears[-1],len(lagyears)))
+        
+        # Select Lagged Variable and Index
+        lag_timeseries = selmon(dslag,lagmon)
+        lag_timeseries = selyear(lag_timeseries,lagmon,lagyears[0],lagyears[-1])
+        if debug:
+            print("\tLag: %s to %s (n=%02i)" % (lag_timeseries.time[0].data,lag_timeseries.time[-1].data,len(lag_timeseries.time)))
+        
+        # Apply Window if needed
+        if seasonal: # Note, if the final window for the last lag exceeds the number of years, this is dropped...
+            lag_timeseries = append_window(dslag,lag_timeseries,lagmon,lagyears,debug=debug)
+
+        
+        # Adjust year counter
+        if change_year:
+            if lag <0:
+                leadshift += 1
+            else:
+                lagshift += 1
+            if debug:
+                print("\tYear Change Detected (Month=%s), applying shift on the following index" % lagmon)
+            change_year = False
+        
+        # Do calculation and save relevant sections
+        if len(lag_timeseries.time) != len(base_timeseries.time):
+            print("Warning! The length of selected times does not match... (base=%02i, lag=%02i)" % (len(base_timeseries.time),len(lag_timeseries.time),))
+            print("\tTemp Fix: dropping last timestep in base timeseries (function currently does not adjust year window to account for year crossing due to window)")
+            lag_timeseries['time'] = base_timeseries.isel(time=slice(None,-1)).time # Need to Trick the dimensions....
+            
+            if regression:
+                ds_lag                    = lag_timeseries.copy()
+                ds_lag['base_timeseries'] = base_timeseries
+                dsreg                     = ds_lag.polyfit('base_timeseries',deg=1).polyfit_coefficients.sel(degree=1)
+                lagcorr_shift.append(dsreg)
+            else:
+                if cov:
+                    lagcorr_shift.append(xr.cov(base_timeseries.isel(time=slice(None,-1)),lag_timeseries,dim='time'))
+                else:
+                    lagcorr_shift.append(xr.corr(base_timeseries.isel(time=slice(None,-1)),lag_timeseries,dim='time'))
+        else:
+            
+            lag_timeseries['time'] = base_timeseries.time # Need to Trick the dimensions....
+            
+            if regression:
+                ds_lag                    = lag_timeseries.copy()
+                ds_lag['base_timeseries'] = base_timeseries
+                dsreg                     = ds_lag.polyfit('base_timeseries',deg=1).polyfit_coefficients.sel(degree=1)
+                lagcorr_shift.append(dsreg)
+            else:
+                if cov:
+                    lagcorr_shift.append(xr.cov(base_timeseries,lag_timeseries,dim='time'))
+                else:
+                    lagcorr_shift.append(xr.corr(base_timeseries,lag_timeseries,dim='time'))
+        lagmons.append(lagmon)
+        dofs.append(len(lag_timeseries))
+        # End Lag Loop
+    
+    # Make into Data Array
+    lagcorr_shift = xr.concat(lagcorr_shift,dim='lag')  # Concat by Lag
+    coords        = dict(lag=leadlags) # Make Month Labels
+    lagmons       = xr.DataArray(np.array(lagmons),coords=coords,dims=coords,name='month')
+    dofs          = xr.DataArray(np.array(dofs),name="dof")
+    ds_out        = xr.merge([lagcorr_shift.rename('corr'),lagmons,dofs])
+    return ds_out
+
+
+
+
+
 
 
 #%% ~ EOF Analysis
@@ -2693,7 +2894,6 @@ def montecarlo_ar1(ts1,ts2,mciter,infuncs):
             mcout = ifunc(ar1,ar2)
             output[f].append(mcout)
     return output
-
 
 def patterncorr(map1,map2,verbose=True):
     # From Taylor 2001,Eqn. 1, Ignore Area Weights
