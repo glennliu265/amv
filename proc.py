@@ -3737,7 +3737,7 @@ def indexwindow(invar,m,monwin,combinetime=False,verbose=False):
         varout = varout.reshape((varout.shape[0]*varout.shape[1],varout.shape[2])) # combine dims
     return varout
     
-def match_time_month(var_in,ts_in,timename='time'):
+def match_time_month(var_in,ts_in,timename='time',verbose=True):
     # Crops the start and end times for var_in and ts_in (xr.DataArrays/Datasets)
     # Note works for datetime64[ns] format in xr.DataArray
     # See ensobase/calculate_enso_response.py for working example
@@ -3749,14 +3749,17 @@ def match_time_month(var_in,ts_in,timename='time'):
         tstart = str(np.array((ts_in[timename].data[0])))[:7]
         
         if vstart != tstart:
-            print("Start time (v1=%s,v2=%s) does not match..." % (vstart,tstart))
+            if verbose:
+                print("Start time (v1=%s,v2=%s) does not match..." % (vstart,tstart))
             if vstart > tstart:
-                print("Cropping to start from %s" % vstart)
+                if verbose:
+                    print("Cropping to start from %s" % vstart)
                 ts_in = ts_in.sel( 
                     {timename : slice(vstart+"-01",None)}
                     )
             elif vstart < tstart:
-                print("Cropping to start from %s" % tstart)
+                if verbose:
+                    print("Cropping to start from %s" % tstart)
                 var_in = var_in.sel(
                     {timename : slice(tstart+"-01",None)}
                     )
@@ -3766,21 +3769,23 @@ def match_time_month(var_in,ts_in,timename='time'):
         
         
         if vend != tend:
-            
-            print("End times (v1=%s,v2=%s) does not match..." % (vend,tend))
+            if verbose:
+                print("End times (v1=%s,v2=%s) does not match..." % (vend,tend))
             
             if vend > tend:
-                print("\nCropping to end at %s" % tend)
+                if verbose:
+                    print("\nCropping to end at %s" % tend)
                 var_in = var_in.sel(
                     {timename : slice(None,tend+"-31")}
                     )
             elif vend < tend:
-                print("\nCropping to end at %s" % vend)
+                if verbose:
+                    print("\nCropping to end at %s" % vend)
                 ts_in = ts_in.sel(
                     {timename : slice(None,vend+"-31")}
                     )
-                
-        print(len(var_in[timename]) == len(ts_in[timename]))  
+        if verbose:        
+            print(len(var_in[timename]) == len(ts_in[timename]))  
     return var_in,ts_in
 
 def getfirstnan(x):
