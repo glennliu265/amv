@@ -3384,7 +3384,7 @@ def sel_region_cv(tlon,tlat,invar,bbox,debug=False,return_mask=False):
     return sellon,sellat,selvar
 
 
-def sel_region_xr(ds,bbox):
+def sel_region_xr(ds,bbox,verbose=False):
     """
     Selects region given bbox = [West Bnd, East Bnd, South Bnd, North Bnd]
     Defaults to coordinates of bbox (degrees East or West) and swaps ds accordingly
@@ -3406,8 +3406,9 @@ def sel_region_xr(ds,bbox):
     check_latitude_ascending = (ds.lat[1] - ds.lat[0] > 0)
     check_lon360 = np.any(ds.lon > 180).data.item()
     if bbox[2] > bbox[3] and check_latitude_ascending:
-        print("Warning! Southern Latitude Bound > Northern Latitude Bound for increasing latitudes...")
-        print("\tSelecting latitudes in reverse order")
+        if verbose:
+            print("Warning! Southern Latitude Bound > Northern Latitude Bound for increasing latitudes...")
+            print("\tSelecting latitudes in reverse order")
         latN,latS = bbox[2:]
         bbox[2] = latS
         bbox[3] = latN
@@ -3415,12 +3416,14 @@ def sel_region_xr(ds,bbox):
     # Ensure that bbox and ds have the same longitude
     bbox_lon360 = np.all(np.array(bbox)>0)
     if (bbox_lon360 == 0) and (check_lon360 == 1):
-        print("Converting BBOX lon to degrees East")
+        if verbose:
+            print("Converting BBOX lon to degrees East")
         for ii in [0,1]:
             if bbox[ii] < 0:
                 bbox[ii] = bbox[ii] + 360
     elif (bbox_lon360 == 1) and (check_lon360 == 0):
-        print("Converting BBOX lon degrees Wast")
+        if verbose:
+            print("Converting BBOX lon degrees Wast")
         for ii in [0,1]:
             if bbox[ii] > 180:
                 bbox[ii] = bbox[ii] - 360
@@ -3428,18 +3431,22 @@ def sel_region_xr(ds,bbox):
         
     
     if bbox[0] > bbox[1]: # Checks Longitude Issues 
-        print("Warning! Eastern Longitude Bound > Western Longitude Bound...")
+        if verbose:
+            print("Warning! Eastern Longitude Bound > Western Longitude Bound...")
         if np.any(np.array(bbox[:2]) > 180): # Degrees East
-            print("\tDegrees East Detected. Crossing Prime Meridian.")
+            if verbose:
+                print("\tDegrees East Detected. Crossing Prime Meridian.")
             if check_lon360 == 0 :
-                print("\tAutomatically converting ds to degrees East")
+                if verbose:
+                    print("\tAutomatically converting ds to degrees East")
                 ds = lon180to360_xr(ds)
             dswest = ds.sel(lon=slice(bbox[0],360),lat=slice(bbox[2],bbox[3]))
             dseast = ds.sel(lon=slice(0,bbox[1]),lat=slice(bbox[2],bbox[3]))
             return xr.concat([dswest,dseast],dim='lon')
         
         elif np.any(np.array(bbox[:2])<0): # Degrees West
-            print("\tDegrees West Detected. Crossing Date Line.") 
+            if verbose:
+                print("\tDegrees West Detected. Crossing Date Line.") 
             if check_lon360 == 1:
                 print("\tAutomatically converting ds to degrees West")
                 ds = lon360to180_xr(ds)
@@ -3448,7 +3455,8 @@ def sel_region_xr(ds,bbox):
             return xr.concat([dswest,dseast],dim='lon')
         
         else:
-            print("\t Case not found, please check function...")
+            if verbose:
+                print("\t Case not found, please check function...")
             return None
         
     return ds.sel(lon=slice(bbox[0],bbox[1]),lat=slice(bbox[2],bbox[3]))
