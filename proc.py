@@ -1203,8 +1203,19 @@ def lon180to360(lon180,var,autoreshape=False,debug=True):
 
 def lon360to180_xr(ds,lonname='lon'):
     # Based on https://stackoverflow.com/questions/53345442/about-changing-longitude-array-from-0-360-to-180-to-180-with-python-xarray
-    ds.coords[lonname] = (ds.coords[lonname] + 180) % 360 - 180
-    ds = ds.sortby(ds[lonname])
+    dsnew = ds.copy()
+    dsnew.coords[lonname] = (ds.coords[lonname] + 180) % 360 - 180
+    dsnew = dsnew.sortby(dsnew[lonname])
+    return ds
+
+def lon180to360_xr(ds,lonname='lon'):
+    # Warning: This modifies things in place!
+    dsnew = ds.copy()
+    dsnew.coords[lonname] = (ds.coords[lonname] + 360) % 360
+    # lon180 = ds.coords[lonname]
+    # lon360 = xr.where(lon180 <0,lon180+360,lon180)
+    # ds.coords[lonname] = lon360
+    dsnew = dsnew.sortby(dsnew[lonname])
     return ds
 
 def lon360to180_ds(ds,lonname='longitude'):
@@ -3376,6 +3387,8 @@ def sel_region_cv(tlon,tlat,invar,bbox,debug=False,return_mask=False):
 def sel_region_xr(ds,bbox):
     """
     Selects region given bbox = [West Bnd, East Bnd, South Bnd, North Bnd]
+    Defaults to coordinates of bbox (degrees East or West) and swaps ds accordingly
+    
     
     Parameters
     ----------
@@ -3387,7 +3400,57 @@ def sel_region_xr(ds,bbox):
     Returns
     -------
         Subsetted datasetor dataarray
+        
     """
+    #bbox = np.array(bbox,dtype=object)
+    check_latitude_ascending = (ds.lat[1] - ds.lat[0] > 0)
+    check_lon360 = np.any(ds.lon > 180).data.item()
+    if bbox[2] > bbox[3] and check_latitude_ascending:
+        print("Warning! Southern Latitude Bound > Northern Latitude Bound for increasing latitudes...")
+        print("\tSelecting latitudes in reverse order")
+        latN,latS = bbox[2:]
+        bbox[2] = latS
+        bbox[3] = latN
+        
+    # Ensure that bbox and ds have the same longitude
+    bbox_lon360 = np.all(np.array(bbox)>0)
+    if (bbox_lon360 == 0) and (check_lon360 == 1):
+        print("Converting BBOX lon to degrees East")
+        for ii in [0,1]:
+            if bbox[ii] < 0:
+                bbox[ii] = bbox[ii] + 360
+    elif (bbox_lon360 == 1) and (check_lon360 == 0):
+        print("Converting BBOX lon degrees Wast")
+        for ii in [0,1]:
+            if bbox[ii] > 180:
+                bbox[ii] = bbox[ii] - 360
+        
+        
+    
+    if bbox[0] > bbox[1]: # Checks Longitude Issues 
+        print("Warning! Eastern Longitude Bound > Western Longitude Bound...")
+        if np.any(np.array(bbox[:2]) > 180): # Degrees East
+            print("\tDegrees East Detected. Crossing Prime Meridian.")
+            if check_lon360 == 0 :
+                print("\tAutomatically converting ds to degrees East")
+                ds = lon180to360_xr(ds)
+            dswest = ds.sel(lon=slice(bbox[0],360),lat=slice(bbox[2],bbox[3]))
+            dseast = ds.sel(lon=slice(0,bbox[1]),lat=slice(bbox[2],bbox[3]))
+            return xr.concat([dswest,dseast],dim='lon')
+        
+        elif np.any(np.array(bbox[:2])<0): # Degrees West
+            print("\tDegrees West Detected. Crossing Date Line.") 
+            if check_lon360 == 1:
+                print("\tAutomatically converting ds to degrees West")
+                ds = lon360to180_xr(ds)
+            dswest = ds.sel(lon=slice(bbox[0],180),lat=slice(bbox[2],bbox[3]))
+            dseast = ds.sel(lon=slice(-180,bbox[1]),lat=slice(bbox[2],bbox[3]))
+            return xr.concat([dswest,dseast],dim='lon')
+        
+        else:
+            print("\t Case not found, please check function...")
+            return None
+        
     return ds.sel(lon=slice(bbox[0],bbox[1]),lat=slice(bbox[2],bbox[3]))
 
 
