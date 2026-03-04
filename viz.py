@@ -28,6 +28,7 @@
         ~ Cartopy/Mapping
     geosubplots         : Make subplots with geoaxes
     init_map            : Quickly initialize a map for plotting
+    init_globalmap      : Copied from ensobase.utils on 2026.03.03
     plot_box            : Plot bounding box
     get_box_coords      : Get coordinates of bounding box for orthomap plot
     add_coast_grid      : Add land and gridlines (with fill)
@@ -84,6 +85,7 @@ import numpy as np
 #import colorcet as cc
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtransforms
+import cartopy
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
@@ -95,6 +97,7 @@ import matplotlib.ticker as mticker
 import matplotlib.gridspec as gridspec
 import matplotlib.patheffects as PathEffects
 import matplotlib.path as mpath
+import matplotlib as mpl
 
 # Custom Functions
 sys.path.append("/Users/gliu/Downloads/02_Research/01_Projects/01_AMV/00_Commons/03_Scripts/")
@@ -419,7 +422,25 @@ def init_map(bbox,crs=ccrs.PlateCarree(),ax=None,return_gl=False):
         return ax,gl
     return ax
 
-
+def init_globalmap(nrow=1,ncol=1,figsize=(12,8)):
+    proj            = ccrs.Robinson(central_longitude=-180)
+    bbox            = [-180,180,-90,90]
+    fig,ax          = plt.subplots(nrow,ncol,subplot_kw={'projection':proj},figsize=figsize,constrained_layout=True)
+    
+    multiax = True
+    if (type(ax) == mpl.axes._axes.Axes) or (type(ax) == cartopy.mpl.geoaxes.GeoAxes):
+        ax = [ax,]
+        multiax = False
+    
+    if type(ax) == tuple or (ncol+nrow > 2):
+        ax = ax.flatten()
+    for a in ax:
+        a.coastlines(zorder=10,lw=0.75,transform=proj)
+        a.gridlines(ls ='dotted',draw_labels=True)
+        
+    if multiax is False:
+        ax = ax[0]
+    return fig,ax
 
 def plot_box(bbox,ax=None,return_line=False,leglab="Bounding Box",
              color='k',linestyle='solid',linewidth=1,proj=ccrs.PlateCarree()):
