@@ -1216,15 +1216,16 @@ def lon180to360_xr(ds,lonname='lon'):
     # lon360 = xr.where(lon180 <0,lon180+360,lon180)
     # ds.coords[lonname] = lon360
     dsnew = dsnew.sortby(dsnew[lonname])
-    return ds
+    return dsnew
 
 def lon360to180_ds(ds,lonname='longitude'):
     """Same as above but for datasets. Copied from stackexchange
     https://stackoverflow.com/questions/53121089/regridding-coordinates-with-python-xarray
     """
+    dsnew = ds.copy()
     newcoord = {lonname : ((ds[lonname] + 180) % 360) - 180}
-    ds = ds.assign_coords(newcoord).sortby(lonname)
-    return ds
+    dsnew = dsnew.assign_coords(newcoord).sortby(lonname)
+    return dsnew
 
 def linear_crop(invar,lat,lon,ptstart,ptend,belowline=True,along_x=True,debug=False):
     
@@ -1350,6 +1351,59 @@ def calc_dx_dy(longitude,latitude,centered=False):
 
 def fliplat(da,latname="lat"):
     return da.isel(**{latname:slice(None,None,-1)})
+
+def correct_lon(lonval,verbose=True):
+    "Correct longitude values to between 0-360 or -180-180 (for get_box)"
+    if lonval > 180:
+        if verbose:
+            print("Degrees East Detected (0 to 360)")
+        if lonval >= 360:
+            if verbose:
+                print("\tCrossing Prime Meridian")
+            lonval = lonval - 360        
+    else:
+        if verbose:
+            print("Degrees West Detected (-180 to 180)")
+        if lonval < -180:
+            if verbose:
+                print("Crossing Date Line E to W")
+            lonval = 360 + lonval
+        elif lonval > 180:
+            if verbose:
+                print("Crossing Date Line W to E")
+            lonval = lonval - 360
+    return lonval
+
+def correct_lat(latval,verbose=True):
+    "Correct latitude values that go beyond -90 or 90 (for get_box)"
+    if latval < -90:
+        if verbose:
+            print("Warning! Box extends past the poles, cropping to -90")
+        latval = -90
+    if latval > 90:
+        if verbose:
+            print("Warning! Box extends past the poles, cropping to 90")
+        latval = 90
+    
+    return latval
+
+def get_box(lonc,latc,lonwin,latwin,verbose=False):
+    "Get box centered at lat/lon with specificed size"
+    bbsel  = np.array([lonc-lonwin,lonc+lonwin,latc-latwin,latc+latwin])
+    for ii in [0,1]:
+        bbsel[ii] = correct_lon(bbsel[ii],verbose=verbose)
+    for ii in [2,3]:
+        bbsel[ii] = correct_lat(bbsel[ii],verbose=verbose)
+    return bbsel
+
+def sel_box(ds,lonc,latc,lonwin,latwin,verbose=False,return_bbsel=False):
+    "Select box of specified size centered on coordinate from DataArray"
+    bbsel = get_box(lonc,latc,lonwin,latwin,verbose=verbose)
+    if return_bbsel:
+        return sel_region_xr(ds,bbsel,verbose=verbose),bbsel
+    return sel_region_xr(ds,bbsel,verbose=verbose)
+
+
 
 """
 ------------------------------
