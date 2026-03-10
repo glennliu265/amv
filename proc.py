@@ -252,14 +252,15 @@ def deseason(ts,dim=0,return_scycle=False):
         return tsanom,scycle
     return tsanom
 
-def xrdeseason(ds,check_mon=True):
+def xrdeseason(ds,check_mon=True,verbose=True):
     """ Remove seasonal cycle, given an Dataarray with dimension 'time'"""
     if check_mon:
         try: 
             if ds.time[0].values.item().month != 1:
                 print("Warning, first month is not Jan...")
         except:
-            print("Warning, not checking for feb start")
+            if verbose:
+                print("Warning, not checking for feb start")
     
     return ds.groupby('time.month') - ds.groupby('time.month').mean('time')
 
@@ -597,7 +598,7 @@ def xrdetrend_1d(ds,order,return_model=False):
     return dsout
 
 
-def xrdetrend_nd(invar,order,regress_monthly=False,return_fit=False):
+def xrdetrend_nd(invar,order,regress_monthly=False,return_fit=False,verbose=True):
     """
     Given an DataArray [invar] and [order] of polynomial fit,
     fit the timeseries and detrend.
@@ -616,7 +617,8 @@ def xrdetrend_nd(invar,order,regress_monthly=False,return_fit=False):
         invar_arr   = invar.data # [lon x lat x time]
         
     except:
-        print("Warning, input is not 3d or doesn't have ('lon','lat','time')")
+        if verbose:
+            print("Warning, input is not 3d or doesn't have ('lon','lat','time')")
         reshape_output = make_2d_ds(invar,keepdim='time') #[1 x otherdims x time]
         invar_arr      = reshape_output[0].data
         reshape_flag = True
@@ -624,7 +626,7 @@ def xrdetrend_nd(invar,order,regress_monthly=False,return_fit=False):
     # Filter out NaN points
     nlon,nlat,ntime = invar_arr.shape
     invar_rs = invar_arr.reshape(nlon*nlat,ntime) # Space x Time
-    nandict  = find_nan(invar_rs,1,return_dict=True)
+    nandict  = find_nan(invar_rs,1,return_dict=True,verbose=verbose)
     
     if regress_monthly: # Do regression separately for each month
     
