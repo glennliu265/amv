@@ -598,7 +598,7 @@ def xrdetrend_1d(ds,order,return_model=False):
     return dsout
 
 
-def xrdetrend_nd(invar,order,regress_monthly=False,return_fit=False,verbose=True):
+def xrdetrend_nd(invar,order,regress_monthly=False,return_fit=False,verbose=True,debug=False):
     """
     Given an DataArray [invar] and [order] of polynomial fit,
     fit the timeseries and detrend.
@@ -688,13 +688,14 @@ def xrdetrend_nd(invar,order,regress_monthly=False,return_fit=False,verbose=True
         #nandict['cleaned_data' # [space x time]
         
         # # Debug Plot
-        ii = 77
-        fig,ax = plt.subplots(1,1)
-        ax.plot(xdim,data_detrended[:,ii],label="Detrended",color='blue')
-        ax.plot(xdim,data_fit[ii,:],label="Fit",color="red")
-        ax.plot(xdim,nandict['cleaned_data'][ii,:],label="Raw",color='gray',ls='dashed')
-        ax.legend()
-        
+        if debug:
+            ii = 77
+            fig,ax = plt.subplots(1,1)
+            ax.plot(xdim,data_detrended[:,ii],label="Detrended",color='blue')
+            ax.plot(xdim,data_fit[ii,:],label="Fit",color="red")
+            ax.plot(xdim,nandict['cleaned_data'][ii,:],label="Raw",color='gray',ls='dashed')
+            ax.legend()
+            
         # Replace Detrended data in original array
         arrout = np.zeros((nlon*nlat,ntime)) * np.nan
         arrout[nandict['ok_indices'],:] = data_detrended.T
