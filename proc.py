@@ -5323,6 +5323,15 @@ def selmon_ds(ds,selmon):
     "Select Months [selmon] in a DataArray/DataSet"
     return ds.sel(time=ds.time.dt.month.isin(selmon))
 
+def expand_bbox(bbox,add_lat=10,add_lon=10):
+    """
+    Expand bounding box [west east south north] by fixed lat/lon amount
+    """
+    bbox_expanded = [bbox[0]-add_lon,bbox[1]+add_lon,
+                bbox[2]-add_lat,bbox[3]+add_lon]
+    return bbox_expanded
+
+
 """
 -----------------
 |||  Labeling ||| ****************************************************

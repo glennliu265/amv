@@ -71,6 +71,11 @@ Functions:
     linear_crop         : Remove points above/below a specified line
     calc_dx_dy          : Retrieve 2d array of distances between grid points in meters
     fliplat             : Flip latitude to go from negative to positive
+    correct_lon         : Correct longitude values to between 0-360 or -180-180 (for get_box)
+    correct_lat         : Correct latitude values that go beyond -90 or 90 (for get_box)
+    get_box             : Get box centered at lat/lon with specified size (correcting for lat/lon)
+    sel_box             : Select box from DataArray based on specified window size
+    
     
     ------------------------------
     |||  Statistical Analysis  ||| ****************************************************
@@ -220,6 +225,7 @@ Functions:
     printtime           : Print time elapsed in seconds
     darkname            : Append "_dark" to end of figure name
     selmon_ds           : Select certain months in a DataArray/DataSet
+    expand_bbox         : Expand bounding box by fixed amount
     
     -----------------
     |||  Labeling ||| ****************************************************
