@@ -14,6 +14,7 @@ import xarray as xr
 import calendar as cal
 import numpy.ma as ma
 from scipy import signal,stats
+from scipy import fft
 from scipy.signal import butter, lfilter, freqz, filtfilt, detrend
 import os
 import time
@@ -2147,7 +2148,6 @@ def xrcorr_leadlag(dsbase,dslag,basemonth,leadlags,seasonal=False,debug=False,co
         # Apply Window if needed
         if seasonal: # Note, if the final window for the last lag exceeds the number of years, this is dropped...
             lag_timeseries = append_window(dslag,lag_timeseries,lagmon,lagyears,debug=debug)
-
         
         # Adjust year counter
         if change_year:
@@ -5496,5 +5496,690 @@ def fix_febstart(ds):
         ds = ds.assign_coords(time=correctedtime) 
     return ds
 
+
+def yo_spec(x,opt,nsmooth,pct,debug=True,verbose=True):
+    """
+    
+    YO_SPEC : Calculating Auto-Spectrum
+    ============================================================================
+    
+    USAGE : [P,freq,dof,r1]=yo_spec(x,opt,nsmooth,pct)
+    
+    DESCRIPTION : 
+      Calculating Auto-Spectrum of input time series 
+
+    INPUT :     x    =  a vector input time series  
+               opt   =  detrending option (0: just demean, 1: demean+detrend)
+             nsmooth =  # of adjacent frequencies over which smoothing to be 
+                        performed on the raw periodogram estimates (>=1)
+                          1    : No Smoothing
+                          odds : All weights are 1/nsmooth except weight(1) and 
+                                 weight(nsmooth) which are 1/(2*nsmooth)
+                          even : Routine will force the nsmooth to be the next
+                                 largest odd number
+               pct   =  percent of the series to be tapered (0.0<=pct<=1.0) 
+               
+    OUTPUT :    P    =  auto-spectral density of x [x-units^2/cycle/sample-interval]
+                        (spectrum is normalized so that the area under the curve
+                        (P(1)+P(end))*df/2+sum(P(2:end-1))*df equals the variance 
+                        of the detrended series, where df=1/npts=frequency spacing)
+               freq  =  frequency [cycles/time]
+               dof   =  degree of freedom
+               r1    =  lag 1 correlation of input time series
+               
+    DEPENDENCIES:
+        numpy, scipy.signal, scipy.fft
+    """
+    
+    #------------------------------------------------------------------------
+    # Check the dimensions of input time series
+    #------------------------------------------------------------------------
+    if len(x.shape) > 1:
+        print("x should be 1-D vectors")
+        return
+    
+    #------------------------------------------------------------------------
+    # Check [opt]
+    #------------------------------------------------------------------------
+    if opt not in [0,1]:
+        print("opt should be either 0 or 1")
+        return
+    
+    #------------------------------------------------------------------------
+    # Check [nsmooth]
+    #------------------------------------------------------------------------
+    if nsmooth != np.fix(nsmooth):
+        print("nsmooth should be an integer")
+        return
+    elif nsmooth <=0: 
+        print("nsmooth should be greater than zero")
+        return
+    #------------------------------------------------------------------------
+    # Check [pct]
+    #------------------------------------------------------------------------
+    if (pct<0) | (pct>1):
+        print("pct should be between 0 and 1")
+        return
+        
+    #------------------------------------------------------------------------
+    #  Make x a column vectors and count the number of data points
+    #------------------------------------------------------------------------
+    x    = x.flatten()
+    npts = x.shape[0] 
+    
+    #------------------------------------------------------------------------
+    # Demean, detrend, tapering
+    #------------------------------------------------------------------------
+    x    = x - x.mean()
+    if opt == 1: 
+        x = signal.detrend(x)
+    
+    VAR  = x.var()
+    if pct != 0:
+        x    = yo_taper(x,pct,0,debug=debug)
+    
+    #------------------------------------------------------------------------
+    # Calculate the lag 1 correlation
+    #------------------------------------------------------------------------
+    r1 = np.corrcoef(x[1:],x[:-1])[0,1] # NOTE: Eventually change to yo_cor
+    
+    #------------------------------------------------------------------------
+    # Calculate raw periodogram
+    #------------------------------------------------------------------------
+    X = fft.fft(x)/npts
+    X = X[1:int(npts/2)+1]
+    
+    if np.fix(npts/2) == npts/2: # Even
+        X[:-1] = 2*X[:-1]
+    else:
+        X = 2*X
+    P0 = np.real(X * np.conj(X)) # sum(P0)= (2?) * var(x,1)
+    
+    #------------------------------------------------------------------------
+    # Smooth the periodogram (reflective (symmetric) smoothing)
+    #     with modified Daniell window (note: sum(win)=1)
+    #------------------------------------------------------------------------
+    #if np.fix(nsmooth/2) == np.fix((nsmooth+1)/2): # Original conditional
+    if nsmooth%2 == 0: # for even nsmooth
+        nsmooth+=1
+    
+    P0refl = np.hstack([P0,np.flip(P0[1:-1])])
+    
+    win = np.zeros(P0refl.shape) # Make window (in frequency space)
+    #print(win.shape)
+    if nsmooth > 1:
+        kwin = int((nsmooth+1)/2)
+        # first weights
+        win[0:kwin]   = 1/(nsmooth-1)
+        win[-kwin+1:] = 1/(nsmooth-1)
+        
+        # half of first weight
+        win[kwin-1]  = 0.5*1/(nsmooth-1)
+        win[-kwin+1] = 0.5*1/(nsmooth-1)
+    else:
+        win[1] = 1
+    
+    if win.sum() != 1:
+        if verbose:
+            print("Warning, window does not sum to 1!")
+    
+    # IFFT back to time, apply window, then FFT back (?)
+    P1 = np.real( len(win) * fft.fft( fft.ifft(win) * fft.ifft(P0refl) ))
+    P1 = P1[:len(P0)]
+    
+    # ------------------------------------------------------------------------
+    # Normalize the smoothed periodogram, so that the area under the curve
+    # (P(1)+P(end))*df/2+sum(P(2:end-1))*df = var of the detrended series
+    #  where df=1/npts=frequency spacing 
+    #------------------------------------------------------------------------
+    
+    df  = 1/npts          # frequency spacing
+    
+    WGT = ( (P1[0]+P1[-1]) / 2 + np.sum(P1[1:-1]) ) * df  # area under the spectrum curve
+    
+    P   = P1*VAR/WGT 
+    
+    #------------------------------------------------------------------------
+    # Calculate degree of freedom with the smoothing and tapering factors
+    #------------------------------------------------------------------------
+    
+    smoothfac = np.sum(win**2)
+    taperfac  = 0.5 * (128-93*pct) / (8-5*pct)**2
+    dof       = 2/smoothfac/taperfac
+    
+    #------------------------------------------------------------------------
+    # Calculate Frequency grids
+    #------------------------------------------------------------------------
+    fbw  = dof*df/2                  #frequency bandwidth
+    fmax = 0.5                       # Nyquist frequency
+    freq = np.arange(1/npts,fmax+df,df);
+    
+    return P,freq,dof,r1
+
+
+def yo_cospec(x,y,opt,nsmooth,pct,debug=True,verbose=True,return_auto=False):
+    """
+    
+    YO_SPEC : Calculating Cross-Spectrum
+    ============================================================================
+    
+    USAGE : [P,freq,dof,r1]=yo_spec(x,opt,nsmooth,pct)
+    
+    DESCRIPTION : 
+      Calculating Auto-Spectrum of input time series 
+
+    INPUT :     x,y  =  vector input time series  
+               opt        =  detrending option (0: just demean, 1: demean+detrend)
+             nsmooth      =  # of adjacent frequencies over which smoothing to be 
+                        performed on the raw periodogram estimates (>=1)
+                          1    : No Smoothing
+                          odds : All weights are 1/nsmooth except weight(1) and 
+                                 weight(nsmooth) which are 1/(2*nsmooth)
+                          even : Routine will force the nsmooth to be the next
+                                 largest odd number
+               pct         =  percent of the series to be tapered (0.0<=pct<=1.0) 
+               return_auto = Set to True to also return autospectrum
+               
+    OUTPUT :   CP    = co-spectrum of x and y (real part)  : [x-units*y-units/cycle/sample-interval]
+               QP    = quad-spectrum of x and y (imag part) : [x-units*y-units/cycle/sample-interval]
+               freq  = frequency [cycles/time]
+               dof   = degree of freedom
+               r1    = lag 1 correlation of input time series
+               PX    = auto-spectrum of x : [x-units^2/cycle/sample-interval]
+               PY    = auto-spectrum of y : [y-units^2/cycle/sample-interval]
+    
+    DEPENDENCIES:
+        numpy, scipy.signal, scipy.fft
+    """
+    
+    #------------------------------------------------------------------------
+    # Check the dimensions of input time series
+    #------------------------------------------------------------------------
+    if (len(x.shape) > 1) or (len(y.shape) > 1):
+        print("x and y should be 1-D vectors")
+        return
+    
+    #------------------------------------------------------------------------
+    # Check [opt]
+    #------------------------------------------------------------------------
+    if opt not in [0,1]:
+        print("opt should be either 0 or 1")
+        return
+    
+    #------------------------------------------------------------------------
+    # Check [nsmooth]
+    #------------------------------------------------------------------------
+    if nsmooth != np.fix(nsmooth):
+        print("nsmooth should be an integer")
+        return
+    elif nsmooth <=0: 
+        print("nsmooth should be greater than zero")
+        return
+    #------------------------------------------------------------------------
+    # Check [pct]
+    #------------------------------------------------------------------------
+    if (pct<0) | (pct>1):
+        print("pct should be between 0 and 1")
+        return
+        
+    #------------------------------------------------------------------------
+    #  Make x a column vectors and count the number of data points
+    #------------------------------------------------------------------------
+    x    = x.flatten()
+    npts = x.shape[0]
+    
+    y    = y.flatten()
+    if y.shape[0] != npts:
+        print("Error: x and y should be the same shape")
+        return
+    
+    #------------------------------------------------------------------------
+    # Demean, detrend, tapering
+    #------------------------------------------------------------------------
+    x    = x - x.mean()
+    y    = y - y.mean()
+    if opt == 1: 
+        x = signal.detrend(x)
+        y = signal.detrend(y)
+    
+    VARX  = x.var()
+    VARY  = y.var()
+    if pct != 0:
+        x    = yo_taper(x,pct,0,debug=debug)
+        y    = yo_taper(y,pct,0,debug=debug)
+    
+    #------------------------------------------------------------------------
+    # Calculate the lag 1 correlation
+    #------------------------------------------------------------------------
+    r1_x = np.corrcoef(x[1:],x[:-1])[0,1] # NOTE: Eventually change to yo_cor ...
+    r1_y = np.corrcoef(y[1:],y[:-1])[0,1]
+    
+    #------------------------------------------------------------------------
+    # Calculate raw periodograms
+    #------------------------------------------------------------------------
+    X = fft.fft(x)/npts
+    X = X[1:int(npts/2)+1]
+    
+    Y = fft.fft(y)/npts
+    Y = Y[1:int(npts/2)+1]
+    
+    if np.fix(npts/2) == npts/2: # Even
+        X[:-1] = 2*X[:-1]
+        Y[:-1] = 2*Y[:-1]
+    else:
+        X = 2*X
+        Y = 2*Y
+        
+    # Get the Cross-Spectra
+    P0  = X * np.conj(Y) # message from original script: sum(P0)= cov(a,b,1)[1,2]
+    CP0 = np.real(P0)
+    QP0 = np.imag(P0)
+    
+    # Also get the autospectra
+    PX0 = X * np.conj(X) # sum(PX0) = var(x,1)
+    PY0 = Y * np.conj(Y) # sum(PY0) = var(y,1)
+    
+    # Place into Array for Processing
+    raw_periodograms    = [CP0,QP0,PX0,PY0]
+    
+    #------------------------------------------------------------------------
+    # Smooth the periodogram (reflective (symmetric) smoothing)
+    #     with modified Daniell window (note: sum(win)=1)
+    #------------------------------------------------------------------------
+    smooth_periodograms   = [smooth_daniell(P_in,nsmooth,verbose=verbose) for P_in in raw_periodograms]
+    CP1,QP1,P1_X,P1_Y     = smooth_periodograms
+    
+    _,win  = smooth_daniell(PX0,nsmooth,verbose=verbose,return_win=True) # Repeat to get the window
+    # ------------------------------------------------------------------------
+    # Normalize the smoothed periodogram, so that the area under the curve
+    # (P(1)+P(end))*df/2+sum(P(2:end-1))*df = var of the detrended series
+    #  where df=1/npts=frequency spacing 
+    #------------------------------------------------------------------------
+    
+    df   = 1/npts          # frequency spacing
+    
+    WGT_X= ( (P1_X[0]+P1_X[-1]) / 2 + np.sum(P1_X[1:-1]) ) * df  # area under the spectrum curve
+    WGT_Y= ( (P1_Y[0]+P1_Y[-1]) / 2 + np.sum(P1_Y[1:-1]) ) * df  # area under the spectrum curve
+    
+    WGT  = np.sqrt(VARX/WGT_X * VARY/WGT_Y)
+    CP   = CP1*WGT
+    QP   = QP1*WGT
+    
+    #------------------------------------------------------------------------
+    # Calculate degree of freedom with the smoothing and tapering factors
+    #------------------------------------------------------------------------
+    
+    smoothfac = np.sum(win**2)
+    taperfac  = 0.5 * (128-93*pct) / (8-5*pct)**2
+    dof       = 2/smoothfac/taperfac
+    
+    #------------------------------------------------------------------------
+    # Calculate Frequency grids
+    #------------------------------------------------------------------------
+    fbw  = dof*df/2                  #frequency bandwidth
+    fmax = 0.5                       # Nyquist frequency
+    freq = np.arange(1/npts,fmax+df,df);
+    
+    if return_auto:
+        PX = P1_X * VARX / WGT_X
+        PY = P1_Y * VARY / WGT_Y
+        return CP,QP,freq,dof,r1_x,r1_y,PX,PY
+    return CP,QP,freq,dof,r1_x,r1_y
+    
+
+def smooth_daniell(P0,nsmooth,verbose=False,return_win=False):
+    """
+    Apply a modified Daniell window for reflective symmetric smoothing of a periodogram.
+    
+    Parameters
+    ----------
+    P0         : 1-D Array [Frequencies] - Periodogram to smooth
+    nsmooth    : INT                     - # of Adjacent bands to smooth
+    verbose    : BOOL, optional          - Set True to Print Debug Msgs. The default is False.
+    return_win : BOOL, optional          - Set to True to return the window
+
+    Returns
+    -------
+    P1      : 1-D Array [Frequencies] - Smoothed Periodogram
+    """
+    if nsmooth%2 == 0: # for even nsmooth
+        nsmooth+=1
+    
+    # Mirror array about the center, drop endpoint [1,2,3,4] --> [1,2,3,4][3,2] ??
+    P0refl = np.hstack([P0,np.flip(P0[1:-1])])
+    
+    # Make the window (in frequency space)
+    win = np.zeros(P0refl.shape)
+    if nsmooth > 1:
+        kwin = int((nsmooth+1)/2)
+        # first weights
+        win[0:kwin]   = 1/(nsmooth-1)
+        win[-kwin+1:] = 1/(nsmooth-1)
+        
+        # half of first weight
+        win[kwin-1]  = 0.5*1/(nsmooth-1)
+        win[-kwin+1] = 0.5*1/(nsmooth-1)
+    else:
+        win[1] = 1
+    
+    if win.sum() != 1:
+        if verbose:
+            print("Warning, window does not sum to 1!")
+    
+    # IFFT back to time, apply window, then FFT back
+    P1 = np.real( len(win) * fft.fft( fft.ifft(win) * fft.ifft(P0refl) ))
+    P1 = P1[:len(P0)]
+    if return_win:
+        return P1,win
+    return P1
+
+def yo_taper(x,pct,dim,debug=False):
+    """
+    
+    YO_TAPER : TAPER
+    ============================================================================
+    
+    USAGE : y=yo_taper(x,pct{,dim})
+    
+    DESCRIPTION : 
+        Tapering the both ends of the input time series 
+        
+    INPUT :    x   [Array]    input time series (recommended to be detrended)
+                              Can be 1-D or 2-D (multiple time series).
+              pct  [Numeric]  percent of the series to be tapered (0.0<=pct<=1.0) 
+              dim  [Int]      0 : each column is individual time series (default)
+                              1 : each row is individual time series
+             debug [Bool]     visualize tapering results
+    
+    OUTPUT :    y  [Array]    tapered output timeseries (1-D or 2-D)
+    
+    AUTHOR :  Young-Oh Kwon  (2003/12/15)
+              Python Version: Glenn Liu (2021/02/11)
+    
+    NOTES  :  Still need to add error handling...
+    
+    """
+    #------------------------------------------------------------------------
+    # Check [pct]
+    #------------------------------------------------------------------------
+    if (pct<0) | (pct>1):
+        print("pct should be between 0 and 1")
+        exit
+        
+    #------------------------------------------------------------------------
+    # Rotate the input vector if dim==1
+    #------------------------------------------------------------------------
+    if dim == 1:
+        x = x.T
+    
+    #------------------------------------------------------------------------
+    # Add dimension if x is 1-D
+    #------------------------------------------------------------------------
+    flag1D = False
+    if len(x.shape) < 2:
+        x = x[:,None]
+        flag1D = True
+    
+    #------------------------------------------------------------------------
+    # Taper
+    #------------------------------------------------------------------------
+    tslength = x.shape[0]                    # Length of each timeseries
+    #numts    = x.shape[1]                   # Number of timeseries
+    numtaper = int(tslength*pct/2)           # Number of points to be tapered
+    
+    # Remove mean
+    tsavg    = x.mean(0)
+    y        = x - tsavg[None,:] # Demean
+    
+    # Create tapering multiplers
+    taperbeg = np.zeros(numtaper)
+    taperend = np.zeros(numtaper)
+    for i in range(numtaper):
+        taperbeg[i] = (1 - np.cos( np.pi / (numtaper-1) * (i) )) /2
+        taperend[i] = (1 + np.cos( np.pi / (numtaper-1) * (i) )) /2
+        
+    # Apply tapering to timeseries
+    ytaper = y.copy()
+    ytaper[:numtaper,:]   = ytaper[:numtaper,:]  * taperbeg[:,None]
+    ytaper[-numtaper:,:]  = ytaper[-numtaper:,:] * taperend[:,None]
+    
+    if numtaper == 1:
+        ytaper[0,:]  = 0
+        ytaper[-1,:] = 0
+    
+    if debug: # Visualize tapering results
+        t = 0
+        
+        # Plot Tapering Windows
+        fig,ax = plt.subplots(1,1)
+        ax.plot(taperbeg,color='k',label="Taper Beginning")
+        ax.plot(taperend,color='r',label="Taper End")
+        ax.plot(np.flip(taperend),color='orange',label="Taper End (Flipped)")
+        ax.grid(True,ls='dotted')
+        ax.legend()
+        ax.set_title("Tapering Windows")
+        
+        # Plot Timeseries before and after tapering
+        fig,ax = plt.subplots(1,1)
+        ax.plot(y[:,t],color='k',label="Raw")
+        ax.plot(ytaper[:,t],color='r',label="Tapered")
+        ax.grid(True,ls='dotted')
+        ax.legend()
+        ax.set_title("Timeseries Tapering")
+        
+        # Zoom in on tapering results, beginning and end
+        fig,axs = plt.subplots(2,1)
+        ax = axs[0] # Beginning
+        ax.plot(y[:numtaper,t],color='k',label="Raw")
+        ax.plot(ytaper[:numtaper,t],color='r',label="Tapered")
+        ax.grid(True,ls='dotted')
+        ax.legend()
+        ax.set_title("Beginning")
+        
+        ax = axs[1] # End
+        ax.plot(y[-numtaper:,t],color='k',label="Raw")
+        ax.plot(ytaper[-numtaper:,t],color='r',label="Tapered")
+        ax.grid(True,ls='dotted')
+        ax.legend()
+        ax.set_title("End")
+        plt.tight_layout()
+    
+    #------------------------------------------------------------------------
+    # Rotate the output vector if dim==1
+    #------------------------------------------------------------------------
+    if dim == 1:
+        y = ytaper.T
+    else:
+        y = ytaper
+    
+    #------------------------------------------------------------------------
+    # Squeeze output if input was 1D
+    #------------------------------------------------------------------------
+    if flag1D:
+        return y.squeeze()
+    return y
+
+def yo_speccl(freq,P,dof,r1,clvl=[0.95,]):
+    """
+    
+    YO_SPECCL : Calculating Confidence Curves for the Spectral Density Estimates
+    
+    ===========================================================================
+    USAGE : CC = yo_speccl(freq,P,dof,r1,clvl=[0.95,])
+    
+    DESCRIPTION : 
+        Calculating confidence curves of the spectral density estimates
+        with the null hypothesis of the red noise spectrum  
+    
+    INPUT :   freq  =  frequecy vector as an independent variable
+               P    =  spectral density as a dependent variable
+              dof   =  degree of freedom in spectral density estimate
+               r1   =  Lag 1 correlation of the original time series
+              clvl  =  Confidence levels to each confidence curve (0<clvl[i]<1)
+                      (default: clvl=[0.95,])
+    
+    OUTPUT :   CC   =  confidence curves : [len(freq),len(clvl)+1]
+                       CC(:,1) is for the red noise spectrum
+
+    AUTHOR :  Young-Oh Kwon  (2003/12/17) 
+              Python Version: Glenn Liu (2021/21/2021)
+              
+    NOTES  :  Still need to add error handling...
+    """
+    #------------------------------------------------------------------------
+    # Calculate the red noise spectrum
+    #------------------------------------------------------------------------
+    Pred  = 1/(1 + r1**2 - 2*r1*np.cos(2*np.pi*freq))
+    scale = np.sum(P)/np.sum(Pred)
+    CC    = Pred*scale
+    
+    # Tile CC along new dim for original spectrum + each confidence level
+    nlvl  = len(clvl)
+    CC    = np.tile(CC[:,None],nlvl+1) # [freq x (clvl+1)]
+    
+    #------------------------------------------------------------------------
+    # Calculate the confidence curve for each cls
+    #------------------------------------------------------------------------
+    ## Matlab approach (checked for equivalence)
+    #cc = (stats.chi2.ppf(clvl,df=dof)/dof)[None,:] # [1 x nlvl]
+    #CC[:,1:] = CC[:,[0]] @ cc # [freq x nlvl] = [freq x 1] * [1 x nlvl]
+    
+    ## More pythonic way (?) using array broadcasting
+    cc       = (stats.chi2.ppf(clvl,df=dof)/dof)
+    CC[:,1:] *= cc[None,:]
+    
+    return CC
+
+def yo_specplot(freq,P,dof,r1,tunit,
+                dt=1,clvl=[0.95,],axopt=1,clopt=1,
+                ax=None):
+    
+    
+    
+    #------------------------------------------------------------------------
+    # Calculate the confidence curves
+    #------------------------------------------------------------------------
+    if clopt !=0:
+        CC = yo_speccl(freq,P,dof,r1,clvl)
+        
+    #------------------------------------------------------------------------
+    # Scale the frequency and Power Spectrum
+    #------------------------------------------------------------------------
+    freq = freq/dt
+    CC   = CC*dt
+    P    = P*dt
+    
+    #------------------------------------------------------------------------
+    # Plot the spectrum
+    #------------------------------------------------------------------------
+    newfig = False 
+    if ax is None:
+        newfig = True
+        fig,ax = plt.subplots(1,1)
+        
+    #fig,ax = plt.subplots(1,1)
+    
+    if   axopt == 1: # linear-linear (w-P(w))    (: variance preserving)
+        h = ax.plot(freq,P,'k-')
+        ax.set_ylabel("Power",fontsize=13)
+    elif axopt == 2: # log-log (log10(w)-log10(P(w)))
+        h = ax.loglog(freq,P,'k-')
+        ax.set_ylabel("Power",fontsize=13)
+    elif axopt == 3: # semi-log (log10(w)-wP(w)) (: variance preserving)
+        h = ax.semilogx(freq,freq*P,'k-')
+        ax.set_ylabel("Frequency x Power",fontsize=13)
+    elif axopt == 4: # semi-log (w-log10(P(w)))
+        h = ax.semilogy(freq,P,'k-')
+        ax.set_ylabel("Power",fontsize=13)
+    elif axopt == 5: # semi-log (log10(w)-P(w))
+        h = ax.semilogx(freq,P,'k-')
+        ax.set_ylabel("Power",fontsize=13)
+    
+    #------------------------------------------------------------------------
+    # Plot Confidence Intervals and Axis Tailoring
+    #------------------------------------------------------------------------
+    nlvl = len(clvl)+1
+    hcl  = []
+    if clopt != 0:
+        cccolor = ('r','b','g','m','c','y')
+        if axopt in [1,2,4,5]: # Power on y axis
+            if clopt == 1:
+                for i in range(nlvl):
+                    hc = ax.plot(freq,CC[:,i],color=cccolor[i])
+                    hcl.append(hc)
+            else:
+                for i in range(nlvl-1):
+                    hc = ax.loglog([freq[-10*i-1],freq[-10*i-1]],
+                                   [np.mean(CC[:,0]),CC[9,i+1]*np.mean(CC[:,0])],
+                                   color=cccolor[i],lw=3
+                                    )
+                    hcl.append(hc)
+        
+        elif axopt == 3:
+            for i in range(nlvl):
+                hc = ax.plot(freq,freq*CC[:,i],color=cccolor[i])
+                hcl.append(hc)
+    
+    # Axes Tailoring
+    xmin = 10**(np.floor(np.log10(np.min(freq))))
+    #ax.set_yticklabels([])
+    ax.set_xlim([xmin,0.5/dt])
+    #ax.set_xlim([0,0.5/dt])
+    ax.grid(True,ls='dotted')
+    freqtick = ax.get_xticks()
+    yy = ax.get_ylim()
+    
+    #------------------------------------------------------------------------
+    # Put legends for confidence intervals + lag 1 correlation coefficient
+    #------------------------------------------------------------------------
+    if clopt != 0:
+        legendlabels = []
+        if clopt == 1:
+            legendlabels.append("AR1")
+        
+        for i in range(len(clvl)):
+            legendlabels.append("%i" % (clvl[i]*100)+"%")
+        hcl = [hcl[i][0] for i in range(len(hcl))]
+        hleg = ax.legend(handles=hcl,labels=legendlabels,fontsize=11)
+        
+        
+    #------------------------------------------------------------------------
+    # Plot second x-axis for the periods 
+    #------------------------------------------------------------------------
+    period =1/freq;
+    htax   =ax.twiny()
+    
+    if axopt == 1:
+        htax.set_xscale("linear")
+        htax.set_yscale("linear")
+    elif axopt == 2:
+        htax.set_xscale("log")
+        htax.set_yscale("log")
+    elif axopt == 3:
+        htax.set_xscale("log")
+        htax.set_yscale("linear")
+    elif axopt == 4:
+        htax.set_xscale("linear")
+        htax.set_yscale("log")
+    elif axopt == 5:
+        htax.set_xscale("log")
+        htax.set_yscale("linear")
+    
+    
+    #htax.set_xticks(np.linspace(htax.get_xticks()[0], htax.get_xticks()[-1], len(ax.get_xticks())))
+    #htax.set_ylim([0,1])
+    #htax.set_yticks([-1,2])
+    
+    xtkl = ["%.1f"% s for s in np.fix(1/freqtick/dt)]
+    htax.set_xticks(freqtick)
+    
+    htax.set_xticklabels(xtkl)
+    htax.set_xlim([xmin,0.5/dt])
+    htax.set_xlabel("Period (%s)"%tunit,fontsize=13)
+    
+    if newfig:
+        return fig,ax,h,hcl,htax,hleg
+    return fig,ax,h,hcl,htax,hleg
+    
 
 

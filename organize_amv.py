@@ -240,5 +240,19 @@ Functions:
     addstrtoext         : Append string to end of file, before the extension
     get_stringnum       : Search for starting positive of keyword in a string
     fix_febstart        : For dataarrays, alter files that start with feb to jan.
+    
+    -----------------
+    |||  yo box ||| ****************************************************
+    -----------------
+        Functions by Young-Oh Kwon translated from Matlab
+    yo_spec
+    yo_cospec
+    smooth_daniell
+    yo_taper
+    yo_speccl
+    yo_specplot
+    
+    
+    
 
 """
