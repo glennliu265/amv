@@ -3102,7 +3102,7 @@ def point_spectra(ts, nsmooth=1, opt=1, dt=None, clvl=[.95], pct=0.1):
     # Compute the power spectra to a single timeseries
     if dt is None:  # Divides to return output in 1/sec
         dt = 3600*24*30
-    sps = ybx.yo_spec(ts, opt, nsmooth, pct, debug=False, verbose=False)
+    sps = yo_spec(ts, opt, nsmooth, pct, debug=False, verbose=False)
 
     P, freq, dof, r1 = sps
     coords = dict(freq=freq/dt)
@@ -3114,7 +3114,7 @@ def get_freqdim(ts, dt=None, opt=1, nsmooth=1, pct=0.10, verbose=False, debug=Fa
     # Get the frequency dimension from a spectra calculation
     if dt is None:
         dt = 3600*24*30
-    sps = ybx.yo_spec(ts, opt, nsmooth, pct, debug=False, verbose=verbose)
+    sps = yo_spec(ts, opt, nsmooth, pct, debug=False, verbose=verbose)
     if sps is None:
         return None
     return sps[1]/dt
