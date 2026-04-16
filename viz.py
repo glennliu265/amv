@@ -339,7 +339,7 @@ def init_2rowodd(ncol,proj=None,figsize=(6,6),oddtop=False,debug=False):
 
 def label_sp(sp_id,case='upper',inside=True,ax=None,fig=None,x=0.0,y=1.0,
              fontsize=12,fontfamily='sans-serif',alpha=1,labelstyle=None,
-             usenumber=False,fontcolor='k'):
+             usenumber=False,fontcolor='k',weight='normal'):
     """
     Add alphabetical labels to subplots
     from: https://matplotlib.org/stable/gallery/text_labels_and_annotations/label_subplots.html
@@ -383,12 +383,12 @@ def label_sp(sp_id,case='upper',inside=True,ax=None,fig=None,x=0.0,y=1.0,
         ax.text(x, y, label, transform=ax.transAxes + trans,
                 fontsize=fontsize, verticalalignment='top',
                 bbox=dict(facecolor='1', edgecolor='none', pad=3.0,alpha=alpha),
-                color=fontcolor)
+                color=fontcolor,weight=weight)
     else:
         trans = mtransforms.ScaledTranslation(-20/72, 7/72, fig.dpi_scale_trans)
         ax.text(x, y, label, transform=ax.transAxes + trans,
                 fontsize=fontsize, va='bottom',
-                color=fontcolor)
+                color=fontcolor,weight=weight)
     return ax
 
 # ~~~~~~~~~~~~~~~~~~~~~~
@@ -422,9 +422,9 @@ def init_map(bbox,crs=ccrs.PlateCarree(),ax=None,return_gl=False):
         return ax,gl
     return ax
 
-def init_globalmap(nrow=1,ncol=1,figsize=(12,8)):
-    proj            = ccrs.Robinson(central_longitude=-180)
-    bbox            = [-180,180,-90,90]
+def init_globalmap(nrow=1,ncol=1,figsize=(12,8),centlon=200):
+    proj            = ccrs.Robinson(central_longitude=centlon)
+    #bbox            = [-180,180,-90,90]
     fig,ax          = plt.subplots(nrow,ncol,subplot_kw={'projection':proj},figsize=figsize,constrained_layout=True)
     
     multiax = True
@@ -624,6 +624,7 @@ def init_orthomap(nrow,ncol,bboxplot,centlon=-40,centlat=35,precision=40,
                   dx=10,dy=5,
                   frame_lw=2,frame_col="k",
                   figsize=(8,4.5),constrained_layout=True,ax=None):
+    
     # Intiailize Ortograpphic map over North Atlantic.
     # Based on : https://stackoverflow.com/questions/74124975/cartopy-fancy-box
     # The default lat/lon projection
