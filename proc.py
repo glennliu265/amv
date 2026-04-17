@@ -2366,7 +2366,7 @@ def eof_time_ds(ds,N_mode,monthly=False,cosweight=True,
     
     # Reshape to [sppce x time] and remove NaN points
     arr                 = arr.reshape(ntime,nspace).T # [time x space] --> [space x time]
-    okdata,knan,okpts   = proc.find_nan(arr,1) # Find NaN by summing along time axis
+    okdata,knan,okpts   = find_nan(arr,1) # Find NaN by summing along time axis
     oksize              = okdata.shape[0]
     
     # Perform EOF (for all time, or monthly)
@@ -2385,7 +2385,7 @@ def eof_time_ds(ds,N_mode,monthly=False,cosweight=True,
             
             # Perform EOF
             st = time.time()
-            eofsok,pcs,varexp= proc.eof_simple(okdata[:,:,m],N_mode,remove_timemean)
+            eofsok,pcs,varexp= eof_simple(okdata[:,:,m],N_mode,remove_timemean)
             #print("Performed EOF in %.2fs"%(time.time()-st))
             
             # Place back into full array
@@ -2408,7 +2408,7 @@ def eof_time_ds(ds,N_mode,monthly=False,cosweight=True,
         
     else:  # All Months Together
         # Perform EOF
-        eofsok,pcall,varexpall= proc.eof_simple(okdata,N_mode,remove_timemean)
+        eofsok,pcall,varexpall= eof_simple(okdata,N_mode,remove_timemean)
         
         # Place back into full array
         eofall = np.zeros((nspace,N_mode)) * np.nan
