@@ -1657,6 +1657,30 @@ def regress2ts(var,ts,normalizeall=0,method=1,nanwarn=1,verbose=True):
     
     return var_reg
 
+def extract_linear_component(x,y):
+    if np.any(np.isnan(x)) or np.any(np.isnan(y)): # Skip if NaN is found
+        return np.nan * np.ones(len(x))
+    # Get Fit and Calculate model (copied from detrend_poly)
+    fit     = np.polyfit(x,y,1)
+    inputs  = np.array([np.power(x,d) for d in reversed(range(len(fit)))])
+    model   = fit.T.dot(inputs)
+    return model
+
+def pointwise_linear_fit(ds_index,ds_target):
+    st = time.time()
+    ds_lincomp = xr.apply_ufunc(
+        extract_linear_component,
+        ds_index,
+        ds_target,
+        input_core_dims=[['time'],['time']],
+        output_core_dims=[['time']],
+        vectorize=True,
+        )
+    ds_lincomp['time'] = ds_index['time']
+    print("Extracted Component in %.2fs" % (time.time()-st))
+    return ds_lincomp
+
+
 #%% ~ Lead/Lag Analysis
 def calc_lagcovar(var1,var2,lags,basemonth,detrendopt,yr_mask=None,debug=True,
                   return_values=False,spearman=False):
@@ -2291,6 +2315,145 @@ def eof_filter(eofs,varexp,eof_thres,axis=0,return_all=False):
     # print(np.sum(varexps_filt,0)) # Should be all below the variance threshold
     return eofs_filtered
 
+def eof_time_ds(ds,N_mode,monthly=False,cosweight=True,
+                remove_timemean=True,verbose=True):
+    """
+    Perform eof_simple for an xarray DataArray with [time x lat x lon] dimensions
+    Automatically detects and ignores NaN points.
+    
+    Parameters
+    ----------
+    ds : xr.DataArray
+        DataArray with time x lat x lon. EOF will be performed over supplied range
+    N_mode : INT
+        Number of modes to keep.
+    monthly : BOOL, optional
+        Set to True to do EOF for each month separately. The default is False.
+    cosweight : BOOL, optional
+        Set to True to apply sqrt cos (lat) weighting. The default is True.
+    remove_timemean : BOOL, optional
+        Set to True to remove time mean prior to calculations. The default is True.
+    verbose : BOOL, optional
+        Set to True to allow print messages. The default is True.
+
+    Returns
+    -------
+    da_out : xr.Dataset containing...
+        eofs - EOF Patterns, xr.DataArray [ lat x lon x (month) x mode] :
+        pcs  - Principle Component Timeseries, xr.DataArray [ (year x month)  or (time) x mode]
+        varexp - Variance Explained by Mode, xr.DataArray [(month) x mode]
+        time - Time if Monthly=True, xr.DataArray [(time)]
+
+    """
+    starttime = time.time()
+    # Based on procedure in calc_EOF_ENSO.py
+    
+    # Get Dimensions and turn in numpy array
+    ds    = ds.transpose('time','lat','lon')
+    arr   = ds.data
+    ntime,nlat,nlon = arr.shape
+    nspace  = nlat*nlon
+    lon     = ds.lon.data
+    lat     = ds.lat.data
+    times   = ds.time.data
+    
+    # Apply cosine lat weighting
+    if cosweight and verbose:
+        print("Applying area-weighting (sqrt(cos(lat))...")
+        _,Y  = np.meshgrid(lon,lat)
+        wgt  = np.sqrt(np.cos(np.radians(Y))) # [lat x lon]
+        arr  = arr * wgt[None,:,:]
+    
+    # Reshape to [sppce x time] and remove NaN points
+    arr                 = arr.reshape(ntime,nspace).T # [time x space] --> [space x time]
+    okdata,knan,okpts   = proc.find_nan(arr,1) # Find NaN by summing along time axis
+    oksize              = okdata.shape[0]
+    
+    # Perform EOF (for all time, or monthly)
+    if monthly: # Separately by Month
+        
+        nyrs   = int(ntime/12)
+        okdata = okdata.reshape(oksize,nyrs,12)
+        
+        # Preallocate
+        eofall     = np.zeros((nspace,12,N_mode)) *np.nan# [space x month x pc]
+        pcall      = np.zeros((nyrs,12,N_mode)) *np.nan# [year x month x pc]
+        varexpall  = np.zeros((12,N_mode)) * np.nan #[month x pc]
+        
+        # Compute EOF for each month!!
+        for m in range(12):
+            
+            # Perform EOF
+            st = time.time()
+            eofsok,pcs,varexp= proc.eof_simple(okdata[:,:,m],N_mode,remove_timemean)
+            #print("Performed EOF in %.2fs"%(time.time()-st))
+            
+            # Place back into full array
+            eofs     = np.zeros((nspace,N_mode)) * np.nan
+            eofs[okpts,:] = eofsok   
+            
+            # Save variables
+            eofall[:,m,:]  = eofs.copy()
+            pcall[:,m,:]   = pcs.copy()
+            varexpall[m,:] = varexp.copy()
+            if verbose:
+                print("Completed month %i in %.2fs"%(m+1,time.time()-st))
+        # Reshape Data
+        eofall = eofall.reshape(nlat,nlon,12,N_mode) # [lat x lon x month x pc]
+        
+        # Undo Area Weight (need to check if this is valid)
+        if cosweight: 
+            eofall = eofall * 1/wgt[:,:,None,None]
+        # End Monthly Conditional ---
+        
+    else:  # All Months Together
+        # Perform EOF
+        eofsok,pcall,varexpall= proc.eof_simple(okdata,N_mode,remove_timemean)
+        
+        # Place back into full array
+        eofall = np.zeros((nspace,N_mode)) * np.nan
+        eofall[okpts,:] = eofsok   
+        
+        # Reshape Data
+        eofall = eofall.reshape(nlat,nlon,N_mode) # [lat x lon x month x pc]
+        
+        # Undo Area Weight (need to check if this is valid)
+        if cosweight: 
+            eofall = eofall * 1/wgt[:,:,None]
+            
+        # End All Month Conditional ---
+    
+    
+    # Replace into Data Array
+    pcnums = np.arange(N_mode) + 1
+    if monthly:
+        mons      = np.arange(1,13,1)
+        firstyear = ds.time.dt.year[0].data.item()
+        years     = np.arange(int(len(times)/12)) + firstyear
+        
+        # Make Dictionary
+        coords_eofs   = dict(lat=lat,lon=lon,month=mons,mode=pcnums) # 
+        coords_pcs    = dict(year=years,month=mons,mode=pcnums)
+        coords_varexp = dict(month=mons,mode=pcnums)
+    else:
+        # Make Dictionary
+        coords_eofs   = dict(lat=lat,lon=lon,mode=pcnums) # 
+        coords_pcs    = dict(time=times,mode=pcnums)
+        coords_varexp = dict(mode=pcnums)
+    
+    da_eofs       = xr.DataArray(eofall,coords=coords_eofs,dims=coords_eofs,name='eofs')
+    da_pcs        = xr.DataArray(pcall,coords=coords_pcs,dims=coords_pcs,name='pcs')
+    da_varexp     = xr.DataArray(varexpall,coords=coords_varexp,dims=coords_varexp,name='varexp')
+    
+    # Merge everything
+    da_out        = xr.merge([da_eofs,da_pcs,da_varexp])
+    # Add Additional Variables
+    if monthly:
+        da_out['time']      = times
+    if verbose:
+        print("Completed EOF calculations in %.2fs" % (time.time()-starttime))
+    return da_out
+
 #%% ~ Correlation
 def pearsonr_2d(A,B,dim,returnsig=0,p=0.05,tails=2,dof='auto'):
     """
@@ -2462,6 +2625,23 @@ def patterncorr_nd(reference_map,target_maps,axis=0,return_N=False):
     if return_N:
         return R,N_space_ok
     return R    
+
+def pointwise_r2(ds_index,ds_target):
+    st = time.time()
+    # Do separately for each point
+    calc_r2_point = lambda x,y: np.corrcoef(x,y)[0,1]**2
+    
+    ds_r2   = xr.apply_ufunc(
+        calc_r2_point,
+        ds_index,
+        ds_target,
+        input_core_dims=[['time'],['time']],
+        output_core_dims=[[]],
+        vectorize=True,
+        )
+    
+    print("Calculated point-wise r2 in %.2fs" % (time.time()-st))
+    return ds_r2
 
 def nancorr(ts1,ts2):
     # From https://stackoverflow.com/questions/31619578/numpy-corrcoef-compute-correlation-matrix-while-ignoring-missing-data

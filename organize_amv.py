@@ -82,8 +82,10 @@ Functions:
     ------------------------------
     
         ~ Regression ~
-    regress_2d          : Perform linear regression of Matrix B on A
-    regress2ts          : Regression variable to a timeseries (uses regress_2d)
+    regress_2d               : Perform linear regression of Matrix B on A
+    regress2ts               : Regression variable to a timeseries (uses regress_2d)
+    extract_linear_component : Get component of variable linearly related to a timeseries
+    pointwise_linear_fit     : Apply extract_linear_component to each point
     
     
         ~ Lead/Lag Analysis ~
@@ -100,12 +102,14 @@ Functions:
         ~ EOF Analysis ~
     eof_simple          : Perform EOF Analysis (cr. Yu-Chiao Liang)
     eof_filter          : Discard modes above a percentage threshold
+    eof_time_ds         : Wrapper for eof_simple for 3D input [time x lat x lon]
     
         ~ Correlation ~
     pearsonr_2d         : Compute Pearson's Correlation Coefficient for 2D matrix.
     calc_pearsonconf    : Compute upper and lower bounds using fisher-Z transform (?)
     patterncorr         : Compute the pattern correlation between 2 2-D maps (modified from slutil)
     patterncorr_nd      : Vectorized version of paterncorr script
+    pointwise_r2        : Calculate r2 at each point
     nancorr             : Correlation on timeseries with NaN
     
         ~ Significance Testing ~
