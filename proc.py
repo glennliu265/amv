@@ -9,22 +9,27 @@ test from stormtrack (moved 20200815)
 @author: gliu
 """
 
-import numpy as np
-import xarray as xr
-import calendar as cal
-import numpy.ma as ma
-from scipy import signal,stats
-from scipy import fft
-from scipy.signal import butter, lfilter, freqz, filtfilt, detrend
 import os
 import time
 import scipy
-import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
-import scipy as sp
-import pandas as pd
 import datetime
 import tqdm
+import sklearn
+
+import scipy as sp
+import pandas as pd
+import numpy as np
+import xarray as xr
+import calendar as cal
+
+import cartopy.crs as ccrs
+import numpy.ma as ma
+import matplotlib.pyplot as plt
+
+from scipy import signal,stats
+from scipy import fft
+from scipy.signal import butter, lfilter, freqz, filtfilt, detrend
+
 
 #%% Optional Yobox Import
 import_yobox = False
@@ -1416,6 +1421,121 @@ def sel_box(ds,lonc,latc,lonwin,latwin,verbose=False,return_bbsel=False):
 """
 
 #%% ~ Regression
+
+def mlr_point(predictors,target,fill_value=0):
+    """
+    Perform multiple linear regression at point using sklearn
+
+    Parameters
+    ----------
+    predictors : Array [time x predictor x ...]
+        Predictors, standardized before input if necessary
+    target : Array [time]
+        Target Timeseries
+    fill_value : Numeric, optional
+        Values to substitute NaN for The default is 0.
+
+    Returns
+    -------
+    coeffs : Array [predictor]
+        Coefficients for each predictor
+    r2 : Numeric
+        r2 of the fit between the two.
+    residual : [time]
+        Residual (target - model).
+        
+    Other Notes: Copied mlr_ccfs, mlr
+
+    """
+    
+    # Set Predictors and Target, Replace NaN values
+    X = predictors
+    y = target
+    if np.any(np.isnan(X)):
+        print("NaN values detected! Replace with %f" % fill_value)
+    X = np.where(np.isnan(X),fill_value,X) # Set NaN to zero
+    
+    # Initialize Model and Fit
+    model             = sklearn.linear_model.LinearRegression()
+    model.fit(X,y)
+    pred              = model.predict(X)
+    
+    # Calculate Error and other variables
+    coeffs   =  model.coef_ 
+    r2       = sklearn.metrics.r2_score(y,pred)
+    residual = y - pred # Model Error 
+    return coeffs,r2,residual
+
+def pointwise_mlr(predictors,target,fill_value=0,standardize=True,predictor_names=None):
+    """
+    xr.ufunc application of pointwise_mlr on monthly predictors/target over dimension [time]. 
+    
+    Can vectorize over remaining dimensions as long as they match in name+size 
+    between predictors and target (indicated by [...]).
+    
+    Automatically matches time start/end over shared period, [standardize] over time dimension
+    of each predictor, and fills NaNs with zero or [fill_value].
+    
+
+    Parameters
+    ----------
+    predictors : DataArray [time x predictor x ...]
+        Predictors, with time in the first dimension
+    target : DataArray [time x ...]
+        Targets, with time in the first dimension
+    fill_value : Numeric, optional
+        Replace NaN with this value. The default is 0.
+    standardize : BOOL, optional
+        True to standardize predictors along [time] dimension. The default is True.
+    predictor_names : Array of Strings [predictor], optional
+        Name of each predictor. The default is None.
+
+    Returns
+    -------
+    ds_mlr_out : DataSet containing:
+        coeffs     : DataArray [predictor x ...]
+        r2         : DataArray [...]
+        residual   : DataArray [time x ...]
+    
+    See `ensobase/scrap/calc_eof_cre.py` for example.
+    """
+    st = time.time()
+    
+    # Match Time (by month)
+    predictors,target = match_time_month(predictors,target)
+    # Standardize along Time Dimension
+    if standardize:
+        predictors = predictors / predictors.std('time')
+    if predictors.dims[0] != 'time':
+        print("Warning... first dimension in predictor should be time!")
+    if target.dims[0] != 'time':
+        print("Warning... first dimension in target should be time!")
+    
+    # use xr ufunc to compute MLR fit
+    ds_mlr_fit = xr.apply_ufunc(
+        mlr_point,
+        predictors, # Time must be in the first dimension
+        target,
+        input_core_dims=[['time','predictors'],['time']],
+        output_core_dims=[['predictors'],[],['time']],
+        vectorize=True,
+        )
+    
+    
+    # Make DataSet
+    ds_coeffs,ds_r2,ds_residual = ds_mlr_fit
+    ds_coeffs   = ds_coeffs.rename('coeff')
+    ds_r2       = ds_r2.rename('r2')
+    ds_residual = ds_residual.rename('residual')
+    ds_mlr_out  = xr.merge([ds_coeffs,ds_r2,ds_residual])
+    if predictor_names is not None:
+        ds_mlr_out['predictors'] = predictor_names
+        
+    print("Completed MLR Fit in %.2fs" % (time.time()-st))
+    
+    return ds_mlr_out
+
+
 def regress_2d(A,B,nanwarn=1,verbose=True):
     """
     Regresses A (independent variable) onto B (dependent variable), where
@@ -3240,7 +3360,6 @@ def lp_butter(varmon,cutofftime,order,btype='lowpass'):
     else: # 1d input
         varfilt = filtfilt(b,a,varmon)
     return varfilt
-    
 
 def calc_specvar(freq,spec,thresval,dtthres,droplast=True
                  ,lowerthres=0,return_thresids=False,trapz=True):

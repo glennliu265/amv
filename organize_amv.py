@@ -82,6 +82,8 @@ Functions:
     ------------------------------
     
         ~ Regression ~
+    mlr_point                : Perform mutliple linear regression given predictors and target
+    pointwise_mlr            : xr.ufunc application of mlr_point
     regress_2d               : Perform linear regression of Matrix B on A
     regress2ts               : Regression variable to a timeseries (uses regress_2d)
     extract_linear_component : Get component of variable linearly related to a timeseries
