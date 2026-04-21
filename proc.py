@@ -3411,7 +3411,7 @@ def point_spectra(ts, nsmooth=1, opt=1, dt=None, clvl=[.95], pct=0.1,return_conf
     if return_conf:  # Also return confidence curves (CCs)
         CC = yo_speccl(freq,P,dof,r1,clvl) # [freq x clvl]
         coords_CC = dict(freq=freq/dt,clvl=[0,]+clvl)
-        da_CC     = xr.DataArray(CC,coords=coords_CC,dims=coords_CC,name='CC')
+        da_CC     = xr.DataArray(CC*dt,coords=coords_CC,dims=coords_CC,name='CC')
         ds_out    = xr.merge([da_out,da_CC])
     
     # Include parameters for reproduceability
