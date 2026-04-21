@@ -3502,6 +3502,40 @@ def plot_conflog(loc,bnds,ax=None,color='k',cflabel=None):
                        color=color,label=cflabel)
     return ax,bars
 
+def mcsample_spectra(sample_source,ntime_sample,mciter,nsmooth):
+    """
+    Sample [ntime_sample]-length timeseries [mciter] times with replacement 
+    from timeseries [sample_source] and compute the spectra with smoothing 
+    across [nsmooth] adjacent bands.
+
+    Parameters
+    ----------
+    sample_source : xr.DataArray [time]
+        Source to sample from with replacement.
+    ntime_sample : INT
+        Length of sample.
+    mciter : INT
+        Number of samples to take.
+    nsmooth : INT
+        Number of adjacent bands to smooth over from .
+
+    Returns
+    -------
+    mcspec : xr.DataArray[sample x freq]
+        Spectra for each sample.
+
+    """
+    mcdict        = mcsampler(sample_source,ntime_sample,mciter) # Draw Samples
+    mcspec        = []
+    for mc in tqdm(range(mciter)):
+        sample_in = mcdict['samples'][mc,:]
+        specout   = point_spectra(sample_in,nsmooth=nsmooth,return_conf=False)
+        mcspec.append(specout)
+    mcspec = xr.concat(mcspec,dim='sample')
+    return mcspec
+
+    
+
 
 """
 -------------------------------

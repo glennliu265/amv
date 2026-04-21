@@ -143,6 +143,7 @@ Functions:
     get_freqdim         : Get frequency dimension for a yspectra calculation using yo_spec
     calc_confspec       : Calculate confidence interval of spectra
     plot_conflog        : Plot confidence intervals for spectral density on a log scale
+    mcsample_spectra    : Perform Monte-Carlo subsampling of power spectra
     
     ----------------------------
     |||  Indexing & Querying ||| ****************************************************
