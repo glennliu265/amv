@@ -3397,7 +3397,7 @@ def calc_specvar(freq,spec,thresval,dtthres,droplast=True
         specsum  = np.sum((specval*df),-1)
     return specsum
 
-def point_spectra(ts, nsmooth=1, opt=1, dt=None, clvl=[.95], pct=0.1):
+def point_spectra(ts, nsmooth=1, opt=1, dt=None, clvl=[.95], pct=0.1,return_conf=True):
     # Compute the power spectra to a single timeseries
     if dt is None:  # Divides to return output in 1/sec
         dt = 3600*24*30
@@ -3406,7 +3406,23 @@ def point_spectra(ts, nsmooth=1, opt=1, dt=None, clvl=[.95], pct=0.1):
     P, freq, dof, r1 = sps
     coords = dict(freq=freq/dt)
     da_out = xr.DataArray(P*dt, coords=coords, dims=coords, name="spectra")
-    return da_out
+    ds_out = da_out
+    
+    if return_conf:  # Also return confidence curves (CCs)
+        CC = yo_speccl(freq,P,dof,r1,clvl) # [freq x clvl]
+        coords_CC = dict(freq=freq/dt,clvl=[0,]+clvl)
+        da_CC     = xr.DataArray(CC/dt,coords=coords_CC,dims=coords_CC,name='CC')
+        ds_out    = xr.merge([da_out,da_CC])
+    
+    # Include parameters for reproduceability
+    ds_out['dof'] = dof
+    ds_out['r1']  = r1
+    ds_out['nsmooth'] = nsmooth
+    ds_out['pct'] = pct
+    ds_out['dt'] = dt
+    ds_out['opt'] = 1
+    
+    return ds_out
 
 
 def get_freqdim(ts, dt=None, opt=1, nsmooth=1, pct=0.10, verbose=False, debug=False):
