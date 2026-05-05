@@ -1422,10 +1422,11 @@ def sel_box(ds,lonc,latc,lonwin,latwin,verbose=False,return_bbsel=False):
 
 #%% ~ Regression
 
-def mlr_point(predictors,target,fill_value=0):
+def mlr_point(predictors,target,fill_value=0,return_dict=False):
     """
+    
     Perform multiple linear regression at point using sklearn
-
+    
     Parameters
     ----------
     predictors : Array [time x predictor x ...]
@@ -1464,6 +1465,13 @@ def mlr_point(predictors,target,fill_value=0):
     coeffs   =  model.coef_ 
     r2       = sklearn.metrics.r2_score(y,pred)
     residual = y - pred # Model Error 
+    if return_dict:
+        outdict = dict(
+            coeffs=coeffs,
+            r2=r2,
+            residual=residual
+            )
+        return outdict
     return coeffs,r2,residual
 
 def pointwise_mlr(predictors,target,fill_value=0,standardize=True,predictor_names=None):
@@ -1520,7 +1528,6 @@ def pointwise_mlr(predictors,target,fill_value=0,standardize=True,predictor_name
         output_core_dims=[['predictors'],[],['time']],
         vectorize=True,
         )
-    
     
     # Make DataSet
     ds_coeffs,ds_r2,ds_residual = ds_mlr_fit
