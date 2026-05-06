@@ -52,7 +52,8 @@
     plot_freqlin        : Linear Frequency x Power plot (linear x, linear y)
     plot_freqlog        : Log-Log plot                  (log x   , log y)
     init_logspec        : Initialize log-log plot (from viz_regional_spectra.py)
-    
+    init_specplot_enso  : Initialize Log-Log plot at ENSO frequencies
+    add_ctones          : Add combination tone bands based on provided ENSO Frequencies
     
         ~ Spatial/2-D Plots/Contours
     plot_contoursign    : Contour line plot with solid as positive and dashed as negative
@@ -1349,6 +1350,98 @@ def init_logspec(nrows,ncols,figsize=(10,4.5),ax=None,
     if newfig:
         return fig,ax
     return ax
+
+def init_specplot_enso(nrow=1,ncol=1,figsize=(8,4.5),fsz_ticks=12,fsz_axis=12,
+                       xper=[20,10,5,2,1,0.5]):
+    
+    # Initialize Spectra Plot at ENSO frequencies
+    # Bottom x-axis in frequency (1/month)
+    # Top x-axis in period (Years)
+    
+    fig,ax    = plt.subplots(1,1,figsize=(8,4.5),constrained_layout=True)
+    
+    # Set Up Spectra ========= (Look for function I wrote for this)
+    xper            = np.array(xper)
+    xper_ticks      = 1 / (xper*12)
+
+    # Set Vertical Lines, Axes Labels
+    ax.set_xlim([xper_ticks[0],0.5])
+    
+    # Twin X-Axis for Period Labels
+    ax.set_xlabel("Frequency ($month^{-1}$)",fontsize=fsz_axis)
+    ax.set_xlim([xper_ticks[0],0.5])
+    ax.set_ylabel("Power",fontsize=fsz_axis)
+    ax.set_xscale('log')
+    #ax.set_ylabel("Power ($ cycles per month$)")
+    ax2 = ax.twiny()
+    ax2.set_xlim([xper_ticks[0],0.5])
+    ax2.set_xscale('log')
+    ax2.set_xticks(xper_ticks,labels=xper)
+    ax2.set_xlabel("Period (Years)",fontsize=fsz_axis)
+    for ax in [ax,ax2]:
+        ax.tick_params(labelsize=fsz_ticks)
+    # =====================
+    return fig,ax
+
+
+def add_ctones(ax=None,ylims=None,enso_bands=[2,5.5],return_tones=False):
+    """ 
+    
+    Add Combination Tone Bands/Rectangles based on enso_bands
+    
+    Inputs:
+        ax         (matplotlib.axes)   : Axes to perform operation on.
+        ylims      (List of Numeric)   : Y-axis limits to plot bands to. Default is to get current limits.
+        enso_bands (List of Numeric)   : ENSO periods (in years). Default is [2,5.5].
+        return_tones (BOOL)            : Set to true to return combination tones. Default is False.
+    Outputs:
+        ax         (matplotlib.axes)   : Axes with bands added.
+        combination_tone_months (List) : List of [Sum_tones, Difference_tones] in months
+    
+    """
+
+       
+    
+    if ax is None:
+        ax = plt.gca()
+    
+    # Get ymin/max for plotting the rectangles
+    if ylims is not None:
+        ax.set_ylim(ylims) # Set Y Limits for Enso Frequency Plotting
+    y_min, y_max = ax.get_ylim()
+    ax.set_ylim([y_min,y_max])
+    # Calculate sum and difference tones
+    Mfreq_enso  = np.array([1/(enso_bands[0]*12), 1/(enso_bands[1]*12)])
+    Mfreq_fplus = 1/12 + Mfreq_enso # Sum Tone (in 1/month)
+    Mfreq_fmins = 1/12 - Mfreq_enso # (in 1/month)
+    
+    # Plot the rectangles
+    ax.fill_between(Mfreq_enso, y_min, y_max, fc='gray', alpha=0.4)
+    ax.fill_between(Mfreq_fplus, y_min, y_max, fc='gray',  alpha=0.2)
+    ax.fill_between(Mfreq_fmins, y_min, y_max, fc='gray', alpha=0.2)
+    
+    # Plot lines delineating range
+    ax.axvline([1/(enso_bands[1]*12)],label="",ls='dotted',c='gray') # ENSO Max
+    ax.axvline([1/(enso_bands[0]*12)],label="",ls='dotted',c='gray') # ENSO Min
+    ax.axvline([Mfreq_fmins[1]],label="",ls='dotted',c='gray')       # Diff Tone
+    ax.axvline([Mfreq_fmins[0]],label="",ls='dotted',c='gray')       # Diff Tone
+    ax.axvline([Mfreq_fplus[0]],label="",ls='dotted',c='gray')       # Sum Tone
+    ax.axvline([Mfreq_fplus[1]],label="",ls='dotted',c='gray')       # Sum Tone
+    
+    # Add Some Text
+    ensoband_label = '$f_{ENSO}=$\n %.1f-%.1f yrs' % (enso_bands[0],enso_bands[1])
+    sumtone_label  = '$1+f_{ENSO}$\n %i-%i mons'    % (1/Mfreq_fplus[0],1/Mfreq_fplus[1])
+    difftone_label = '$1-f_{ENSO}$ = \n %i-%i mons' % (1/Mfreq_fmins[1],1/Mfreq_fmins[0])
+    ax.text(np.mean(Mfreq_enso)*0.9, y_max, ensoband_label, ha='center', va='top')
+    ax.text(np.mean(Mfreq_fplus)+0.1/12, y_max, sumtone_label, ha='center', va='top')
+    ax.text(np.mean(Mfreq_fmins), y_max, difftone_label, ha='center', va='top')
+    
+    if return_tones:
+        combination_tone_months = [1/Mfreq_fplus,1/Mfreq_fmins]
+        return ax,combination_tone_months
+    return ax
+
+
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
