@@ -132,6 +132,9 @@ Functions:
     calc_binwidth       : Use Freedman Diaconis rule to compute bin width
     expfit              : Fit Exponential to lagged autocorrelation function (from 12.S922 Final Project)
     calc_monvar         : Compute monthly variance of a timesesries
+    fit_sinfunc         : Fix Sine function to timeseries with option for fixed periodicity
+    make_sinfunc_str    : Make label with coefficients esimated from [fit_sinfunc]
+    
     
     -----------------------------------------
     |||  Spectral Analysis and Filtering  ||| ****************************************************

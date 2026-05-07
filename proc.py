@@ -2809,6 +2809,116 @@ def calc_monvar(ts,dim=0):
         return monvar
     return monvar
 
+def fit_sinfunc(tt,yy,
+            fix_freq=None,
+            bounds=None,guess=None):
+    """
+    Least squares fit of sine function to timeseries [yy] at intervals [tt].
+    Option to set fixed frequency/period via [fix_freq], [bounds] for parameters,
+    and initial guess [guess]
+    
+        yy = amplitude * sin( frequency * tt + phase ) + offset
+    
+    Parameters
+    ----------
+    tt : Array or LIST of Numeric
+        x-axis to fit along.
+    yy : Array of Numeric
+        Target timeseries to fit to.
+    fix_freq : Numeric, optional
+        Indicate fixed frequency or period (ex. annual cycle is 2pi/12). 
+        The default is None (i.e. determine through fitting).
+    bounds : List of arrays, optional
+        Upper and lower bounds for each parameter. ex. [[ub_1,lb_1],[ub_2,lb_2]].
+        See script for default bounds.
+    guess : List of Numeric, optional
+        Tuple of initial guess for each parameter, optional.
+        See script for default guesses.
+            
+
+    Returns
+    -------
+    outdict : Dict
+        Dictionary containing the following:
+            Coefficients : ['amplitude','frequency','phase','offset']
+            prediction   : Array of predicted values
+            fitfunc      : Function that intakes t to make prediction
+            period       : Period (1/frequency), can multiply by 2*pi 
+    
+    """
+    
+    # Make the Function
+    if fix_freq is not None:
+        # Make Function with Fixed Period
+        def sinfunc(t,amp,phase,offset):
+            return amp * np.sin( fix_freq*t + phase ) + offset
+    else:
+        def sinfunc(t,amp,freq,phase,offset):
+            return amp * np.sin( freq*t + phase ) + offset
+    
+    # Set the bounds
+    if bounds is None:
+        
+        bounds=[
+            (0,np.inf),       # Make amplitude positive values only
+            (0,np.inf),       # Freq
+            (-np.pi,np.pi),   # Phase (limit to [-pi,pi])
+            (-np.inf,np.inf), # Flexible Offset
+            ]
+        if fix_freq is not None:
+            bounds.pop(1) # Drop Freq Bounds
+    bounds_low = [bb[0] for bb in bounds]
+    bounds_hi  = [bb[1] for bb in bounds]
+    bounds_in  = (tuple(bounds_low),tuple(bounds_hi))
+    
+    # Make Initial Guess 
+    if guess is None:
+        guess_amp    = np.std(yy)                              # Use 1stdev as guess at amplitude
+        ff           = np.fft.fftfreq(len(tt), (tt[1]-tt[0]))  # Use Max of Power Spectra to guess freq
+        Fyy          = abs(np.fft.fft(yy))                     
+        guess_freq   = 2*np.pi*abs(ff[np.argmax(Fyy[1:])+1])   # excluding the zero frequency "peak", which is related to offset
+        guess_phase  = 0          # Assume no phase shift
+        guess_offset = 0          # Assume no offset
+        guess        = [guess_amp,guess_freq,guess_phase,guess_offset]
+        if fix_freq is not None:
+            guess.pop(1) # Drop Freq Guess
+            
+    
+    # Fit and Make Estimate
+    popt, pcov = sp.optimize.curve_fit(sinfunc, tt, yy,p0=guess,
+                                       bounds=bounds_in,)
+    
+    model      = sinfunc(tt, *popt) #sinx(tt,A,B,C)
+    if fix_freq is not None:
+        A,p,o   = popt
+        w       = fix_freq
+    else:
+        A,w,p,o = popt
+    
+    fitfunc    = lambda t: A * np.sin(w*t + p) + o
+    
+    # Prepare Output
+    outdict = dict(
+        amplitude   = A,
+        frequency  = w,
+        phase = p,
+        offset= o,
+        prediction = model,
+        fitfunc=fitfunc,
+        period= 1/w
+        )
+    return outdict
+
+def make_sinfunc_str(fitout):
+    # Given output of [fit_sinfunc], make string with estimated parameters
+    sinstr = "%.2f * sin( %.2f * t + [%.2f] ) + (%.2f)" % (
+        fitout['amplitude'],
+        fitout['frequency'],
+        fitout['phase'],
+        fitout['offset']
+        )
+    return sinstr
+
 #%% ~ Significance Testing
 ## ND version (incomplete)
 # def calc_dof(ts,dim=0):
