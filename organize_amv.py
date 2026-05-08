@@ -89,7 +89,6 @@ Functions:
     extract_linear_component : Get component of variable linearly related to a timeseries
     pointwise_linear_fit     : Apply extract_linear_component to each point
     
-    
         ~ Lead/Lag Analysis ~
     calc_lagcovar       : Monthly lag-lead correlation
     calc_lagcovar_nd    : ND version of calc_lagcovar
@@ -99,7 +98,6 @@ Functions:
     leadlag_corr        : Compute lead/lag correlation of 2 variables (all months)
     append_window       : Helper function for [xrcorr_leadlag] to create 3-month window
     xrcorr_leadlag      : Compute lead/lag correlation on Xarray Datasets
-    
     
         ~ EOF Analysis ~
     eof_simple          : Perform EOF Analysis (cr. Yu-Chiao Liang)
@@ -134,7 +132,7 @@ Functions:
     calc_monvar         : Compute monthly variance of a timesesries
     fit_sinfunc         : Fix Sine function to timeseries with option for fixed periodicity
     make_sinfunc_str    : Make label with coefficients esimated from [fit_sinfunc]
-    
+    fit_sin_pointwise   : Pointwise application of fit_sinfunc
     
     -----------------------------------------
     |||  Spectral Analysis and Filtering  ||| ****************************************************

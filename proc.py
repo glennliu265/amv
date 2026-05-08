@@ -2919,6 +2919,25 @@ def make_sinfunc_str(fitout):
         )
     return sinstr
 
+def fit_sin_pointwise(ds, fix_freq=None):
+    # Pointwise application of fit_sinfunc
+    def unpack_sinfit(target):
+        t      = np.arange(len(target))
+        fitout = fit_sinfunc(t,target,fix_freq=fix_freq)
+        amp,freq,phase,offset,ypred,yfunc,period = fitout.values()
+        return amp,freq,phase,offset,ypred # Just retain some of the output
+    
+    stxr = time.time()
+    dsout = xr.apply_ufunc(
+        unpack_sinfit,
+        ds,
+        input_core_dims=[['time']],
+        output_core_dims=[[],[],[],[],['time']],
+        vectorize=True,
+        )
+    print("Completed fit in %.2fs" % (time.time()-stxr))
+    return dsout
+
 #%% ~ Significance Testing
 ## ND version (incomplete)
 # def calc_dof(ts,dim=0):
