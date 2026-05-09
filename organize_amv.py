@@ -234,6 +234,7 @@ Functions:
     darkname            : Append "_dark" to end of figure name
     selmon_ds           : Select certain months in a DataArray/DataSet
     expand_bbox         : Expand bounding box by fixed amount
+    shortest_distance_mod12 : Find shortest distance in mod 12
     
     -----------------
     |||  Labeling ||| ****************************************************

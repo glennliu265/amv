@@ -5829,6 +5829,25 @@ def expand_bbox(bbox,add_lat=10,add_lon=10):
                 bbox[2]-add_lat,bbox[3]+add_lon]
     return bbox_expanded
 
+def shortest_distance_mod12(current,center,verbose=True):
+    # Find Distance Going Clockwise (moving from center --> current)
+    cwdiff = center - current
+    if cwdiff < 0: # Crossing 12:00
+        cwdiff = (center + 12 - current) #* -1
+    # Find Distance going Counter-clockwise (moving from current to center)
+    ccwdiff = (current - center) * -1 #* -1
+    if (current - center) < 0: # Crossing 12:00
+        ccwdiff = (current + 12 - center) * -1
+    
+    diffin  = [cwdiff,ccwdiff]
+    imin    = np.argmin(np.abs(diffin))
+    mindiff = diffin[imin]
+    if verbose:
+        print("Current: (%i), Center: (%i)" % (current,center))
+        print("CW Difference  is %i" % cwdiff)
+        print("CCW Difference is %i" % ccwdiff)
+        print("Minimum Diff   is %i" % mindiff)
+    return mindiff
 
 """
 -----------------
