@@ -249,6 +249,8 @@ Functions:
     addstrtoext         : Append string to end of file, before the extension
     get_stringnum       : Search for starting positive of keyword in a string
     fix_febstart        : For dataarrays, alter files that start with feb to jan.
+    get_lagmon          : Given Lead/Lags, get the label for corresponding month
+    
     
     -----------------
     |||  yo box ||| ****************************************************

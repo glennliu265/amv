@@ -6000,6 +6000,17 @@ def fix_febstart(ds):
         ds = ds.assign_coords(time=correctedtime) 
     return ds
 
+def get_lagmon(basemonth,lag):
+    # Given a Lag and basemonth, get the corresponding month string
+    # use list comp. to retrieve the whole sequence
+    #     Usage example: [get_lagmon(basemonth,ll) for ll in leadlags]
+    lagmon = (basemonth + lag)%12
+    if lagmon == 0:
+        lagmon = 12
+    mons3 = get_monstr(3)
+    return mons3[lagmon-1]
+
+#%% YO Box Functions...
 
 def yo_spec(x,opt,nsmooth,pct,debug=True,verbose=True):
     """
