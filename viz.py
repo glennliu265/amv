@@ -28,6 +28,7 @@
         ~ Cartopy/Mapping
     geosubplots         : Make subplots with geoaxes
     init_map            : Quickly initialize a map for plotting
+    init_tp_map         : Initialize tropical Pacific Map
     init_globalmap      : Copied from ensobase.utils on 2026.03.03
     plot_box            : Plot bounding box
     get_box_coords      : Get coordinates of bounding box for orthomap plot
@@ -35,6 +36,7 @@
     init_fig            : Initialize a figure with geoaxis
     init_blabels        : Initialize dict indicating bounding box labels
     init_orthomap       : Initialize orthographic map over North Atlantic
+    
     
         ~ Time Series/1-D Plots
     quickstatslabel     : Quickly generate label of mean ,stdev ,and maximum for a figure title/text
@@ -421,6 +423,34 @@ def init_map(bbox,crs=ccrs.PlateCarree(),ax=None,return_gl=False):
     gl.yformatter = LatitudeFormatter(degree_symbol='')
     if return_gl:
         return ax,gl
+    return ax
+
+
+def init_tp_map(nrow=1,ncol=1,figsize=(12.5,4.5),ax=None,latmax=20,lonbounds=[120,290],):
+    lonW,lonE = lonbounds
+    bbplot  = [lonW, lonE, -latmax, latmax]
+    fix_lon = np.hstack([np.arange(lonW,190,10),np.arange(-180,(lonE-360)+10,10)])
+    proj    = ccrs.PlateCarree(central_longitude=180)
+    
+    if ax is None:
+        fig,axs = plt.subplots(nrow,ncol,figsize=figsize,subplot_kw={'projection':proj})
+        newfig = True
+    else:
+        newfig = False
+    if nrow != 1 or ncol != 1:
+        for ax in axs.flatten():
+            ax.set_extent(bbplot)
+            ax     = add_coast_grid(ax,bbox=bbplot,fill_color='k',
+                                        proj=ccrs.PlateCarree(),fix_lon=fix_lon,ignore_error=True)
+        ax = axs
+    else:
+        ax = axs
+        ax.set_extent(bbplot)
+        ax     = add_coast_grid(ax,bbox=bbplot,fill_color='k',
+                                    proj=ccrs.PlateCarree(),fix_lon=fix_lon,ignore_error=True)
+    
+    if newfig:
+        return fig,ax
     return ax
 
 def init_globalmap(nrow=1,ncol=1,figsize=(12,8),centlon=200):
