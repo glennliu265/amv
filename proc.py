@@ -30,7 +30,6 @@ from scipy import signal,stats
 from scipy import fft
 from scipy.signal import butter, lfilter, freqz, filtfilt, detrend
 
-
 #%% Optional Yobox Import
 import_yobox = False
 if import_yobox:
@@ -38,6 +37,8 @@ if import_yobox:
     yopath = "/Users/gliu/Downloads/02_Research/01_Projects/01_AMV/00_Commons/03_Scripts/"
     sys.path.append(yopath)
     import yo_box as ybx
+    
+
 
 """
 -----------------------
@@ -1807,6 +1808,46 @@ def pointwise_linear_fit(ds_index,ds_target):
     print("Extracted Component in %.2fs" % (time.time()-st))
     return ds_lincomp
 
+def polyfit_1d(x,y,deg,return_all=True):
+    # Fit n-degree polynomial to y
+    # Fit is coeffs from lowest degree first (flip NP order)
+    # 
+    if np.any(np.isnan(x)) or np.any(np.isnan(y)): # Skip if NaN is found
+        return np.nan * np.ones(len(x))
+    # Get Fit and Calculate model (copied from detrend_poly)
+    fit      = np.polyfit(x,y,deg)
+    inputs   = np.array([np.power(x,d) for d in reversed(range(len(fit)))])
+    model    = fit.T.dot(inputs)
+    
+    if return_all:
+        r2       = np.corrcoef(y,model)[0,1]**2
+        residual = y - model
+        return model,np.flip(fit),r2,residual
+    return model
+
+def pointwise_polyfit(ds_index,ds_target,deg,):
+    # Perform Pointwise Polynomial Fit (xrfunc version)
+    st = time.time()
+    fitout = xr.apply_ufunc(
+        polyfit_1d,
+        ds_index,
+        ds_target,
+        deg,
+        input_core_dims=[['time'],['time'],[]],
+        output_core_dims=[['time'],['coeff'],[],['time']],
+        vectorize=True,
+        )
+    
+    ds_model,ds_coeff,ds_r2,ds_residual = fitout
+    # Need to assign coeff as coordinate to avoid error in xr.merge
+    ds_coeff = ds_coeff.assign_coords(dict(coeff=np.arange(len(ds_coeff.coeff))))
+    ds_out = xr.merge([ds_model.rename('model'),
+                       ds_coeff.rename('coefficients_by_degree'),
+                       ds_r2.rename('r2'),
+                       ds_residual.rename('residual')
+                       ])
+    print("Completed in %.2fs" % (time.time-st))
+    return ds_out
 
 #%% ~ Lead/Lag Analysis
 def calc_lagcovar(var1,var2,lags,basemonth,detrendopt,yr_mask=None,debug=True,
@@ -3670,7 +3711,21 @@ def mcsample_spectra(sample_source,ntime_sample,mciter,nsmooth):
     mcspec = xr.concat(mcspec,dim='sample')
     return mcspec
 
-    
+def bandpass_butter(ts,order,cutoff_upper,cutoff_lower):
+    # From 'bandpass_analysis.py`
+    # Design butterworth filter (of [order]) and apply bandpass filter to monthly timeseries
+    # ts is the 1-D monthly timeseries
+    # Cutoff Upper is high freq limit in months
+    # Cutoff Lower is low freq limit in months
+    # 
+    # Get Low-Pass Filtered
+    ts_lp       = lp_butter(ts,cutoff_lower,order)
+    # Get High-Pass Filtered
+    ts_lp2      = lp_butter(ts,cutoff_upper,order)
+    ts_hp       = ts - ts_lp2
+    # Subtract both components
+    ts_bp       = ts - ts_lp - ts_hp
+    return ts_bp
 
 
 """

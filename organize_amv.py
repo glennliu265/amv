@@ -88,6 +88,8 @@ Functions:
     regress2ts               : Regression variable to a timeseries (uses regress_2d)
     extract_linear_component : Get component of variable linearly related to a timeseries
     pointwise_linear_fit     : Apply extract_linear_component to each point
+    polyfit_1d               : Fit n-degree polynomial to timeseries (helper for pointwise_polyfit)
+    pointwise_polyfit        : xrfunc appliation to fit polynomial at each location
     
         ~ Lead/Lag Analysis ~
     calc_lagcovar       : Monthly lag-lead correlation
@@ -145,6 +147,7 @@ Functions:
     calc_confspec       : Calculate confidence interval of spectra
     plot_conflog        : Plot confidence intervals for spectral density on a log scale
     mcsample_spectra    : Perform Monte-Carlo subsampling of power spectra
+    bandpass_butter     : Apply bandpass filter using butterworth filter
     
     ----------------------------
     |||  Indexing & Querying ||| ****************************************************
