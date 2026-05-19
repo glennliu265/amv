@@ -1846,7 +1846,7 @@ def pointwise_polyfit(ds_index,ds_target,deg,):
                        ds_r2.rename('r2'),
                        ds_residual.rename('residual')
                        ])
-    print("Completed in %.2fs" % (time.time-st))
+    print("Completed in %.2fs" % (time.time()-st))
     return ds_out
 
 #%% ~ Lead/Lag Analysis
