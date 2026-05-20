@@ -71,10 +71,11 @@
     prep_monlag_labels  : Add month laevls below lag for autocorrelation plots
     plot_profile        : Initialize vertical profile plot (copied from viz_temp_v_salt.py)
     init_NATL           : Initialize a North Atlantic Plot (single panel)
-
+    
         ~ Quick Visualization (qv) series
     qv_seasonal         : Plot the seasonal cycle of 2D variable
     hcbar               : Make Horizontal Colorbar
+    vcbar               : Make Vertical Colorbar
     
 """
 
@@ -2134,6 +2135,19 @@ def hcbar(mpl_obj,ax=None,fig=None,fraction=0.035,pad=.01,fontsize=12,rotation=0
     cb.ax.tick_params(labelsize=fontsize,rotation=rotation)
     return cb
     
+def vcbar(mpl_obj,ax=None,fig=None,fraction=0.010,pad=.01,fontsize=12,rotation=0):
+    """
+    Make quick *vertical* colorbar. Arguments are same as ax.colorbar()
+    
+    """
+    if ax is None:
+        ax = plt.gca()
+    if fig is None:
+        fig = plt.gcf()
+    cb = plt.colorbar(mpl_obj,ax=ax,fraction=fraction,
+                      pad=pad,orientation='vertical',)
+    cb.ax.tick_params(labelsize=fontsize,rotation=rotation)
+    return cb
 
 def init_regplot(regname=None,fontsize=20,bboxin=None):
     # Based on plots in reemergence/viz_CESM_HTR_meanstates, visualize plots over analysis regions
