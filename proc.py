@@ -1423,7 +1423,7 @@ def sel_box(ds,lonc,latc,lonwin,latwin,verbose=False,return_bbsel=False):
 
 #%% ~ Regression
 
-def mlr_point(predictors,target,fill_value=0,return_dict=False):
+def mlr_point(predictors,target,fill_value=0,return_dict=False,verbose=True):
     """
     
     Perform multiple linear regression at point using sklearn
@@ -1454,7 +1454,8 @@ def mlr_point(predictors,target,fill_value=0,return_dict=False):
     X = predictors
     y = target
     if np.any(np.isnan(X)):
-        print("NaN values detected! Replace with %f" % fill_value)
+        if verbose:
+            print("NaN values detected! Replace with %f" % fill_value)
     X = np.where(np.isnan(X),fill_value,X) # Set NaN to zero
     
     # Initialize Model and Fit
@@ -1521,8 +1522,9 @@ def pointwise_mlr(predictors,target,fill_value=0,standardize=True,predictor_name
         print("Warning... first dimension in target should be time!")
     
     # use xr ufunc to compute MLR fit
+    mlr_point_noprint = lambda x,y : mlr_point(x,y,verbose=False)
     ds_mlr_fit = xr.apply_ufunc(
-        mlr_point,
+        mlr_point_noprint,
         predictors, # Time must be in the first dimension
         target,
         input_core_dims=[['time','predictors'],['time']],
