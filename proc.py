@@ -1521,7 +1521,7 @@ def pointwise_mlr(predictors,target,fill_value=0,standardize=True,predictor_name
     if target.dims[0] != 'time':
         print("Warning... first dimension in target should be time!")
     
-    # use xr ufunc to compute MLR fit
+    # use xr ufunc to compute MLR fit (Takes ~72 seconds)
     mlr_point_noprint = lambda x,y : mlr_point(x,y,verbose=False)
     ds_mlr_fit = xr.apply_ufunc(
         mlr_point_noprint,
@@ -1827,13 +1827,20 @@ def polyfit_1d(x,y,deg,return_all=True):
         return model,np.flip(fit),r2,residual
     return model
 
-def pointwise_polyfit(ds_index,ds_target,deg,):
+def pointwise_polyfit(ds_index,ds_target,deg,fill_value=0):
+    # Perform N-degree polynomial fit and return coefficients
+    # Check for NaN and replace with [fill_value]
+    if np.any(np.isnan(ds_target)):
+        print("Warning! NaNs detected. Replacing with %s" % fill_value)
+        ds_target_in = xr.where(np.isnan(ds_target),fill_value,ds_target)
+    else:
+        ds_target_in = ds_target
     # Perform Pointwise Polynomial Fit (xrfunc version)
     st = time.time()
     fitout = xr.apply_ufunc(
         polyfit_1d,
         ds_index,
-        ds_target,
+        ds_target_in,
         deg,
         input_core_dims=[['time'],['time'],[]],
         output_core_dims=[['time'],['coeff'],[],['time']],
@@ -5464,6 +5471,11 @@ def flipdims(invar):
 ---------------------
 """
 #%% ~ Unsorted
+
+def aavg(ds,bbsel):
+    # Take cosweighted average over bounding box
+    return area_avg_cosweight(sel_region_xr(ds,bbsel))
+
 def numpy_to_da(invar,times,lat,lon,varname,savenetcdf=None):
     """
     from cvd-12860 tutorials

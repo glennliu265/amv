@@ -217,7 +217,8 @@ Functions:
     |||  Convenience ||| ****************************************************
     ---------------------
         General convenience functions, and other odds/ends 
-        
+    
+    aavg                : Take cosweighted average over bounding box
     numpy_to_da         : Convert NumPy array into DataArray (and save)
     cftime2str          : Convert array of cftime objects to string
     noleap_tostr        : Convert Noleap to string
