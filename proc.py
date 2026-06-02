@@ -4461,18 +4461,20 @@ def match_time_month(var_in,ts_in,timename='time',verbose=True):
         if vend != tend:
             if verbose:
                 print("End times (v1=%s,v2=%s) does not match..." % (vend,tend))
-            
             if vend > tend:
+                dayend = '-' + str(cal.monthrange(int(tend[:4]),int(tend[-2:]))[1])
                 if verbose:
-                    print("\nCropping to end at %s" % tend)
+                    print("\nCropping to end at %s" % (tend+dayend))
+                
                 var_in = var_in.sel(
-                    {timename : slice(None,tend+"-31")}
+                    {timename : slice(None,tend+dayend)}
                     )
             elif vend < tend:
+                dayend = '-' + str(cal.monthrange(int(tend[:4]),int(tend[-2:]))[1])
                 if verbose:
-                    print("\nCropping to end at %s" % vend)
+                    print("\nCropping to end at %s" % (vend+dayend))
                 ts_in = ts_in.sel(
-                    {timename : slice(None,vend+"-31")}
+                    {timename : slice(None,vend+dayend)}
                     )
         if verbose:        
             print(len(var_in[timename]) == len(ts_in[timename]))  
