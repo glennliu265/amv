@@ -2365,7 +2365,8 @@ def xrcorr_leadlag(dsbase,dslag,basemonth,leadlags,seasonal=False,debug=False,co
             lagyears = np.arange(ystart+leadshift, yend-yearmax_lag-yearmax_lead+leadshift+1) # Add Due to Python Stoppage at Final Index
             #print(maxleadyr)
             if (seasonal) and np.abs(maxleadyr) > 1: # (This is for cases where lead year goes over 2 year crossings, i.e. where basemonth = 1
-                print("Adding 1 to lagyears to account for shift from append_window")
+                if debug:    
+                    print("Shifting lag years by 1 to account for shift from append_window")
                 lagyears = lagyears + 1
         if lag >=0: # Lag Options
             lagyears = np.arange(ystart+yearmax_lead+lagshift, yend-yearmax_lag+lagshift+1) # Add Due to Python Stoppage at Final Index
