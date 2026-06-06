@@ -2249,13 +2249,33 @@ def append_window(ds,dsbase,basemonth,baseyears,debug=False):
     
     return dsnew
 
+def get_year_span(basemonth,leadlags,seasonal):
+    # Extract Lead Lag
+    leads   = leadlags[leadlags<0]
+    lags    = leadlags[leadlags>=0]
+    
+    # Get *month* of Maximum Lead/Lag
+    leadmax = basemonth + leads[0] -1 # (-1) to account for zero Python Index
+    lagmax  = basemonth + lags[-1]
+    
+    # Make Adjustment for 3-month Windows
+    if seasonal and (basemonth == 1): # Can append more here based on window size
+        leadmax = leadmax - 1
+    if seasonal and (basemonth == 12):
+        lagmax  = lagmax + 1
+    
+    # Get Number of Years Involved 
+    nyr_lead   = int(np.ceil(np.abs(leadmax)/12))
+    nyr_lag    = int(np.ceil(np.abs(lagmax)/12)) - 1 # Subtract 1 since 1-12 is within first year 
+    nyrs_total = nyr_lead + nyr_lag
+    return nyr_lead,nyr_lag
+
 def xrcorr_leadlag(dsbase,dslag,basemonth,leadlags,seasonal=False,debug=False,cov=False,regression=False):
     """
     Calculate the lead-lag correlation separately where lag 0 is the [basemonth] for each month between [dsbase] and [dslag] along the <time> dimension.
-    Currently supports doing seasonal correlations (3 month windows) within 2 years. (can support longer but window is too far reduced)
-    Note that if the last lag month exceeds the last year, the base timeseries will be
+    Currently supports doing seasonal correlations (3 month windows). Note that if the last lag month exceeds the last year, the base timeseries will be
     truncated accordingly just for that calculation (different DOF).
-
+    
     Inputs:
         dsbase    : DataArray with dimension <time>, - Base variable @ monthly frequency (this variable leads for positive lag)
         dslag     : DataArray with dimension <time>, - Lagged variable @ monthly frequency (negative lag, this variable leads)
@@ -2270,8 +2290,7 @@ def xrcorr_leadlag(dsbase,dslag,basemonth,leadlags,seasonal=False,debug=False,co
         
     Created: 2026.02.11, test script: seasonal_radiation_enso_regressions.ipynb
     Note: 2026.06.04 -- still might be an issue with this function for repeating lags (see seasonal_leadlag_SEP.ipynb)
-    [Update 2026.06.05] Working for Jan/Dec Lags -12 to 12... also works for later lags but year window is too far reduced. See `debug_xrcorr_leadlag_seasonal.ipynb
-    
+    Update 2026.06.05 -- Added fix + support to long leads/lags. See debug_xrcorr_leadlag_seasonal.ipynb
     """
         
     # Define simple functions
@@ -2291,41 +2310,10 @@ def xrcorr_leadlag(dsbase,dslag,basemonth,leadlags,seasonal=False,debug=False,co
     ystart           = years[0]
     yend             = years[-1]
     
-    # Additional Corrections for seasonal window (intial implementation)
-    # Note: Did not implement check for year crossings for lag variable...
-    add_year_seasonal_lead = 0
-    add_year_seasonal_lag  = 0
-    # if seasonal and (basemonth == 1):
-    #     # Reduce lead year by additional value if basemonth crosses into previous year (Dec Y0, Jan Y1)
-    #     add_year_seasonal_lead = 1
-    #     # Note, other case where (basemonth == 12) and seasonal is not needed
-    #     # Because the base timeseries is already reduced by 1 to accomodate lags
+    # Get Number of Lead and Lag Years
+    yearmax_lead,yearmax_lag = get_year_span(basemonth,leadlags,seasonal)
     
-    
-    # Check for Year Crossing in Lead
-    maxlead = basemonth + leads[0]       # Add earliest lead
-    if seasonal:
-        maxlead = maxlead - 1            # Account for additional month for 3-month window
-    if maxlead <= 0:                     # Drops below 1 (January of   Base Year)
-        maxleadyr = int(maxlead/12) - 1  # Subtract 1 since index 0 means it already crossed 1 year
-        if debug:
-            print("Max Lead Crosses %i Years (l=%s)" % (np.abs(maxleadyr),maxlead))
-        add_year_seasonal_lead = add_year_seasonal_lead + np.abs(maxleadyr)
-    # Check for Year Crossing in Lag
-    maxlag  = basemonth + lags[-1] -12 # Add latest lag, subtract 12 to account for first year (i.e. l=12 is still y=0)
-    if seasonal and basemonth == 12:
-        maxlag = maxlag + 1            # Account for additional month for 3-month window
-    if maxlag > 12:                    # Exceeds 12 (December of Year 1)
-        maxlagyr = int(maxlag/12) 
-        if debug:
-            print("Max Lag Crosses %i Years (%s)" % (maxlagyr,maxlag))
-        add_year_seasonal_lag = add_year_seasonal_lag + np.abs(maxlagyr)
-
-    
-    # Set Max/Min Years for Base
-    yearmax_lead     = np.ceil(np.abs(leads[0]/12)).astype(int) -1 + add_year_seasonal_lead
-    yearmax_lag      = np.ceil(lags[-1]/12).astype(int)         +0 + add_year_seasonal_lag   # Don't Reduce by 1
-    baseyears        = np.arange(ystart+yearmax_lead,yend-yearmax_lag+1) # Add (+1)  Due to Python Zero Indexing
+    baseyears                = np.arange(ystart+yearmax_lead,yend-yearmax_lag+1) # Add (+1)  Due to Python Zero Indexing
     if debug:
         print("Years to Shift due to lag  : %02i" % (yearmax_lead))
         print("Years to Shift due to lead : %02i" % (yearmax_lag))
@@ -2346,6 +2334,7 @@ def xrcorr_leadlag(dsbase,dslag,basemonth,leadlags,seasonal=False,debug=False,co
     lagcorr_shift   = []
     lagmons         = []
     dofs            = []
+    
     change_year     = False
     lagshift        = 0
     leadshift       = 0
@@ -2364,8 +2353,8 @@ def xrcorr_leadlag(dsbase,dslag,basemonth,leadlags,seasonal=False,debug=False,co
         if lag < 0: # Lead Options
             lagyears = np.arange(ystart+leadshift, yend-yearmax_lag-yearmax_lead+leadshift+1) # Add Due to Python Stoppage at Final Index
             #print(maxleadyr)
-            if (seasonal) and np.abs(maxleadyr) > 1: # (This is for cases where lead year goes over 2 year crossings, i.e. where basemonth = 1
-                if debug:    
+            if (seasonal) and np.abs(yearmax_lead) > 1 and (basemonth == 1): # (This is for cases where lead year goes over 2 year crossings, i.e. where basemonth = 1
+                if debug:
                     print("Shifting lag years by 1 to account for shift from append_window")
                 lagyears = lagyears + 1
         if lag >=0: # Lag Options
@@ -2378,7 +2367,6 @@ def xrcorr_leadlag(dsbase,dslag,basemonth,leadlags,seasonal=False,debug=False,co
         lag_timeseries = selyear(lag_timeseries,lagmon,lagyears[0],lagyears[-1]+1) # Add 1 to end year!
         if debug:
             print("\tLag: %s to %s (n=%02i)" % (lag_timeseries.time[0].data,lag_timeseries.time[-1].data,len(lag_timeseries.time)))
-
         
         # Apply Window if needed
         if seasonal: # Note, if the final window for the last lag exceeds the number of years, this is dropped...
@@ -2396,6 +2384,7 @@ def xrcorr_leadlag(dsbase,dslag,basemonth,leadlags,seasonal=False,debug=False,co
         
         # Do calculation and save relevant sections
         if len(lag_timeseries.time) != len(base_timeseries.time):
+            #if debug:
             print("WARNING! The length of selected times does not match... (base=%02i, lag=%02i)" % (len(base_timeseries.time),len(lag_timeseries.time),))
             #print("\tNOTE!! This is a Temp Fix: dropping last timestep in base timeseries (function currently does not adjust year window to account for year crossing due to window)")
             #lag_timeseries['time'] = base_timeseries.isel(time=slice(None,-1)).time # Need to Trick the dimensions....
