@@ -2212,7 +2212,7 @@ def append_window(ds,dsbase,basemonth,baseyears,debug=False):
     # Define Functions
     selmon  = lambda ds,mon : ds.sel(time=ds.time.dt.month.isin([mon]))
     selyear = lambda ds,mon,ystart,yend : ds.sel(time=slice("%04i-%02i-01" % (ystart,mon),"%04i-%02i-01" %(yend,mon)))
-
+    
     # One Month Before
     basemonth_m1   = (basemonth - 1)%12
     if basemonth_m1 == 0: # From Previous year
@@ -2221,8 +2221,8 @@ def append_window(ds,dsbase,basemonth,baseyears,debug=False):
     else:
         baseyears_m1 = baseyears
     dsm1 = selmon(ds,basemonth_m1)
-    dsm1 = selyear(dsm1,basemonth_m1,baseyears_m1[0],baseyears_m1[-1])
-
+    dsm1 = selyear(dsm1,basemonth_m1,baseyears_m1[0],baseyears_m1[-1]+1)
+    
     # One Month After
     basemonth_p1   = (basemonth+1)%12
     if basemonth_p1 == 0:
@@ -2232,26 +2232,28 @@ def append_window(ds,dsbase,basemonth,baseyears,debug=False):
     else:
         baseyears_p1 = baseyears
     dsp1 = selmon(ds,basemonth_p1)
-    dsp1 = selyear(dsp1,basemonth_p1,baseyears_p1[0],baseyears_p1[-1])
-
+    dsp1 = selyear(dsp1,basemonth_p1,baseyears_p1[0],baseyears_p1[-1]+1)
+    
     dsnew = xr.concat([dsm1,dsbase,dsp1],dim='time')
     dsnew = dsnew.sortby('time')
-
+    
     if debug:
         print("For Mon %02i, Indexing the Following Window" % (basemonth))
-        print("\tMon %02i : (%s to %s)"% (basemonth_m1,baseyears_m1[0],baseyears_m1[-1]))
-        print("\tMon %02i : (%s to %s)"% (basemonth   ,baseyears[0]   ,baseyears[-1]))
-        print("\tMon %02i : (%s to %s)"% (basemonth_p1,baseyears_p1[0],baseyears_p1[-1]))
+        print("\tMon %02i : (%s to %s), n=%i"% (basemonth_m1,baseyears_m1[0],baseyears_m1[-1],len(dsm1)))
+        print("\tMon %02i : (%s to %s), n=%i"% (basemonth   ,baseyears[0]   ,baseyears[-1],len(dsbase)))
+        print("\tMon %02i : (%s to %s), n=%i"% (basemonth_p1,baseyears_p1[0],baseyears_p1[-1],len(dsp1)))
     
     if len(dsnew.time) != len(dsbase.time)*3:
         print("WARNING! Window lengths not match due to insufficient years...")
+        print("New Time (n=%i), Old Time = (n=%i)" % (len(dsnew.time),len(dsbase.time)*3))
     
     return dsnew
 
 def xrcorr_leadlag(dsbase,dslag,basemonth,leadlags,seasonal=False,debug=False,cov=False,regression=False):
     """
     Calculate the lead-lag correlation separately where lag 0 is the [basemonth] for each month between [dsbase] and [dslag] along the <time> dimension.
-    Currently supports doing seasonal correlations (3 month windows). Note that if the last lag month exceeds the last year, the base timeseries will be
+    Currently supports doing seasonal correlations (3 month windows) within 2 years. (can support longer but window is too far reduced)
+    Note that if the last lag month exceeds the last year, the base timeseries will be
     truncated accordingly just for that calculation (different DOF).
 
     Inputs:
@@ -2267,8 +2269,11 @@ def xrcorr_leadlag(dsbase,dslag,basemonth,leadlags,seasonal=False,debug=False,co
         ds_out    : DataSet,                         - lead lag correlations <corr> for each <lag>, and corresponding <month>, along with degrees of freedom <dofs>
         
     Created: 2026.02.11, test script: seasonal_radiation_enso_regressions.ipynb
-    """
+    Note: 2026.06.04 -- still might be an issue with this function for repeating lags (see seasonal_leadlag_SEP.ipynb)
+    [Update 2026.06.05] Working for Jan/Dec Lags -12 to 12... also works for later lags but year window is too far reduced. See `debug_xrcorr_leadlag_seasonal.ipynb
     
+    """
+        
     # Define simple functions
     selmon  = lambda ds,mon : ds.sel(time=ds.time.dt.month.isin([mon]))
     selyear = lambda ds,mon,ystart,yend : ds.sel(time=slice("%04i-%02i-01" % (ystart,mon),"%04i-%02i-01" %(yend,mon)))
@@ -2290,16 +2295,37 @@ def xrcorr_leadlag(dsbase,dslag,basemonth,leadlags,seasonal=False,debug=False,co
     # Note: Did not implement check for year crossings for lag variable...
     add_year_seasonal_lead = 0
     add_year_seasonal_lag  = 0
-    if seasonal and (basemonth == 1):
-        # Reduce lead year by additional value if basemonth crosses into previous year (Dec Y0, Jan Y1)
-        add_year_seasonal_lead = 1
-        # Note, other case where (basemonth == 12) and seasonal is not needed
-        # Because the base timeseries is already reduced by 1 to accomodate lags
+    # if seasonal and (basemonth == 1):
+    #     # Reduce lead year by additional value if basemonth crosses into previous year (Dec Y0, Jan Y1)
+    #     add_year_seasonal_lead = 1
+    #     # Note, other case where (basemonth == 12) and seasonal is not needed
+    #     # Because the base timeseries is already reduced by 1 to accomodate lags
+    
+    
+    # Check for Year Crossing in Lead
+    maxlead = basemonth + leads[0]       # Add earliest lead
+    if seasonal:
+        maxlead = maxlead - 1            # Account for additional month for 3-month window
+    if maxlead <= 0:                     # Drops below 1 (January of   Base Year)
+        maxleadyr = int(maxlead/12) - 1  # Subtract 1 since index 0 means it already crossed 1 year
+        if debug:
+            print("Max Lead Crosses %i Years (l=%s)" % (np.abs(maxleadyr),maxlead))
+        add_year_seasonal_lead = add_year_seasonal_lead + np.abs(maxleadyr)
+    # Check for Year Crossing in Lag
+    maxlag  = basemonth + lags[-1] -12 # Add latest lag, subtract 12 to account for first year (i.e. l=12 is still y=0)
+    if seasonal and basemonth == 12:
+        maxlag = maxlag + 1            # Account for additional month for 3-month window
+    if maxlag > 12:                    # Exceeds 12 (December of Year 1)
+        maxlagyr = int(maxlag/12) 
+        if debug:
+            print("Max Lag Crosses %i Years (%s)" % (maxlagyr,maxlag))
+        add_year_seasonal_lag = add_year_seasonal_lag + np.abs(maxlagyr)
+
     
     # Set Max/Min Years for Base
     yearmax_lead     = np.ceil(np.abs(leads[0]/12)).astype(int) -1 + add_year_seasonal_lead
-    yearmax_lag      = np.ceil(lags[-1]/12).astype(int)         +0 + add_year_seasonal_lag
-    baseyears        = np.arange(ystart+yearmax_lead,yend-yearmax_lag+1) #Add (+1)  Due to Python Zero Indexing
+    yearmax_lag      = np.ceil(lags[-1]/12).astype(int)         +0 + add_year_seasonal_lag   # Don't Reduce by 1
+    baseyears        = np.arange(ystart+yearmax_lead,yend-yearmax_lag+1) # Add (+1)  Due to Python Zero Indexing
     if debug:
         print("Years to Shift due to lag  : %02i" % (yearmax_lead))
         print("Years to Shift due to lead : %02i" % (yearmax_lag))
@@ -2307,11 +2333,11 @@ def xrcorr_leadlag(dsbase,dslag,basemonth,leadlags,seasonal=False,debug=False,co
         print("Base Period is             : %04i to %04i (n=%02i)" % (baseyears[0],baseyears[-1],len(baseyears)))
         
     base_timeseries = selmon(dsbase,basemonth)
-    base_timeseries = selyear(base_timeseries,basemonth,baseyears[0],baseyears[-1])#base_timeseries.sel(time=slice(base_tstart,base_tend))
+    base_timeseries = selyear(base_timeseries,basemonth,baseyears[0],baseyears[-1]+1) # Add 1 to end year!
     if debug:
-        print("Basemonth is %02i (Years %i to %i)" % (basemonth,baseyears[0],baseyears[-1]))
+        print("Basemonth is %02i (Years %i to %i, n=%i)" % (basemonth,baseyears[0],baseyears[-1],len(base_timeseries)))
         print("\t%s to %s" % (base_timeseries.time[0].data,base_timeseries.time[-1].data))
-
+    
     # Add month Window
     if seasonal:
         base_timeseries = append_window(dsbase,base_timeseries,basemonth,baseyears,debug=debug)
@@ -2323,7 +2349,9 @@ def xrcorr_leadlag(dsbase,dslag,basemonth,leadlags,seasonal=False,debug=False,co
     change_year     = False
     lagshift        = 0
     leadshift       = 0
-    
+    if debug:
+        print("\n")
+        print("Starting Lag...")
     for lag in tqdm.tqdm(leadlags,disable=debug):
         
         # Get Lag month
@@ -2335,6 +2363,10 @@ def xrcorr_leadlag(dsbase,dslag,basemonth,leadlags,seasonal=False,debug=False,co
         # Now Adjust the Years...
         if lag < 0: # Lead Options
             lagyears = np.arange(ystart+leadshift, yend-yearmax_lag-yearmax_lead+leadshift+1) # Add Due to Python Stoppage at Final Index
+            #print(maxleadyr)
+            if (seasonal) and np.abs(maxleadyr) > 1: # (This is for cases where lead year goes over 2 year crossings, i.e. where basemonth = 1
+                print("Adding 1 to lagyears to account for shift from append_window")
+                lagyears = lagyears + 1
         if lag >=0: # Lag Options
             lagyears = np.arange(ystart+yearmax_lead+lagshift, yend-yearmax_lag+lagshift+1) # Add Due to Python Stoppage at Final Index
         if debug:
@@ -2342,9 +2374,10 @@ def xrcorr_leadlag(dsbase,dslag,basemonth,leadlags,seasonal=False,debug=False,co
         
         # Select Lagged Variable and Index
         lag_timeseries = selmon(dslag,lagmon)
-        lag_timeseries = selyear(lag_timeseries,lagmon,lagyears[0],lagyears[-1])
+        lag_timeseries = selyear(lag_timeseries,lagmon,lagyears[0],lagyears[-1]+1) # Add 1 to end year!
         if debug:
             print("\tLag: %s to %s (n=%02i)" % (lag_timeseries.time[0].data,lag_timeseries.time[-1].data,len(lag_timeseries.time)))
+
         
         # Apply Window if needed
         if seasonal: # Note, if the final window for the last lag exceeds the number of years, this is dropped...
@@ -2363,8 +2396,8 @@ def xrcorr_leadlag(dsbase,dslag,basemonth,leadlags,seasonal=False,debug=False,co
         # Do calculation and save relevant sections
         if len(lag_timeseries.time) != len(base_timeseries.time):
             print("WARNING! The length of selected times does not match... (base=%02i, lag=%02i)" % (len(base_timeseries.time),len(lag_timeseries.time),))
-            print("\tNOTE!! This is a Temp Fix: dropping last timestep in base timeseries (function currently does not adjust year window to account for year crossing due to window)")
-            lag_timeseries['time'] = base_timeseries.isel(time=slice(None,-1)).time # Need to Trick the dimensions....
+            #print("\tNOTE!! This is a Temp Fix: dropping last timestep in base timeseries (function currently does not adjust year window to account for year crossing due to window)")
+            #lag_timeseries['time'] = base_timeseries.isel(time=slice(None,-1)).time # Need to Trick the dimensions....
             
             if regression:
                 ds_lag                    = lag_timeseries.copy()
