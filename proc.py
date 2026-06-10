@@ -2558,8 +2558,9 @@ def eof_time_ds(ds,N_mode,monthly=False,cosweight=True,
     times   = ds.time.data
     
     # Apply cosine lat weighting
-    if cosweight and verbose:
-        print("Applying area-weighting (sqrt(cos(lat))...")
+    if cosweight:
+        if verbose:
+            print("Applying area-weighting (sqrt(cos(lat))...")
         _,Y  = np.meshgrid(lon,lat)
         wgt  = np.sqrt(np.cos(np.radians(Y))) # [lat x lon]
         arr  = arr * wgt[None,:,:]
