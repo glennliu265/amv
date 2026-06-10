@@ -2653,7 +2653,7 @@ def eof_time_ds(ds,N_mode,monthly=False,cosweight=True,
         
         nbox_check = len(check_sign)
         if verbose:
-            print("Checking for first %n modes based on [check_sign] (Flip if sum if positive...)" % (nbox_check))
+            print("Checking for first %i modes based on [check_sign] (Flip if sum if positive...)" % (nbox_check))
         for N in range(nbox_check):
             chkbox = check_sign[N]
             sumflx = da_eofs.isel(mode=N).sel(lon=slice(chkbox[0],chkbox[1]),lat=slice(chkbox[2],chkbox[3])).mean().data.item()
