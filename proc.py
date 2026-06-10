@@ -2516,7 +2516,7 @@ def eof_filter(eofs,varexp,eof_thres,axis=0,return_all=False):
     return eofs_filtered
 
 def eof_time_ds(ds,N_mode,monthly=False,cosweight=True,
-                remove_timemean=True,verbose=True):
+                remove_timemean=True,verbose=True,check_sign=None):
     """
     Perform eof_simple for an xarray DataArray with [time x lat x lon] dimensions
     Automatically detects and ignores NaN points.
@@ -2535,7 +2535,10 @@ def eof_time_ds(ds,N_mode,monthly=False,cosweight=True,
         Set to True to remove time mean prior to calculations. The default is True.
     verbose : BOOL, optional
         Set to True to allow print messages. The default is True.
-
+    check_sign : LIST of bounding boxes [lonW,lonE,latS,latN], optional, Default is None.
+        If not None, loops through bounding boxes and sums values with the box, 
+        flipping sign of both EOF and PC if sum is positive.
+    
     Returns
     -------
     da_out : xr.Dataset containing...
@@ -2624,7 +2627,6 @@ def eof_time_ds(ds,N_mode,monthly=False,cosweight=True,
             
         # End All Month Conditional ---
     
-    
     # Replace into Data Array
     pcnums = np.arange(N_mode) + 1
     if monthly:
@@ -2645,6 +2647,22 @@ def eof_time_ds(ds,N_mode,monthly=False,cosweight=True,
     da_eofs       = xr.DataArray(eofall,coords=coords_eofs,dims=coords_eofs,name='eofs')
     da_pcs        = xr.DataArray(pcall,coords=coords_pcs,dims=coords_pcs,name='pcs')
     da_varexp     = xr.DataArray(varexpall,coords=coords_varexp,dims=coords_varexp,name='varexp')
+    
+    # Check Sign if List of boxes are given ===================================
+    if check_sign is not None:
+        
+        nbox_check = len(check_sign)
+        if verbose:
+            print("Checking for first %n modes based on [check_sign] (Flip if sum if positive...)" % (nbox_check))
+        for N in range(nbox_check):
+            chkbox = check_sign[N]
+            sumflx = da_eofs.isel(mode=N).sel(lon=slice(chkbox[0],chkbox[1]),lat=slice(chkbox[2],chkbox[3])).mean().data.item()
+            
+            if sumflx > 0:
+                print("Flipping sign for mode %i (assumed last dimension)" % (N+1))
+                da_eofs[...,N,] *= -1
+                da_pcs[...,N] *= -1
+    # =========================================================================
     
     # Merge everything
     da_out        = xr.merge([da_eofs,da_pcs,da_varexp])
