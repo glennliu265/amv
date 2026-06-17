@@ -492,6 +492,7 @@ def detrend_dim(invar,dim,return_dict=False,debug=False):
     # Reorder based on earlier transpose (fix for cases where dims are equal)
     # Note that newshape and oldshape really should be [order] instead of [shape]
     # as they refer to axes order
+    # See `niu:notebooks/calc_spo_index.ipynb` for debugging code
     oldshape = np.arange(len(varshape))[np.argsort(newshape)]
     dtvar = np.transpose(dtvar,oldshape)
     linmod = np.transpose(linmod,oldshape)
@@ -2520,7 +2521,7 @@ def eof_filter(eofs,varexp,eof_thres,axis=0,return_all=False):
     return eofs_filtered
 
 def eof_time_ds(ds,N_mode,monthly=False,cosweight=True,
-                remove_timemean=True,verbose=True,check_sign=None):
+                remove_timemean=True,verbose=True,check_sign=None,flip_if_negative=False):
     """
     Perform eof_simple for an xarray DataArray with [time x lat x lon] dimensions
     Automatically detects and ignores NaN points.
@@ -2542,6 +2543,9 @@ def eof_time_ds(ds,N_mode,monthly=False,cosweight=True,
     check_sign : LIST of bounding boxes [lonW,lonE,latS,latN], optional, Default is None.
         If not None, loops through bounding boxes and sums values with the box, 
         flipping sign of both EOF and PC if sum is positive.
+    flip_if_negative : BOOL,optional
+        If False (Default), flips sign if area sum is positive
+        If True, flips sign if area sum is negative
     
     Returns
     -------
@@ -2666,7 +2670,14 @@ def eof_time_ds(ds,N_mode,monthly=False,cosweight=True,
                 for im in range(12):
                     sumflx = da_eofs.isel(mode=N,month=im).sel(lon=slice(chkbox[0],chkbox[1]),lat=slice(chkbox[2],chkbox[3])).mean().data.item()
                     
-                    if sumflx > 0:
+                    perform_flip = False # By Default, not flip performed 
+                    if flip_if_negative: # Flip if negative
+                        if sumflx < 0:
+                            perform_flip = True
+                    else: # Check to see if it is positive, and flip if so
+                        if sumflx > 0:
+                            perform_flip = True
+                    if perform_flip:
                         if verbose:
                             print("Flipping sign for mode %i, month %i (assumed last dimension)" % (N+1,im+1))
                         da_eofs[...,im,N,] *= -1
