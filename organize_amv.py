@@ -31,6 +31,7 @@ Functions:
     nanargmaxds         : Take nanargmax for dataarray with masking
     nanargminds         : Take nanargmin for dataarray with masking
     make_mask           : Create a mask from a dataarray using specified nan values
+    movmean             : Calculate moving/running mean
     
         ~ Averaging ~
     ann_avg             : Take annual average of monthly time series
@@ -104,7 +105,7 @@ Functions:
         ~ EOF Analysis ~
     eof_simple          : Perform EOF Analysis (cr. Yu-Chiao Liang)
     eof_filter          : Discard modes above a percentage threshold
-    eof_time_ds         : Wrapper for eof_simple for 3D input [time x lat x lon]
+    eof_time_ds         : Wrapper for eof_simple for 3D input [time x lat x lon]... (also need to check xr_eof in calc_EOF_ENSO_sliding)
     
         ~ Correlation ~
     pearsonr_2d         : Compute Pearson's Correlation Coefficient for 2D matrix.

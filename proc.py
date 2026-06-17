@@ -2656,19 +2656,24 @@ def eof_time_ds(ds,N_mode,monthly=False,cosweight=True,
             print("Checking for first %i modes based on [check_sign] (Flip if sum if positive...)" % (nbox_check))
         for N in range(nbox_check):
             chkbox = check_sign[N]
+            
+            # Loop Through each month
             if monthly:
                 for im in range(12):
                     sumflx = da_eofs.isel(mode=N,month=im).sel(lon=slice(chkbox[0],chkbox[1]),lat=slice(chkbox[2],chkbox[3])).mean().data.item()
                     
                     if sumflx > 0:
-                        print("Flipping sign for mode %i, month%i (assumed last dimension)" % (N+1,im+1))
+                        if verbose:
+                            print("Flipping sign for mode %i, month %i (assumed last dimension)" % (N+1,im+1))
                         da_eofs[...,im,N,] *= -1
                         da_pcs[...,im,N] *= -1
+            # All Month Case (Just do it once...)
             else:
                 sumflx = da_eofs.isel(mode=N).sel(lon=slice(chkbox[0],chkbox[1]),lat=slice(chkbox[2],chkbox[3])).mean().data.item()
                 
                 if sumflx > 0:
-                    print("Flipping sign for mode %i (assumed last dimension)" % (N+1))
+                    if verbose:
+                        print("Flipping sign for mode %i (assumed last dimension)" % (N+1))
                     da_eofs[...,N,] *= -1
                     da_pcs[...,N] *= -1
     # =========================================================================
@@ -5970,6 +5975,10 @@ def shortest_distance_mod12(current,center,verbose=True):
         print("CCW Difference is %i" % ccwdiff)
         print("Minimum Diff   is %i" % mindiff)
     return mindiff
+
+def movmean(timeseries,N):
+    # Calculate moving/running mean across N values
+    return np.convolve(timeseries,np.ones(N)/N,mode='same')
 
 """
 -----------------
