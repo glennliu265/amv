@@ -2670,6 +2670,7 @@ def eof_time_ds(ds,N_mode,monthly=False,cosweight=True,
                 for im in range(12):
                     sumflx = da_eofs.isel(mode=N,month=im).sel(lon=slice(chkbox[0],chkbox[1]),lat=slice(chkbox[2],chkbox[3])).mean().data.item()
                     
+                    # ====
                     perform_flip = False # By Default, not flip performed 
                     if flip_if_negative: # Flip if negative
                         if sumflx < 0:
@@ -2677,6 +2678,10 @@ def eof_time_ds(ds,N_mode,monthly=False,cosweight=True,
                     else: # Check to see if it is positive, and flip if so
                         if sumflx > 0:
                             perform_flip = True
+                            
+                    # ====
+                            
+                    
                     if perform_flip:
                         if verbose:
                             print("Flipping sign for mode %i, month %i (assumed last dimension)" % (N+1,im+1))
@@ -2686,7 +2691,19 @@ def eof_time_ds(ds,N_mode,monthly=False,cosweight=True,
             else:
                 sumflx = da_eofs.isel(mode=N).sel(lon=slice(chkbox[0],chkbox[1]),lat=slice(chkbox[2],chkbox[3])).mean().data.item()
                 
-                if sumflx > 0:
+                # ====
+                perform_flip = False # By Default, not flip performed 
+                if flip_if_negative: # Flip if negative
+                    if sumflx < 0:
+                        perform_flip = True
+                else: # Check to see if it is positive, and flip if so
+                    if sumflx > 0:
+                        perform_flip = True
+                        
+                # ====
+                
+                
+                if perform_flip:
                     if verbose:
                         print("Flipping sign for mode %i (assumed last dimension)" % (N+1))
                     da_eofs[...,N,] *= -1
