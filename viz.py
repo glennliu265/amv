@@ -236,9 +236,12 @@ def add_fontborder(labels,c='white',w=5):
     [tt.set_path_effects([PathEffects.withStroke(linewidth=w, foreground=c)]) for tt in labels]
     return None
 
-def add_axlines(ax,lw=0.55,ls='solid',c='k'):
+def add_axlines(ax,lw=0.55,ls='solid',c='k',xonly=False,yonly=False):
     # Add x and y axis lines at zero
-    ax.axhline([0],lw=lw,ls=ls,c=c)
+    if not yonly:
+        ax.axhline([0],lw=lw,ls=ls,c=c)
+    if xonly: # Exit Function
+        return None
     ax.axvline([0],lw=lw,ls=ls,c=c)
     return ax
 
