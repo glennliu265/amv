@@ -488,7 +488,11 @@ def detrend_dim(invar,dim,return_dict=False,debug=False):
     intercept = np.reshape(beta,(otherdims))
     
     # Tranpose to original order
-    oldshape = [dtvar.shape.index(x) for x in varshape]
+    #oldshape = [dtvar.shape.index(x) for x in varshape]
+    # Reorder based on earlier transpose (fix for cases where dims are equal)
+    # Note that newshape and oldshape really should be [order] instead of [shape]
+    # as they refer to axes order
+    oldshape = np.arange(len(varshape))[np.argsort(newshape)]
     dtvar = np.transpose(dtvar,oldshape)
     linmod = np.transpose(linmod,oldshape)
     
