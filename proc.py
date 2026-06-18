@@ -806,7 +806,7 @@ def detrend_by_regression(invar,in_ts,regress_monthly=False,
         
     else:
         # Perform the regression (all months)
-        outdict     = regress_ttest(invar_arr,ints_arr)
+        outdict     = regress_ttest(invar_arr,ints_arr,verbose=verbose)
         beta        = outdict['regression_coeff'] # Lon x Lat
         intercept   = outdict['intercept'] 
         
