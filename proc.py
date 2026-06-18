@@ -456,7 +456,7 @@ def detrend_dim(invar,dim,return_dict=False,debug=False):
 
     
     # Find non nan points
-    varok,knan,okpts = find_nan(newvar,0)
+    varok,knan,okpts = find_nan(newvar,0,verbose=debug)
     
     # Ordinary Least Squares Regression
     tper    = np.arange(0,tdim)
@@ -743,7 +743,8 @@ def xrdetrend_nd(invar,order,regress_monthly=False,return_fit=False,verbose=True
         dsout = da_detrend
     return dsout
 
-def detrend_by_regression(invar,in_ts,regress_monthly=False,return_pattern_only=False):
+def detrend_by_regression(invar,in_ts,regress_monthly=False,
+                          return_pattern_only=False,verbose=True):
     # Given an DataArray [invar] and Timeseries [in_ts]
     # Detrend the timeseries by regression
     
@@ -774,7 +775,7 @@ def detrend_by_regression(invar,in_ts,regress_monthly=False,return_pattern_only=
         sigmasks   = []
         for im in range(12):
             
-            outdict     = regress_ttest(invar_monyr[:,:,:,im],ints_monyr[:,im])
+            outdict     = regress_ttest(invar_monyr[:,:,:,im],ints_monyr[:,im],verbose=verbose)
             beta        = outdict['regression_coeff'] # Lon x Lat
             intercept   = outdict['intercept'] 
             
@@ -1832,11 +1833,12 @@ def polyfit_1d(x,y,deg,return_all=True):
         return model,np.flip(fit),r2,residual
     return model
 
-def pointwise_polyfit(ds_index,ds_target,deg,fill_value=0):
+def pointwise_polyfit(ds_index,ds_target,deg,fill_value=0,verbose=True):
     # Perform N-degree polynomial fit and return coefficients
     # Check for NaN and replace with [fill_value]
     if np.any(np.isnan(ds_target)):
-        print("Warning! NaNs detected. Replacing with %s" % fill_value)
+        if verbose:
+            print("Warning! NaNs detected. Replacing with %s" % fill_value)
         ds_target_in = xr.where(np.isnan(ds_target),fill_value,ds_target)
     else:
         ds_target_in = ds_target
@@ -1860,7 +1862,8 @@ def pointwise_polyfit(ds_index,ds_target,deg,fill_value=0):
                        ds_r2.rename('r2'),
                        ds_residual.rename('residual')
                        ])
-    print("Completed in %.2fs" % (time.time()-st))
+    if verbose:
+        print("Completed in %.2fs" % (time.time()-st))
     return ds_out
 
 #%% ~ Lead/Lag Analysis
@@ -2578,7 +2581,7 @@ def eof_time_ds(ds,N_mode,monthly=False,cosweight=True,
     
     # Reshape to [sppce x time] and remove NaN points
     arr                 = arr.reshape(ntime,nspace).T # [time x space] --> [space x time]
-    okdata,knan,okpts   = find_nan(arr,1) # Find NaN by summing along time axis
+    okdata,knan,okpts   = find_nan(arr,1,verbose=verbose) # Find NaN by summing along time axis
     oksize              = okdata.shape[0]
     
     # Perform EOF (for all time, or monthly)
