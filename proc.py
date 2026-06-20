@@ -4172,8 +4172,9 @@ def sel_region_xr(ds,bbox,verbose=False):
     return ds.sel(lon=slice(bbox[0],bbox[1]),lat=slice(bbox[2],bbox[3]))
 
 
-def sel_region_xr_cv(ds2,bbox,debug=False,lonname="TLONG",latname="TLAT"):
+def sel_region_xr_cv(ds2,bbox,debug=False,lonname="TLONG",latname="TLAT",xname='nlon',yname='nlat'):
     # Select region with curvilinear coordinates TLONG and TLAT
+    # xname and yname are the x and y coordinates of the ariable
     # Copied from preprocess_by_level (but removed the vname requirement)
     # Note, assumes tlon is degrees east and converts if not
     # Get mesh
@@ -4225,11 +4226,9 @@ def sel_region_xr_cv(ds2,bbox,debug=False,lonname="TLONG",latname="TLAT"):
         plt.pcolormesh(lonmask*latmask),plt.colorbar(),plt.show()
     
     # Make a mask
-    #ds2 = ds2[vname]#.isel(z_t=1)
+    ds2.coords['mask'] = ((yname, xname), regmask)
     
-    ds2.coords['mask'] = (('nlat', 'nlon'), regmask)
-    
-    st = time.time()
+    st  = time.time()
     ds2 = ds2.where(ds2.mask,drop=True)
     print("Loaded in %.2fs" % (time.time()-st))
     return ds2
