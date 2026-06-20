@@ -4172,13 +4172,13 @@ def sel_region_xr(ds,bbox,verbose=False):
     return ds.sel(lon=slice(bbox[0],bbox[1]),lat=slice(bbox[2],bbox[3]))
 
 
-def sel_region_xr_cv(ds2,bbox,debug=False):
+def sel_region_xr_cv(ds2,bbox,debug=False,lonname="TLONG",latname="TLAT"):
     # Select region with curvilinear coordinates TLONG and TLAT
     # Copied from preprocess_by_level (but removed the vname requirement)
     # Note, assumes tlon is degrees east and converts if not
     # Get mesh
-    tlat = ds2.TLAT.values
-    tlon = ds2.TLONG.values
+    tlat = ds2[lonname].values
+    tlon = ds2[latname].values
     
     # Adjust to degrees east
     if np.any(tlon < 0):
