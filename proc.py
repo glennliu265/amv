@@ -4172,7 +4172,9 @@ def sel_region_xr(ds,bbox,verbose=False):
     return ds.sel(lon=slice(bbox[0],bbox[1]),lat=slice(bbox[2],bbox[3]))
 
 
-def sel_region_xr_cv(ds2,bbox,debug=False,lonname="TLONG",latname="TLAT",xname='nlon',yname='nlat'):
+def sel_region_xr_cv(ds2,bbox,debug=False,verbose=True,
+                     lonname="TLONG",latname="TLAT",
+                     xname='nlon',yname='nlat'):
     # Select region with curvilinear coordinates TLONG and TLAT
     # xname and yname are the x and y coordinates of the ariable
     # Copied from preprocess_by_level (but removed the vname requirement)
@@ -4183,7 +4185,8 @@ def sel_region_xr_cv(ds2,bbox,debug=False,lonname="TLONG",latname="TLAT",xname='
     
     # Adjust to degrees east
     if np.any(tlon < 0):
-        print("Converting longitude to degrees east")
+        if verbose:
+            print("Converting longitude to degrees east")
         tlon = np.where(tlon<0,tlon+360,tlon)
     
     # Make Bool Mask
@@ -4195,14 +4198,17 @@ def sel_region_xr_cv(ds2,bbox,debug=False,lonname="TLONG",latname="TLAT",xname='
     # Case 3. Crossing international date line (180,-180)
     # Case 4. Both are degrees east
     if np.any(np.array(bbox)[:2] < 0):
-        print("Degrees West Detected")
+        if verbose:
+            print("Degrees West Detected")
         
         if np.all(np.array(bbox[:2]) < 0): # Case 1 Both are degrees west
-            print("Both are degrees west")
+            if verbose:
+                print("Both are degrees west")
             lonmask = (tlon >= bbox[0]+360) * (tlon <= bbox[1]+360)
             
         elif (bbox[0] < 0) and (bbox[1] >= 0): # Case 2 (crossing prime meridian)
-            print("Crossing Prime Meridian")
+            if verbose:
+                print("Crossing Prime Meridian")
             lonmaskE = (tlon >= bbox[0]+360) * (tlon <= 360) # [lonW to 360]
             if bbox[1] == 0:
                 lonmaskW = lonmaskE
@@ -4211,12 +4217,14 @@ def sel_region_xr_cv(ds2,bbox,debug=False,lonname="TLONG",latname="TLAT",xname='
             
             lonmask = lonmaskE | lonmaskW
         elif (bbox[0] > 0) and (bbox[1] < 0): # Case 3 (crossing dateline)
-            print("Crossing Dateline")
+            if verbose:
+                print("Crossing Dateline")
             lonmaskE = (tlon >= bbox[0]) * (tlon <= 180) # [lonW to 180]
             lonmaskW = (tlon >= 180)     * (tlon <= bbox[1]+360) # [lonW to 180]
             lonmask = lonmaskE * lonmaskW
     else:
-        print("Everything is degrees east")
+        if verbose:
+            print("Everything is degrees east")
         lonmask = (tlon >= bbox[0]) * (tlon <= bbox[1])
     
     regmask = lonmask*latmask
@@ -4230,7 +4238,8 @@ def sel_region_xr_cv(ds2,bbox,debug=False,lonname="TLONG",latname="TLAT",xname='
     
     st  = time.time()
     ds2 = ds2.where(ds2.mask,drop=True)
-    print("Loaded in %.2fs" % (time.time()-st))
+    if verbose:
+        print("Loaded in %.2fs" % (time.time()-st))
     return ds2
 
 def get_box_native(ds,bbox,lon='lon',lat='lat',dim='value',to180=False):
