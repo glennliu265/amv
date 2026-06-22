@@ -6143,6 +6143,10 @@ def addstrtoext(name,addstr,adjust=0):
     Result should be "name+addstr+.ext"
     -4: 3 letter extension. -3: 2 letter extension
     """
+    # Searches for 2 letter extension
+    if (name[-2:] == "nc") or (name[-3] == "."): # Adjust for 2-letter extension
+        print("2-letter extension detected")
+        adjust = -1
     return name[:-(4+adjust)] + addstr + name[-(4+adjust):]
 
 def get_stringnum(instring,keyword,nchars=1,verbose=True,return_pos=False):
