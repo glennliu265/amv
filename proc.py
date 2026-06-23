@@ -6023,6 +6023,22 @@ def movmean(timeseries,N):
     # Calculate moving/running mean across N values
     return np.convolve(timeseries,np.ones(N)/N,mode='same')
 
+def pointwise_movmean(ds_raw,window):
+    # xrfunc Application of movmean
+    st        = time.time()
+    movmean_n = lambda ds: movmean(ds,window)
+    ds_smooth= xr.apply_ufunc(
+        movmean_n ,
+        ds_raw,
+        input_core_dims=[['time']],
+        output_core_dims=[['time']],
+        vectorize=True,
+        )
+    ds_smooth['time'] = ds_raw['time']
+    ds_smooth = ds_smooth.transpose(*ds_raw.dims) # Make sure Dimensions Match Original...
+    print("Smoothed in %.2fs" % (time.time()-st))
+    return ds_smooth
+
 """
 -----------------
 |||  Labeling ||| ****************************************************
@@ -6135,7 +6151,6 @@ def mon2str(selmon,index=True):
     else: # Actual month givem so convert to index
         selmon = np.array(selmon) - 1 
         return ''.join([mons3[a][0] for a in selmon])
-    
 
 def addstrtoext(name,addstr,adjust=0):
     """
