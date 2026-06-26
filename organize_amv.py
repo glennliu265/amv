@@ -202,7 +202,7 @@ Functions:
     remove_enso         : Copied from scm, remove ENSO from variable using regression
     calc_HF             : Calculate heat flux feedback (copied from scm)
     check_flx           : Check the sign of heat flux, copied from (calc_Fprime_lens)
-    
+    get_bbox            : Get a dictionary containing bounding box information for common boxes
     
     ----------------------------
     ||| Dimension Gymnastics ||| **********************************************

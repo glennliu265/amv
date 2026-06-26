@@ -5459,6 +5459,44 @@ def check_flx(da_flx,flxname=None,return_flag=True,bbox_gs=None):
         #da_in = da_in * -1
     return da_flx
     
+def get_bbox(bbox_name,degrees_east=True):
+    # --------------------------------------
+    # Get Dictionary of Bounding Boxes [LonW, LonE, LatS, LatN]
+    # All in Degrees East (set degrees_east=False to return negative longitudes)
+    #
+    # Inspired by Sen's Bounding Box Code...
+    # 
+    # --------------------------------------
+    bbdict = {
+        # Southeast Tropical Pacific Stratocumulus Box from Kang et al. 2026
+        "SEP": dict(bbox=[-90+360,-75+360,-40,-15],
+                    bbname="SEP",
+                    bbname_long="Southeastern Pacific (Kang et al. 2026)",
+                    ),
+        
+        # Northern SEP Bounding Box with enhanced combination tones
+        "SEP_North": dict(bbox=[-90+360,-75+360,-25,-15],
+                          bbname="SEP_North",
+                          bbname_long="Northern SEP Box",
+                          ),
+        # Enter New Thing Here....
+        }
+    
+    keylist = list(bbdict.keys())
+    if bbox_name not in keylist:
+        print("[%s] not found..." % bbox_name)
+        print("Options are: %s" % keylist)
+        return None
+    
+    bbdict_out = bbdict[bbox_name]
+    if degrees_east is False:
+        # Convert Longitudes to Degrees West
+        if bbdict_out['bbox'][0] > 180:
+            bbdict_out['bbox'][0] = bbdict_out['bbox'][0] - 360
+        if bbdict_out['bbox'][1] > 180:
+            bbdict_out['bbox'][1] = bbdict_out['bbox'][1] - 360
+    return bbdict_out
+    
         
 
 #%% ~ Dimension Gymnastics
