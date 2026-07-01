@@ -259,7 +259,7 @@ def deseason(ts,dim=0,return_scycle=False):
         return tsanom,scycle
     return tsanom
 
-def xrdeseason(ds,check_mon=True,verbose=True):
+def xrdeseason(ds,check_mon=True,verbose=True,scycle=None):
     """ Remove seasonal cycle, given an Dataarray with dimension 'time'"""
     if check_mon:
         try: 
@@ -268,8 +268,20 @@ def xrdeseason(ds,check_mon=True,verbose=True):
         except:
             if verbose:
                 print("Warning, not checking for feb start")
-    
-    return ds.groupby('time.month') - ds.groupby('time.month').mean('time')
+    if scycle is None:
+        return ds.groupby('time.month') - ds.groupby('time.month').mean('time')
+    else:
+        if verbose:
+            print("Removing supplied seasonal cycle [scycle]...")
+        return ds.groupby('time.month') - scycle
+
+def xrclim(ds):
+    """ 
+    Calculate Mean seasonal climatology along dimension time 
+    for xr.DataArray using groupby
+    """
+    return ds.groupby('time.month').mean('time')
+
 
 def calc_savg(invar,debug=False,return_str=False,axis=-1,ds=False):
     """
@@ -3060,7 +3072,7 @@ def make_sinfunc_str(fitout):
         )
     return sinstr
 
-def fit_sin_pointwise(ds, fix_freq=None):
+def fit_sin_pointwise(ds, fix_freq=None,return_ds=False):
     # Pointwise application of fit_sinfunc
     def unpack_sinfit(target):
         t      = np.arange(len(target))
@@ -3077,7 +3089,18 @@ def fit_sin_pointwise(ds, fix_freq=None):
         vectorize=True,
         )
     print("Completed fit in %.2fs" % (time.time()-stxr))
+    
+    # Place in DataSet
+    if return_ds:
+        amp,freq,phase,offset,ypred = dsout # dsout
+        dsout = xr.merge([amp.rename('amplitude'),
+                          freq.rename('frequency'),
+                         phase.rename('phase'),
+                         offset.rename('offset'),
+                         ypred.rename('ypred')])
     return dsout
+
+    
 
 #%% ~ Significance Testing
 ## ND version (incomplete)
@@ -6056,6 +6079,10 @@ def shortest_distance_mod12(current,center,verbose=True):
         print("CCW Difference is %i" % ccwdiff)
         print("Minimum Diff   is %i" % mindiff)
     return mindiff
+
+def get_time_bnds(ds):
+    # Get First and Last Timestep in String Form
+    return [str(ds.time.isel(time=0).data)[:10],str(ds.time.isel(time=-1).data)[:10]]
 
 def movmean(timeseries,N):
     # Calculate moving/running mean across N values
