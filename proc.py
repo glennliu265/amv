@@ -560,36 +560,37 @@ def detrend_poly(x,y,deg):
     ydetrend = y - model.T
     return ydetrend,model
 
-def polyfit_1d(x,y,order):
-    """
-    Similar to detrend poly but just for a 1-D array, but returning the residuals
-    as well.
+# Old Version, need to check when this was removed...
+# And also which functions are failing because of this
+# def polyfit_1d(x,y,order):
+#     """
+#     Similar to detrend poly but just for a 1-D array, but returning the residuals
+#     as well.
 
-    Parameters
-    ----------
-    x : ARRAY
-        Input timeseries,independent variable
-    y : ARRAY
-        Target. dependent variable
-    order : INT
-        Order of the polynomial to fit
+#     ----------
+#     x : ARRAY
+#         Input timeseries,independent variable
+#     y : ARRAY
+#         Target. dependent variable
+#     order : INT
+#         Order of the polynomial to fit
 
-    Returns
-    -------
-    coeffs : LIST
-        Coefficients of fitted polynomial in descending order
-    newmodel : ARR
-        The fitted model.
-    residual : ARR
-        Residuals.
+#     Returns
+#     -------
+#     coeffs : LIST
+#         Coefficients of fitted polynomial in descending order
+#     newmodel : ARR
+#         The fitted model.
+#     residual : ARR
+#         Residuals.
 
-    """
-    coeffs   = np.polyfit(x,y,order,)
+#     """
+#     coeffs   = np.polyfit(x,y,order,)
     
-    newmodel = [np.power(x,order-N)*np.array(coeffs)[N] for N in range(order+1)] 
-    newmodel = np.array(newmodel).sum(0)
-    residual = y - newmodel
-    return coeffs,newmodel,residual
+#     newmodel = [np.power(x,order-N)*np.array(coeffs)[N] for N in range(order+1)] 
+#     newmodel = np.array(newmodel).sum(0)
+#     residual = y - newmodel
+#     return coeffs,newmodel,residual
 
 
 def xrdetrend(ds,timename='time',verbose=True):
@@ -3180,11 +3181,13 @@ def calc_dof(ts,ts1=None,calc_r1=True,ntotal=None,verbose=True,r1_in=None,r1_in_
             r2          = ts1
             
         if r1_in_2 is not None:
-            print("Using provided r1 for timeseries 2")
+            if verbose:
+                print("Using provided r1 for timeseries 2")
             r2 = r1_in_2
             
         if np.any(r2<0):
-            print("Warning, r2 is less than zero. Taking abs value!")
+            if verbose:
+                print("Warning, r2 is less than zero. Taking abs value!")
             r2 = np.abs(r2)
     
         rho_in      = r1*r2
@@ -3193,6 +3196,30 @@ def calc_dof(ts,ts1=None,calc_r1=True,ntotal=None,verbose=True,r1_in=None,r1_in_
     dof   = n_tot * (1-rho_in) / (1+rho_in)
     
     return dof
+
+def calc_dof_xr(ds,ds1=None,dimname='time'):
+    # xr.ufunc implementation of calc_dof. Suppress warning messages where r2<0...
+    # Vectorize calc_dof operation using xr.ufunc
+    if ds1 is None: # use Just 1 variable
+        calc_dof_1var = lambda a : calc_dof(a,verbose=False)
+        dof_out = xr.apply_ufunc(
+            calc_dof_1var,
+            ds, # Time must be in the first dimension
+            input_core_dims =[[dimname],],
+            output_core_dims=[[],],
+            vectorize=True,
+            )
+    else: # Calcuale using 2 variables
+        calc_dof_2var = lambda a,b : calc_dof(a,ts1=b,verbose=False)
+        dof_out = xr.apply_ufunc(
+            calc_dof_2var,
+            ds, # Time must be in the first dimension
+            ds1,
+            input_core_dims =[[dimname],[dimname]],
+            output_core_dims=[[],],
+            vectorize=True,
+            )
+    return dof_out
 
 def ttest_rho(p,tails,dof,return_str=False):
     """
@@ -3341,6 +3368,8 @@ def regress_ttest(in_var,in_ts,dof=None,p=0.05,tails=2,verbose=True):
     
     return outdict
 
+
+    
 
 def calc_pval_rho(rho,dof):
     # Compute p-value (two-tailed) given pearson R correaltion and Degrees of freedom

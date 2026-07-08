@@ -32,6 +32,7 @@ Functions:
     nanargminds         : Take nanargmin for dataarray with masking
     make_mask           : Create a mask from a dataarray using specified nan values
     movmean             : Calculate moving/running mean
+    pointwise_movmean   : Apply movmean pointwise...
     
         ~ Averaging ~
     ann_avg             : Take annual average of monthly time series
@@ -43,11 +44,13 @@ Functions:
     year2mon            : Separate mon x year dimensions
     deseason            : Calculate monthly anomalies by removing the seasonal cycle
     xrdeseason          : Deseason DataArray by removing mean seasonal cycle <xarray>
+    xrclim              : Calculate climatology seasonal cycle
     calc_savg           : Caclulate seasonal average of an ND input
     calc_savg_mon       : Same but using xarray groupby functions
     calc_clim           : Compute climatological monthly mean
     remove_ss_sinusoid  : Moves annual and semiannual seasonal cycles using least squares fit to sinusoids
     check_scycle        : Check if there is a seasonal cycle remaining
+    
     
         ~ Detrending ~
     detrend_dim         : Linear detrend along a dimension
@@ -117,6 +120,7 @@ Functions:
     
         ~ Significance Testing ~
     calc_dof            : Compute effective degrees of freedom
+    calc_dof_xr         : xr.ufunc implementation of calc_dof. Suppress warning messages where r2<0...
     ttest_rho           : Perform T-Test
     calc_stderr         : Compute Standard Error (assuming normal distr)
     regress_ttest       : Perform regression and also compute significance via t-test
@@ -240,6 +244,7 @@ Functions:
     selmon_ds           : Select certain months in a DataArray/DataSet
     expand_bbox         : Expand bounding box by fixed amount
     shortest_distance_mod12 : Find shortest distance in mod 12
+    get_time_bnds       : Get Min/Max Time for xr.DataArray
     
     -----------------
     |||  Labeling ||| ****************************************************
