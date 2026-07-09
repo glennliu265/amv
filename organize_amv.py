@@ -94,6 +94,7 @@ Functions:
     pointwise_linear_fit     : Apply extract_linear_component to each point
     polyfit_1d               : Fit n-degree polynomial to timeseries (helper for pointwise_polyfit)
     pointwise_polyfit        : xrfunc appliation to fit polynomial at each location
+    quickregr                : Convenient function for determining regression slope
     
         ~ Lead/Lag Analysis ~
     calc_lagcovar       : Monthly lag-lead correlation
@@ -122,10 +123,12 @@ Functions:
     calc_dof            : Compute effective degrees of freedom
     calc_dof_xr         : xr.ufunc implementation of calc_dof. Suppress warning messages where r2<0...
     ttest_rho           : Perform T-Test
+    ttest_regression_xr : Implementation of regress_ttest (ttest portion) in xarray
     calc_stderr         : Compute Standard Error (assuming normal distr)
     regress_ttest       : Perform regression and also compute significance via t-test
     calc_pval_rho       : Calculate the p-value given correlations and DOF.
     mcsampler           : Copied from ensobase.utils, take samples of a selected length from longer timeseries
+    
     
         ~ Other ~
     covariance_2d       : Calculate covariance for 2 2D arrays

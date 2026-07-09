@@ -1846,7 +1846,10 @@ def polyfit_1d(x,y,deg,return_all=True):
         return model,np.flip(fit),r2,residual
     return model
 
-def pointwise_polyfit(ds_index,ds_target,deg,fill_value=0,verbose=True):
+def pointwise_polyfit(ds_index,ds_target,deg,fill_value=0,verbose=True,
+                      ttest=False,
+                      p=0.05,tails=2,effective_dof=True,
+                      ):
     # Perform N-degree polynomial fit and return coefficients
     # Check for NaN and replace with [fill_value]
     if np.any(np.isnan(ds_target)):
@@ -1875,9 +1878,24 @@ def pointwise_polyfit(ds_index,ds_target,deg,fill_value=0,verbose=True):
                        ds_r2.rename('r2'),
                        ds_residual.rename('residual')
                        ])
+    if ttest: # Perform a T-Test
+        predictor = ds_index
+        target    = ds_target
+        prediction= ds_model
+        dimname   = 'time'
+        beta      = ds_coeff.isel(coeff=1)
+        sigmask   = ttest_regression_xr(predictor,target,prediction,dimname=dimname,
+                                        beta=beta,p=p,tails=tails,effective_dof=effective_dof)
+        ds_out = xr.merge([ds_out,sigmask.rename('significance')])
+    
     if verbose:
         print("Completed in %.2fs" % (time.time()-st))
     return ds_out
+
+def quickregr(x,y,dimname='time'):
+    # Calculate Regression Slope (convenience function)
+    # See `notebooks/regional_eof_SEP.ipynb` for unit testing and o(1e-5) roundoff error
+    return xr.cov(x,y,dim=dimname) / x.var(dimname)
 
 #%% ~ Lead/Lag Analysis
 def calc_lagcovar(var1,var2,lags,basemonth,detrendopt,yr_mask=None,debug=True,
@@ -3251,6 +3269,101 @@ def ttest_rho(p,tails,dof,return_str=False):
         ttest_str = "p%03i_tails%i" % (p*100,tails)
         return corrthres,ttest_str
     return corrthres
+
+
+def ttest_regression_xr(predictor,target,prediction,beta=None,dimname='time',dof=None,effective_dof=False,
+                           p=0.05,tails=2,verbose=False,return_all=False):
+    
+    # Perform T-Test on Regression Slope given [predictor], [target], and [prediction] timeseries and [beta] slopes
+    # if beta is not given, computes it as cov(x,y) / var(x)
+    # if dof is not given, uses ndim - 2
+    # if dof_effective is True, computes effective DOF considering autocorrelation (see calc_dof_xr)
+    # p=0.05 and 2-tailed test used by default. For 1-tailed t-test, looks for values > tcritical (need to modify if looking for below...)
+    # Based on https://www.geo.fu-berlin.de/en/v/soga-r/Basics-of-statistics/Hypothesis-Tests/Inferential-Methods-in-Regression-and-Correlation/Inferences-About-the-Slope/index.html
+    # Modified from proc.regress_ttest
+    # See: regional_eof_SEP.ipynb for debugging blocks.
+    # Used by: pointwise_polyfit
+    
+    # (0) Check Inputs
+    if beta is None:
+        if verbose:
+            print("Using Covariance Estimate of Regression Slope")
+        beta = xr.cov(predictor,target,dim=dimname) / predictor.var(dimname)
+    
+    # (1) Calculate Sum of Squared Errors (SSE)
+    st      = time.time()
+    epsilon = target - prediction   # Get the Residual
+    SSE     = (epsilon**2).sum(dimname) # Sum of Squared Errors
+    if verbose:
+        print("Completed SSE calculation in %.2fs" % (time.time()-st))
+    
+    # (2) Determine DOF
+    st      = time.time()
+    nt      = len(target.time)           # Get length of timeseries
+    if dof is None:
+        if effective_dof: # Use Reduced DOF based on autocorrelation of timeseries
+            dof = calc_dof_xr(target,ds1=predictor) # Calculate Effective DOF
+            if verbose:
+                print("Using Effective DOF")
+        else:
+            dof = nt-2 # Note you can set DOF to be different here. I think 2 is just 2 parameters for linear regr
+            dof = xr.ones_like(SSE) * dof # Duplicate to make it the full array
+            if verbose:
+                print("Using DOF len(time) - 2")
+    if verbose:
+        print("Completed DOF calculation in %.2fs" % (time.time()-st))
+    
+    # (3) Calculate Residual Standard Error
+    st      = time.time()
+    se      = np.sqrt(SSE/ (dof)) # Residual Standard Error. 
+    if verbose:
+        print("Completed Residual SE calculation in %.2fs" % (time.time()-st))
+    
+    # (4) Compute the t-statistic
+    st    = time.time()
+    rss_x = np.sqrt( np.sum( (predictor - predictor.mean('time')) **2))# Root Sum Square of x
+    denom = se / rss_x
+    tstat = beta.squeeze() / denom
+    if verbose:
+        print("Completed T-Statistic calculation in %.2fs" % (time.time()-st))
+    
+    # A4. Get Critical T
+    st    = time.time()
+    ptilde  = p/tails
+    critval = stats.t.ppf(1-ptilde,dof)
+    if tails == 2:
+        critval_lower = stats.t.ppf(ptilde,dof)
+    if verbose:
+        print("Completed T-Critical thresholds calculation in %.2fs" % (time.time()-st))
+    
+    # Make significance Mask
+    st = time.time()
+    if tails == 2:
+        sigmask = (tstat > critval) | (tstat < critval_lower)
+    else:
+        sigmask = tstat > critval
+    if verbose:
+        print("Determined Significance Mask calculation in %.2fs" % (time.time()-st))
+    
+    # Make Dataset if Return All is True
+    if return_all:
+        st = time.time()
+        critval = xr.ones_like(tstat) * critval
+        
+        dsout = xr.merge([
+            dof.rename('dof'),
+            tstat.rename('t_stat'),
+            sigmask.rename('significance_mask'),
+            critval.rename('t_critical_value'),])
+        dsout['pvalue']= p
+        dsout['tails'] = tails
+        if tails == 2:
+            critval_lower = xr.ones_like(tstat) * critval_lower
+            dsout['t_critical_value_lower'] = critval_lower
+        print("Created Merged DataSet %.2fs" % (time.time()-st))
+        return dsout
+    return sigmask
+
 
 def calc_stderr(x,dim,p=0.05,tails=2):
     """
