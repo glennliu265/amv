@@ -1534,7 +1534,7 @@ def plot_mask(lon,lat,mask,reverse=False,color="k",marker="o",markersize=1.5,
               ax=None,proj=None,geoaxes=False):
     
     """
-    Plot stippling based on a mask
+    Plot stippling based on a mask.
     
     1) lon     [ARRAY] : Longitude values
     2) lat     [ARRAY] : Latitude values
@@ -1543,10 +1543,14 @@ def plot_mask(lon,lat,mask,reverse=False,color="k",marker="o",markersize=1.5,
     5) color [STR] : matplotlib color
     6) marker [STR] : matplotlib markerstyle
     7) markersize [STR] : matplotlib markersize
-
+                         
+    # Eventually remove geoaxes
     Solution from: https://matplotlib.org/stable/gallery/images_contours_and_fields/contour_corner_mask.html
     
     """
+    if geoaxes is not None:
+        print("geoaxes has been depreciated. Use proj to apply/trigger transform")
+    
     if proj is None:
         if geoaxes:
             proj = ccrs.PlateCarree()
@@ -1567,7 +1571,9 @@ def plot_mask(lon,lat,mask,reverse=False,color="k",marker="o",markersize=1.5,
     
     # Make meshgrid and plot masked array
     yy,xx    = np.meshgrid(lat,lon)
-    if geoaxes:
+    if mask.shape != yy.shape:
+        mask = mask.T
+    if proj is not None:
         smap = ax.plot(np.ma.array(xx,mask=mask),yy,
                        c=color,marker=marker,markersize=markersize,ls="None",transform=proj)
     else:
