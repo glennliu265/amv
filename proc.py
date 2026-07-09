@@ -3179,11 +3179,13 @@ def calc_dof(ts,ts1=None,calc_r1=True,ntotal=None,verbose=True,r1_in=None,r1_in_
         r1 = ts
     
     if r1_in is not None:
-        print("Using provided r1 for timeseries 1")
+        if verbose:
+            print("Using provided r1 for timeseries 1")
         r1 = r1_in
     
     if np.any(r1<0):
-        print("Warning, r1 is less than zero. Taking abs value!")
+        if verbose:
+            print("Warning, r1 is less than zero. Taking abs value!")
         r1 = np.abs(r1)
     
     if ts1 is None: # Square R1
