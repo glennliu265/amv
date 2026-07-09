@@ -3344,6 +3344,8 @@ def ttest_regression_xr(predictor,target,prediction,beta=None,dimname='time',dof
         sigmask = (tstat > critval) | (tstat < critval_lower)
     else:
         sigmask = tstat > critval
+    # Replace NaN spaces
+    sigmask = xr.where(np.isnan(beta),np.nan,sigmask)
     if verbose:
         print("Determined Significance Mask calculation in %.2fs" % (time.time()-st))
     
