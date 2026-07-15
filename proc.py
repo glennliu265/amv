@@ -5773,6 +5773,19 @@ def flipdims(invar):
     """ Reverse dim order of an n-dimensional array"""
     return invar.transpose(np.flip(np.arange(len(invar.shape))))
 
+def getcoords(ds,verbose=False):
+    # Get Dimensions of xr.DataArray in Order
+    # verbose=True to print sizes
+    dimnames = ds.dims
+    ndim     = len(dimnames)
+    dsshape  = ds.shape
+    coordout = {}
+    for nd in range(ndim):
+        dname = dimnames[nd]
+        print(("%s=%i") % (dname,dsshape[nd]))
+        coordout[dimnames[nd]] = ds[dname].data
+    return coordout
+
 """
 ---------------------
 |||  Convenience ||| ****************************************************

@@ -220,6 +220,7 @@ Functions:
     dim2front           : Move selected dimension to fhe first position/axis
     restoredim          : Revert array back to oldshape (reverse dim2front)
     flipdims            : Reverse axis/dimension order
+    getcoords           : Get coordinates/dimensions of xr.DataArray in order
     
     ---------------------
     |||  Convenience ||| ****************************************************
