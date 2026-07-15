@@ -5782,7 +5782,8 @@ def getcoords(ds,verbose=False):
     coordout = {}
     for nd in range(ndim):
         dname = dimnames[nd]
-        print(("%s=%i") % (dname,dsshape[nd]))
+        if verbose:
+            print(("%s=%i") % (dname,dsshape[nd]))
         coordout[dimnames[nd]] = ds[dname].data
     return coordout
 
