@@ -79,6 +79,7 @@ Functions:
     correct_lat         : Correct latitude values that go beyond -90 or 90 (for get_box)
     get_box             : Get box centered at lat/lon with specified size (correcting for lat/lon)
     sel_box             : Select box from DataArray based on specified window size
+    make_mesh           : xarray version of mesh grid
     
     
     ------------------------------

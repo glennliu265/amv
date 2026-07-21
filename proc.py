@@ -209,14 +209,18 @@ def area_avg(data,bbox,lon,lat,wgt=None):
         data_aa = np.nanmean(sel_data,(0,1))
     return data_aa
     
-def area_avg_cosweight(ds,sqrt=False):
+def area_avg_cosweight(ds,lat=None,sqrt=False,spacedims=['lat','lon']):
     # Take area average of dataset, applying cos weighting
     # Based on https://docs.xarray.dev/en/latest/examples/area_weighted_temperature.html
-    weights     = np.cos(np.deg2rad(ds.lat))
+    if lat is None:
+        weights     = np.cos(np.deg2rad(ds.lat))
+    else:
+        print("Using Provided Latitude")
+        weights    =  np.cos(np.deg2rad(lat))
     if sqrt: # Take squareroot if option is set
         weights = np.sqrt(weights)
     ds_weighted = ds.weighted(weights)
-    return ds_weighted.mean(('lat','lon'))
+    return ds_weighted.mean(*spacedims)
 
 def area_avg_cosweight_cv(ds,vname,sqrt=False):
     # Take area average of dataset, applying cos weighting
@@ -1432,6 +1436,16 @@ def sel_box(ds,lonc,latc,lonwin,latwin,verbose=False,return_bbsel=False):
         return sel_region_xr(ds,bbsel,verbose=verbose),bbsel
     return sel_region_xr(ds,bbsel,verbose=verbose)
 
+def make_mesh(ds,lonname='lon',latname='lat',xname="x",yname="y"):
+    # xarray version of meshgrid,
+    # (1) Tranposes to lat x lon
+    # (2) Creates meshgrid of longitudes (x) and latitudes (y)
+    ds     = ds.transpose(*(latname,lonname))
+    xx,yy  = np.meshgrid(ds[lonname],ds[latname])
+    coords = dict(lat=ds[latname],lon=ds[lonname])
+    xx     = xr.DataArray(xx,coords=coords,dims=coords,name=xname)
+    yy     = xr.DataArray(yy,coords=coords,dims=coords,name=yname)
+    return xr.merge([xx,yy])
 
 
 """
@@ -4283,7 +4297,7 @@ def sel_region_xr(ds,bbox,verbose=False):
     """
     #bbox = np.array(bbox,dtype=object)
     check_latitude_ascending = (ds.lat[1] - ds.lat[0] > 0)
-    check_lon360 = np.any(ds.lon > 180).data.item()
+    check_lon360             = np.any(ds.lon > 180).data.item()
     if bbox[2] > bbox[3] and check_latitude_ascending:
         if verbose:
             print("Warning! Southern Latitude Bound > Northern Latitude Bound for increasing latitudes...")
@@ -4343,7 +4357,7 @@ def sel_region_xr(ds,bbox,verbose=False):
 
 def sel_region_xr_cv(ds2,bbox,debug=False,verbose=True,
                      lonname="TLONG",latname="TLAT",
-                     xname='nlon',yname='nlat'):
+                     xname='nlon',yname='nlat',reverse=False):
     # Select region with curvilinear coordinates TLONG and TLAT
     # xname and yname are the x and y coordinates of the ariable
     # Copied from preprocess_by_level (but removed the vname requirement)
@@ -4397,6 +4411,8 @@ def sel_region_xr_cv(ds2,bbox,debug=False,verbose=True,
         lonmask = (tlon >= bbox[0]) * (tlon <= bbox[1])
     
     regmask = lonmask*latmask
+    if reverse:
+        regmask = not regmask
 
     # Select the box
     if debug:
@@ -4432,7 +4448,7 @@ def get_box_native(ds,bbox,lon='lon',lat='lat',dim='value',to180=False):
     return ds.sel(
         {
             dim : (
-                (coords[lat] >= y0)
+                  (coords[lat] >= y0)
                 & (coords[lat] <= y1)
                 & (coords[lon] >= x0)
                 & (coords[lon] <= x1)
@@ -5935,7 +5951,7 @@ def ds_dropvars(ds,keepvars):
     # Drop unwanted dimension
     dsvars = list(ds.variables)
     remvar = [i for i in dsvars if i not in keepvars]
-    ds = ds.drop(remvar)
+    ds = ds.drop_vars(remvar)
     return ds
 
 def make_encoding_dict(ds,encoding_type='zlib'):
