@@ -19,6 +19,7 @@
     add_fontborder      : Add border/highlight with PathEffects
     add_axlines         : Add x/y axes lines at 0.
     change_axcol        : Change color of axis line, ticks, and label
+    remove_trailing_zero: Remove trailing zero in xtick or ytick label
     
     
         ~ Subplot Management
@@ -56,6 +57,7 @@
     init_logspec        : Initialize log-log plot (from viz_regional_spectra.py)
     init_specplot_enso  : Initialize Log-Log plot at ENSO frequencies
     add_ctones          : Add combination tone bands based on provided ENSO Frequencies
+    init_specplot_cvdp  : 
     
         ~ Spatial/2-D Plots/Contours
     plot_contoursign    : Contour line plot with solid as positive and dashed as negative
@@ -272,6 +274,16 @@ def change_axcol(axname,c,ax=None):
         ax.spines['bottom'].set_color(c)
         ax.xaxis.label.set_color(c)
     return ax
+
+def remove_trailing_zero(ax,x=False,y=False):
+    # Note: This doesnt appear to work al the time...
+    if x:
+        ax.xaxis.set_major_formatter(mpl.ticker.FormatStrFormatter('%g'))
+    if y:
+        ax.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter('%g'))
+    return None
+    
+    
 
 # ~~~~~~~~~~~~~~~~~~~~~~
 #%% Subplot Management
@@ -1417,6 +1429,36 @@ def init_specplot_enso(nrow=1,ncol=1,figsize=(8,4.5),fsz_ticks=12,fsz_axis=12,
     # =====================
     return fig,ax,ax2
 
+def init_specplot_cvdp(nrow=1,ncol=1,figsize=(6,6),fsz_ticks=12,fsz_axis=12,
+                       xper=[50,10,5,3,2,1.5,1],vunit='unit'):
+    # vunit should be in $$ if needed
+    # Copied init_specplot_enso
+    fig,ax          = plt.subplots(1,1,figsize=figsize,constrained_layout=True)
+    
+    # Set Up Spectra ========= (Look for function I wrote for this)
+    cvdp_xaxis      = [.0  ,.01  ,.02  ,.03  ,.042  ,.056  ,.083]
+    xper            = np.array(xper)
+    xper_ticks      = 1 / (xper*12)
+    
+    # Set Vertical Lines, Axes Labels
+    ax.set_xlim([cvdp_xaxis[0],cvdp_xaxis[-1]])
+    ax.set_xticks(cvdp_xaxis)
+    
+    # Twin X-Axis for Period Labels
+    ax.set_xlabel(r"Frequency (cycles $month^{-1}$)",fontsize=fsz_axis)
+    ax.set_xlim([cvdp_xaxis[0],cvdp_xaxis[-1]])
+    ax.xaxis.set_major_formatter(mpl.ticker.FormatStrFormatter('%g'))
+    ax.set_ylabel(r"Power (%s$^2$ / cycles month$^{-1}$) )" % (vunit),fontsize=fsz_axis)
+    
+    #ax.set_ylabel("Power ($ cycles per month$)")
+    ax2 = ax.twiny()
+    ax2.set_xlim([xper_ticks[0],xper_ticks[-1]])
+    ax2.set_xticks(xper_ticks,labels=xper)
+    ax2.set_xlabel("Period (Years)",fontsize=fsz_axis)
+    for axx in [ax,ax2]:
+        axx.tick_params(labelsize=fsz_ticks)
+    # =====================
+    return fig,ax,ax2
 
 def add_ctones(ax=None,ylims=None,enso_bands=[2,5.5],return_tones=False):
     """ 
