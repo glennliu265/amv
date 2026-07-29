@@ -220,7 +220,7 @@ def area_avg_cosweight(ds,lat=None,sqrt=False,spacedims=['lat','lon']):
     if sqrt: # Take squareroot if option is set
         weights = np.sqrt(weights)
     ds_weighted = ds.weighted(weights)
-    return ds_weighted.mean(*spacedims)
+    return ds_weighted.mean(spacedims)
 
 def area_avg_cosweight_cv(ds,vname,sqrt=False):
     # Take area average of dataset, applying cos weighting
