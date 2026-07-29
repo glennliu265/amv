@@ -1868,15 +1868,23 @@ def pointwise_polyfit(ds_index,ds_target,deg,fill_value=0,verbose=True,
     # Check for NaN and replace with [fill_value]
     if np.any(np.isnan(ds_target)):
         if verbose:
-            print("Warning! NaNs detected. Replacing with %s" % fill_value)
+            print("Warning! NaNs detected in [Target] Variable. Replacing with %s" % fill_value)
         ds_target_in = xr.where(np.isnan(ds_target),fill_value,ds_target)
     else:
         ds_target_in = ds_target
+    if np.any(np.isnan(ds_index)):
+        if verbose:
+            print("Warning! NaNs detected in [Index] Variable. Replacing with %s" % fill_value)
+        ds_index_in = xr.where(np.isnan(ds_index),fill_value,ds_index)
+    else:
+        ds_index_in = ds_index
+            
+    
     # Perform Pointwise Polynomial Fit (xrfunc version)
     st = time.time()
     fitout = xr.apply_ufunc(
         polyfit_1d,
-        ds_index,
+        ds_index_in,
         ds_target_in,
         deg,
         input_core_dims=[['time'],['time'],[]],
