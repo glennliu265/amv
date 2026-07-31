@@ -776,7 +776,7 @@ def xrdetrend_nd(invar,order,regress_monthly=False,return_fit=False,verbose=True
         dsout = da_detrend
     return dsout
 
-def detrend_dim(da, dim="time", deg=1):
+def xrdetrend_dim(da, dim="time", deg=1):
     # Function by Rohit Ghosh: https://github.com/rg568/EERIE_scripts/blob/main/FESOM/ENSO_Z500_DJF_teleconnection_IFS-FESOM.ipynb
     coeffs = da.polyfit(dim=dim, deg=deg)
     trend = xr.polyval(da[dim], coeffs.polyfit_coefficients)
