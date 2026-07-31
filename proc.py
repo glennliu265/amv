@@ -279,12 +279,28 @@ def xrdeseason(ds,check_mon=True,verbose=True,scycle=None):
             print("Removing supplied seasonal cycle [scycle]...")
         return ds.groupby('time.month') - scycle
 
+def xrdeseason_daily(ds,clim=False):
+    """Remove seasonal cycle for daily data along dimension time."""
+    dsclim       = xrclim_daily(ds)#ds.groupby("time.dayofyear").mean("time")
+    dsanom       = ds.groupby("time.dayofyear") - dsclim
+    if clim:
+        return dsanom,dsclim
+    return dsanom
+
 def xrclim(ds):
     """ 
     Calculate Mean seasonal climatology along dimension time 
     for xr.DataArray using groupby
     """
     return ds.groupby('time.month').mean('time')
+
+def xrclim_daily(ds):
+    """
+    Calculate Mean seasonal climatology for DAILY data along dimension time 
+    for xr.DataArray using groupby. Copied from `SST_Skewness_Obs.ipynb`, 2026.07.31
+    """
+    return ds.groupby("time.dayofyear").mean("time")
+
 
 
 def calc_savg(invar,debug=False,return_str=False,axis=-1,ds=False):
@@ -759,6 +775,12 @@ def xrdetrend_nd(invar,order,regress_monthly=False,return_fit=False,verbose=True
     else:
         dsout = da_detrend
     return dsout
+
+def detrend_dim(da, dim="time", deg=1):
+    # Function by Rohit Ghosh: https://github.com/rg568/EERIE_scripts/blob/main/FESOM/ENSO_Z500_DJF_teleconnection_IFS-FESOM.ipynb
+    coeffs = da.polyfit(dim=dim, deg=deg)
+    trend = xr.polyval(da[dim], coeffs.polyfit_coefficients)
+    return da - trend
 
 def detrend_by_regression(invar,in_ts,regress_monthly=False,
                           return_pattern_only=False,verbose=True):

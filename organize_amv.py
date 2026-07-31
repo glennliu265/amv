@@ -44,7 +44,9 @@ Functions:
     year2mon            : Separate mon x year dimensions
     deseason            : Calculate monthly anomalies by removing the seasonal cycle
     xrdeseason          : Deseason DataArray by removing mean seasonal cycle <xarray>
+    xrdeseason_daily    : Remove seasonaly cycle for daily data
     xrclim              : Calculate climatology seasonal cycle
+    xrclim_daily        : Calculate climatological seasonal cycle for daily data
     calc_savg           : Caclulate seasonal average of an ND input
     calc_savg_mon       : Same but using xarray groupby functions
     calc_clim           : Compute climatological monthly mean
@@ -59,6 +61,7 @@ Functions:
     xrdetrend           : Apply detrend_dim to xarray DataArray
     xrdetrend_1d        : Fit line for single timeseries and detrend (works on DataArrays with dim "time")
     xrdetrend_nd        : Fit + remove n-th order polynomial for an multi-dimensional DataArray along the "time" dimension
+    xrdetrend_dim       : Generalized xArray Detrend Function, written by Rohit
     detrend_by_regression : Detrend by regression to a timeseries....
     
         ~ Classification/Grouping ~
