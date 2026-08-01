@@ -70,6 +70,10 @@ Functions:
     classify_bythres    : Assign classes based on threshold values from 2D map.
     make_thres_labels   : Make Threshold Labels
     
+        ~ Event Identification
+    combine_consecutive_events : Combines Indices of consecutive events
+    retrieve_event_metrics : Calculates basic stats from indentified events
+    
         ~ Spatial Analysis/Operations/Wrangling ~
     lon360to180         : Flip longitude from degrees East to West
     lon180to360         : Flip longitude from degrees West to East

@@ -1202,6 +1202,165 @@ def make_thres_labels(thresvals):
     return labels
 
 
+#%% ~ Event Identification
+
+# 2. Combine Events based on tolerance (basead on ut.combine_events
+
+def retrieve_event_metrics(event_combine,timeseries):
+    """
+    Processes merged events and calculates basic statistics (max, min, mean, stdev, duration, cumulative sum)
+    
+    Inputs
+        event_combine : list of lists, where each element is an event and each inner list contains the indices corresponding to the event
+        timeseries    : xr.DataArray , timeseries containing values
+
+    Returns
+        xr.DataSet Containing Time, Indices, and Summary Stats for each event, numbered by eventid.
+    
+    See `develop_MHW_id_code.ipynb` for debgging script
+
+    """
+    # Given a list of lists containing indices of combined events 
+    nevents_combined = len(event_combine)
+    
+    # Part (1): Perform A Loop through Events =================================
+    # Event Timing
+    duration      = np.zeros((nevents_combined)) * np.nan
+    
+    # Indexing
+    id_center     = duration.copy()
+    id_first      = duration.copy()
+    id_last       = duration.copy()
+    id_max        = duration.copy()
+    id_min        = duration.copy()
+    
+    # Event Stats
+    event_mean    = duration.copy()
+    event_std     = duration.copy()
+    event_cumu    = duration.copy()
+    for ie in range(nevents_combined):
+        
+        eventid_loop = event_combine[ie]
+        
+        # Get Variables  ------------------------------------------------
+        intensities    = timeseries[eventid_loop].data
+        eventtimes     = timeseries.time[eventid_loop].data
+        nconsecutive   = len(eventid_loop)
+        
+        # Record Some Metrics -------------------------------------------
+        # Determine Some Indices for Metrics
+        # Index within event chunk
+        idmax            = np.argmax(np.abs(intensities))
+        idmin            = np.argmin(np.abs(intensities))
+        idfirst          = 0 #eventid_loop[0]
+        idlast           = -1 #eventid_loop[-1]
+        idcenter         = nconsecutive // 2 # Middle is just divided by 2
+        if not nconsecutive & 0x1: # If Evenn, shift earlier
+            idcenter     = idcenter - 1
+        
+        # Index from full timeseries
+        id_center[ie]    = eventid_loop[idcenter]
+        id_first[ie]     = eventid_loop[idfirst]
+        id_last[ie]      = eventid_loop[idlast]
+        id_max[ie]       = eventid_loop[idmax]
+        id_min[ie]       = eventid_loop[idmin]
+        
+        # Timing (Note this saves to unreadable number...)
+        duration[ie]     = nconsecutive            # Duration (Note assumes regular spacing...)
+        
+        # Statistics
+        event_mean[ie]   = np.nanstd(intensities) # Mean
+        event_std[ie]    = np.nanstd(intensities) # Standard Deviation
+        event_cumu[ie]   = np.nansum(intensities) # Cumulative Values
+        
+    # Using Indices, retrieve only needed information
+    def remake_time_dim(ds,event_index = None):
+        times_original = ds.time.data.copy() # Save copy of original time dimension
+        if event_index is None:
+            event_index = np.arange(len(times_original)) # Make Index (to avoid conflict across events)
+        ds['time']       = event_index # Assign
+        return ds
+    
+    tnames           = ["max" ,"min" ,"start" ,"end","center"]
+    ids_in           = [id_max,id_min,id_first,id_last,id_center]
+    
+    # Extract Values based on Indices
+    event_values     = [timeseries.isel(time=list(dd.astype('int'))) for dd in ids_in]
+    event_values     = [event_values[ii].rename("event_%s" % tnames[ii]) for ii in range(len(tnames))]
+    
+    
+    # Extract times and move to their own DataArray
+    event_times      = [ds.time.data for ds in event_values]
+    event_times      = [remake_time_dim(ds.time.copy()) for ds in event_values]
+    event_times      = [event_times[ii].rename("time_%s" % tnames[ii]) for ii in range(len(tnames))]
+    
+    # Now remove time dimension from Event Values
+    event_values     = [remake_time_dim(ds) for ds in event_values]
+    
+    # Combine into List and drop day of year
+    times_and_values = event_times + event_values
+    times_and_values = [ds.drop_vars('dayofyear') for ds in times_and_values]
+    
+    
+    # Now Process the second ground (from initial loop)
+    ecoords          = dict(time=np.arange(nevents_combined))
+    makeda           = lambda inarr,name : xr.DataArray(inarr,coords=ecoords,dims=ecoords,name=name)
+    
+    group2           = [duration,event_mean,event_std,event_cumu]
+    group2_names     = ["duration","event_mean","event_std","cumulative_intensity"]
+    
+    metrics          = [makeda(group2[ii],group2_names[ii]) for ii in range(len(group2))]
+    indices          = [makeda(ids_in[ii],"id%s" % tnames[ii]) for ii in range(len(tnames))]
+    
+    
+    # Combine Everything, Rename Event Index
+    ds_out = xr.merge(times_and_values+metrics+indices)
+    ds_out = ds_out.rename(dict(time="eventid"))
+    return ds_out
+
+def combine_consecutive_events(timeseries,event_indices,tol=1,verbose=True):
+    # Given a tolerance level, merge consecutive events
+    # Separate into discrete events
+    # Copied from combine_events from enso event id
+    nevents        = len(event_indices)
+    if verbose:
+        print("Original Starting Count: %i Events" % nevents)
+        print("\tCombining Events <= [%i] timesteps apart" % tol)
+    
+    # Looping through events
+    event_combine = []
+    for ii in range(nevents+1): 
+        
+        if ii == (nevents): # Don't Perform Check for the last event
+            # if verbose:
+            #     print("Merging last event: %s" % event_merge)
+            event_combine.append(event_merge) # This is defined later
+            continue
+        
+        # Get the Index of the event
+        ievent = event_indices[ii].item()
+        
+        if ii == 0: # Start Array with event to calculate Distances
+            prev_id     = ievent
+            event_merge = [ievent,]
+            continue
+        
+        if (ievent - prev_id) <= tol: # Consecutive Event
+            event_merge.append(ievent)
+            # if verbose:
+            #     print("%i is consecutive to previous events (%s)" % (ievent,event_merge))
+        else: # Otherwise, just add event and merge
+            event_combine.append(event_merge)
+            event_merge = [ievent,] # Make a new one
+            # if verbose:
+            #     print("Making new event sequence at %i" % (ievent))
+        prev_id = ievent
+    nevents_combined = len(event_combine)
+    if verbose:
+        print("\tCulled to %i events!" % nevents_combined)
+    return event_combine
+
+
 #%% ~ Spatial Analysis/Wrangling
 
 def lon360to180(lon360,var,autoreshape=False,debug=True):
