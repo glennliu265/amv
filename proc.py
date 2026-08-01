@@ -1360,6 +1360,27 @@ def combine_consecutive_events(timeseries,event_indices,tol=1,verbose=True):
         print("\tCulled to %i events!" % nevents_combined)
     return event_combine
 
+def get_rolling_threshold(timeseries,quantiles=[0.10,0.90],monthly=True):
+    "Compute climatologically-varying percentile threshold and tile to original timeseries"
+    
+    if monthly: # Compute Quantiles Grouping by Month
+        thres_bymon = timeseries.groupby('time.month').quantile(quantiles,dim='time')
+    else:       # Compute Quantiles Grouping by Day of Year
+        thres_bymon = timeseries.groupby('time.dayofyear').quantile(quantiles,dim='time')
+    thresholds = []
+    nq         = len(quantiles)
+    for qq in range(nq):
+        thres_in = thres_bymon.isel(quantile=qq)
+        if monthly:
+            thres = xr.ones_like(timeseries).groupby('time.month') * thres_in
+        else:
+            thres = xr.ones_like(timeseries).groupby('time.dayofyear') * thres_in
+        thres = thres.drop_vars('quantile')
+        thresholds.append(thres)
+    
+    thresholds = xr.concat(thresholds,dim='quantile')
+    thresholds['quantile'] = quantiles
+    return thresholds
 
 #%% ~ Spatial Analysis/Wrangling
 

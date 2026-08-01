@@ -72,7 +72,8 @@ Functions:
     
         ~ Event Identification
     combine_consecutive_events : Combines Indices of consecutive events
-    retrieve_event_metrics : Calculates basic stats from indentified events
+    retrieve_event_metrics     : Calculates basic stats from indentified events
+    get_rolling_threshold      : Compute climatologically-varying percentile threshold and tile
     
         ~ Spatial Analysis/Operations/Wrangling ~
     lon360to180         : Flip longitude from degrees East to West
