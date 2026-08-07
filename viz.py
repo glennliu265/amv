@@ -37,6 +37,7 @@
     init_fig            : Initialize a figure with geoaxis
     init_blabels        : Initialize dict indicating bounding box labels
     init_orthomap       : Initialize orthographic map over North Atlantic
+    draw_gridlines      : Add Lat/Lon Labels according to subplot row/column
     
     
         ~ Time Series/1-D Plots
@@ -73,6 +74,7 @@
     prep_monlag_labels  : Add month laevls below lag for autocorrelation plots
     plot_profile        : Initialize vertical profile plot (copied from viz_temp_v_salt.py)
     init_NATL           : Initialize a North Atlantic Plot (single panel)
+    init_ensplot40      : 40-Member Ensemble Global Maps
     
         ~ Quick Visualization (qv) series
     qv_seasonal         : Plot the seasonal cycle of 2D variable
@@ -469,7 +471,7 @@ def init_tp_map(nrow=1,ncol=1,figsize=(12.5,4.5),ax=None,latmax=20,lonbounds=[12
         return fig,ax
     return ax
 
-def init_globalmap(nrow=1,ncol=1,figsize=(12,8),centlon=200):
+def init_globalmap(nrow=1,ncol=1,figsize=(12,8),centlon=200,label_axes=True):
     proj            = ccrs.Robinson(central_longitude=centlon)
     #bbox            = [-180,180,-90,90]
     fig,ax          = plt.subplots(nrow,ncol,subplot_kw={'projection':proj},figsize=figsize,constrained_layout=True)
@@ -483,7 +485,8 @@ def init_globalmap(nrow=1,ncol=1,figsize=(12,8),centlon=200):
         ax = ax.flatten()
     for a in ax:
         a.coastlines(zorder=10,lw=0.75,transform=proj)
-        a.gridlines(ls ='dotted',draw_labels=True)
+        if label_axes:
+            a.gridlines(ls ='dotted',draw_labels=True)
         
     if multiax is False:
         ax = ax[0]
@@ -720,7 +723,79 @@ def init_orthomap(nrow,ncol,bboxplot,centlon=-40,centlat=35,precision=40,
         }
     return fig,axs,mapdict
 
+def draw_gridlines(axs,proj,fontsize_tick=12,rowplot=True):
+    # Add Lat/Lon Gridlines to axes
+    # If axs is 1-D, set rowplot=True if nrow=1, False for ncol=1
+    if len(axs.shape) == 1:
+        if rowplot:
+            nrow = 1
+            ncol = axs.shape[0]
+        else:
+            nrow = axs.shape[0]
+            ncol = 1
+    else:
+        nrow,ncol = axs.shape
+    ntotal    = nrow*ncol
+    drawgrid = lambda ax,proj: ax.gridlines(crs=proj, draw_labels=True,
+                      linewidth=0.75, color='gray', alpha=0.5, linestyle="dotted")
+    def remove_deg(gl,fontsize_tick):
+        gl.xlabel_style = {'size':fontsize_tick}
+        gl.ylabel_style = {'size':fontsize_tick}
+        gl.xformatter = LongitudeFormatter(zero_direction_label=False,degree_symbol='')
+        gl.yformatter = LatitudeFormatter(degree_symbol='')
+        return gl
+    for e in range(ntotal):
+        ax = axs.flatten()[e]
         
+        # Left Column =======
+        if e%ncol == 0 or ncol == 1:
+            gl                  = drawgrid(ax,proj)
+            gl.left_labels      = True 
+            gl.right_labels     = False
+            gl.top_labels       = False
+            if (e == (ncol*(nrow-1))): # Left Bottom
+                gl.bottom_labels    = True
+            else:
+                gl.bottom_labels    = False
+    
+            gl = remove_deg(gl,fontsize_tick)
+            
+        # Bottom Row ========
+        if (e >= (ncol*(nrow-1)+1)) or nrow == 1:
+            gl                  = drawgrid(ax,proj)
+            gl.left_labels      = False 
+            if (e == ntotal-1): # Right Bottom 
+                gl.right_labels     = True
+            else:
+                gl.right_labels     = False
+            gl.top_labels       = False
+            
+            gl.bottom_labels    = True
+            
+            gl = remove_deg(gl,fontsize_tick)
+        # Top Row
+        if (e <= ncol-1) or nrow == 1:
+            gl                  = drawgrid(ax,proj)
+            gl.left_labels      = False 
+            if (e == (ncol-1)): # Right Top
+                gl.right_labels = True
+            else:
+                gl.right_labels = False
+            gl.top_labels       = True
+            gl.bottom_labels    = False
+    
+            gl = remove_deg(gl,fontsize_tick)
+        # Right Column
+        if e%ncol == (ncol-1) and e > (ncol-1) and e < (ntotal-1) or ncol == 1:
+            gl                  = drawgrid(ax,proj)
+            gl.left_labels      = False 
+            gl.right_labels     = True
+            gl.top_labels       = False
+            gl.bottom_labels    = False
+        
+            gl = remove_deg(gl,fontsize_tick)
+    return axs
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~
 #%% Time Series/1-D Plot
@@ -2260,6 +2335,31 @@ def init_regplot(regname=None,fontsize=20,bboxin=None):
     if bbauto is False:
         return fig,ax
     return fig,ax,bboxin
+
+def init_ensplot40(figsize=(40,14),fontsize_tick=14,fontsize_axis=18,
+                   add_gridlines=True,centlon=200):
+    # Initialize a 5 x 8 Plot for 40 Ensemble Members
+    
+    
+    # Initialize Figure
+    projin     = ccrs.Robinson(central_longitude=centlon)
+    proj       = ccrs.PlateCarree()
+    fig,axs    = plt.subplots(5,8,figsize=figsize,
+                              subplot_kw=dict(projection=projin),constrained_layout=True)
+    
+    for e in tqdm(range(40)):
+        ax = axs.flatten()[e]
+
+        # Label Subplot
+        label_sp(e+1,ax=ax,fontsize=fontsize_axis,labelstyle="Ens %s",usenumber=True,y=1.07,alpha=0.8)
+
+        # Draw Coastlines + Continents
+        ax.coastlines(color="darkgray")
+        ax.add_feature(cfeature.LAND,facecolor='lightgray',)#zorder=c_zorder)
+    
+    if add_gridlines:
+        axs = draw_gridlines(axs,proj,fontsize_tick=fontsize_tick)
+    return fig,axs
 
 #%% Spectral Analysis
 
