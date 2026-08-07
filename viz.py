@@ -75,6 +75,7 @@
     plot_profile        : Initialize vertical profile plot (copied from viz_temp_v_salt.py)
     init_NATL           : Initialize a North Atlantic Plot (single panel)
     init_ensplot40      : 40-Member Ensemble Global Maps
+    init_ensplot10      : 10-Member Ensemble Global Maps
     
         ~ Quick Visualization (qv) series
     qv_seasonal         : Plot the seasonal cycle of 2D variable
@@ -2360,6 +2361,28 @@ def init_ensplot40(figsize=(40,14),fontsize_tick=14,fontsize_axis=18,
     if add_gridlines:
         axs = draw_gridlines(axs,proj,fontsize_tick=fontsize_tick)
     return fig,axs
+
+def init_ensplot10(figsize = (32,8),fontsize_tick=14,fontsize_axis=18,add_gridlines=True,centlon=200):
+    # Initialize Figure
+    projin     = ccrs.Robinson(central_longitude=centlon)
+    proj       = ccrs.PlateCarree()
+    fig,axs    = plt.subplots(2,5,figsize=figsize,
+                              subplot_kw=dict(projection=projin),constrained_layout=True)
+    
+    for e in tqdm(range(10)):
+        ax = axs.flatten()[e]
+    
+        # Label Subplot
+        label_sp(e+1,ax=ax,fontsize=fontsize_axis,labelstyle="Ens %s",usenumber=True,y=1.07,alpha=0.8)
+    
+        # Draw Coastlines + Continents
+        ax.coastlines(color="darkgray")
+        ax.add_feature(cfeature.LAND,facecolor='lightgray',)#zorder=c_zorder)
+    
+    if add_gridlines:
+        axs = draw_gridlines(axs,proj,fontsize_tick=fontsize_tick)
+    return fig,axs
+
 
 #%% Spectral Analysis
 
