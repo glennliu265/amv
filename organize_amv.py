@@ -89,6 +89,19 @@ Functions:
     sel_box             : Select box from DataArray based on specified window size
     make_mesh           : xarray version of mesh grid
     
+        ~ Time Formatting and Wrangling
+    cftime2str          : Convert array of cftime objects to string
+    convert_datenum     : Convert MatLab DateNum to either string or np.datetime64
+    noleap_tostr        : Convert Noleap to string
+    npdatetime_to_str   : Convert datetime objects in xarray to string "YYYY-MM-DD"
+    check_time_cesm     : CESM-specific script to check start, end, and time length using cftime_range
+    check_timelen       : Compact version of [check_time_cesm], but just comparing the length of time dimension
+    fix_febstart        : For dataarrays, alter files that start with feb to jan.
+    get_time_bnds       : Get Min/Max Time for xr.DataArray
+    get_xryear          : use xr.cftime to make dummy "year" for calculations
+    match_time_month    : Crop two Datasets/DataArrays to start/end from same Year-Month
+    
+    
     
     ------------------------------
     |||  Statistical Analysis  ||| ****************************************************
@@ -138,7 +151,6 @@ Functions:
     calc_pval_rho       : Calculate the p-value given correlations and DOF.
     mcsampler           : Copied from ensobase.utils, take samples of a selected length from longer timeseries
     
-    
         ~ Other ~
     covariance_2d       : Calculate covariance for 2 2D arrays
     make_ar1            : Create AR1 timeseries given lag 1 correlation coefficient, sigma, and length (from slutil)
@@ -153,6 +165,7 @@ Functions:
     make_sinfunc_str    : Make label with coefficients esimated from [fit_sinfunc]
     fit_sin_pointwise   : Pointwise application of fit_sinfunc
     
+    
     -----------------------------------------
     |||  Spectral Analysis and Filtering  ||| ****************************************************
     -----------------------------------------
@@ -165,6 +178,7 @@ Functions:
     plot_conflog        : Plot confidence intervals for spectral density on a log scale
     mcsample_spectra    : Perform Monte-Carlo subsampling of power spectra
     bandpass_butter     : Apply bandpass filter using butterworth filter
+    
     
     ----------------------------
     |||  Indexing & Querying ||| ****************************************************
@@ -190,7 +204,7 @@ Functions:
     sort_by_axis        : Sort arrays along axis by values from a single array 
     get_nearest         : Get indices of the closest value to an input (absolute diff)
     index_window        : Index a moving window of values (from scm.)
-    match_time_month    : Crop two Datasets/DataArrays to start/end from same Year-Month
+    
     getfirstnan         : Find Index of first NaN in a 1-D array (can use with xr.ufunc)
     
     
@@ -236,17 +250,14 @@ Functions:
     ---------------------
         General convenience functions, and other odds/ends 
     
-    aavg                : Take cosweighted average over bounding box
     numpy_to_da         : Convert NumPy array into DataArray (and save)
-    cftime2str          : Convert array of cftime objects to string
-    noleap_tostr        : Convert Noleap to string
+    aavg                : Take cosweighted average over bounding box
     ds_dropvars         : Drop all variables except those included in the list.
     make_encoding_dict  : Make encoding dictionary for each variable of an xarray dataset
     npz_to_dict         : Make loaded npz file a dict
     format_ds           : Standardize Lat/Lon direction and naming in netCDFs
     savefig_pub         : Save a publication-ready figure
     check_sum_ds        : Check summed output of DataArray
-    get_xryear          : use xr.cftime to make dummy "year" for calculations
     rep_ds              : Repeat ds certain number of times along a specified dimension
     check_latlon_ds     : Check to make sure datasets of the same size have the same lat/lon coordinates
     splittime_ds        : Crop ds around a specific year
@@ -257,7 +268,8 @@ Functions:
     selmon_ds           : Select certain months in a DataArray/DataSet
     expand_bbox         : Expand bounding box by fixed amount
     shortest_distance_mod12 : Find shortest distance in mod 12
-    get_time_bnds       : Get Min/Max Time for xr.DataArray
+    get_nclist          : Get list of sorted NetCDFs given a search string [ncsearch] with wildcards
+    
     
     -----------------
     |||  Labeling ||| ****************************************************
@@ -271,9 +283,8 @@ Functions:
     get_monstr          : Get Array containing strings of first N letters of each month
     addstrtoext         : Append string to end of file, before the extension
     get_stringnum       : Search for starting positive of keyword in a string
-    fix_febstart        : For dataarrays, alter files that start with feb to jan.
-    get_lagmon          : Given Lead/Lags, get the label for corresponding month
     
+    get_lagmon          : Given Lead/Lags, get the label for corresponding month
     
     -----------------
     |||  yo box ||| ****************************************************

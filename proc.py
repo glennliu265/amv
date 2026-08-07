@@ -15,12 +15,14 @@ import scipy
 import datetime
 import tqdm
 import sklearn
+import glob
 
 import scipy as sp
 import pandas as pd
 import numpy as np
 import xarray as xr
 import calendar as cal
+import cftime
 
 import cartopy.crs as ccrs
 import numpy.ma as ma
@@ -283,6 +285,7 @@ def xrdeseason_daily(ds,clim=False):
     """Remove seasonal cycle for daily data along dimension time."""
     dsclim       = xrclim_daily(ds)#ds.groupby("time.dayofyear").mean("time")
     dsanom       = ds.groupby("time.dayofyear") - dsclim
+    dsanom       = dsanom.drop_vars('dayofyear')
     if clim:
         return dsanom,dsclim
     return dsanom
@@ -1649,6 +1652,226 @@ def make_mesh(ds,lonname='lon',latname='lat',xname="x",yname="y"):
     yy     = xr.DataArray(yy,coords=coords,dims=coords,name=yname)
     return xr.merge([xx,yy])
 
+#%% ~Time Formatting and Wrangling
+
+def cftime2str(times):
+    "Convert array of cftime objects to string (YYYY-MM-DD)"
+    newtimes = []
+    for t in range(len(times)):
+        newstr = "%04i-%02i-%02i" % (times[t].year,times[t].month,times[t].day)
+        newtimes.append(newstr)
+    return np.array(newtimes)
+
+def convert_datenum(matlab_datenum,datestr=False,fmt="%d-%b-%Y %H:%M:%S",autoreshape=True,return_datetimeobj=False,verbose=False):
+    """
+    Usage: python_datenum = convert_datenum(matlab_datenum,datestr=False,
+                                fmt="%d-%b-%Y %H:%M%S",autoreshape=True,
+                                return_datetimeobj=False,verbose=False)
+    
+    Converts an array of Matlab Datenumbers to either an array of np.datetime64 or strings (if datestr=True).
+    This considers the offset for different origin date for matlab (Jan 1, year 0) vs. Python (Jan 1, 1970).
+    If you prefer to work with datetime objects, set return_datetimeobj to True.
+    
+    Inputs
+    ------
+    1) matlab_datenum     : N-D ARRAY of floats
+        Array containing matlab datenumbers to convert
+    2) datestr            : BOOL
+        Set to True to convert output to human-readable strings. Default returns np.datetime64[ns]
+    3) fmt                : STR
+        Format out output datestring. ex. of default format is "30-Jan-1990 23:59:00"
+    4) autoreshape        : BOOL
+        By default, the script flattens then reshapes the array to its original dimensions.
+        Set to False to just return the flattened array.
+    5) return_datetimeobj : BOOL
+        By default, the script returns np.datetime64. To just return datetime, set this to true.
+        NOTE: The dimensions will be flattened and autoreshape will not work.
+    6) verbose            : BOOL
+        Set to true to print messages
+    
+    Output
+    ------
+    1) python_datetime : N-D ARRAY of np.datetime64[64] or strings
+        Array containing the result of the conversion.
+    
+    Copied from cvd_utils on 2024.01.18
+    Dependencies
+        import pandas as pd
+        import numpy as np
+        import datetime as datetime
+        
+    """
+    # Preprocess inputs (flattening n-d arrays)
+    in_arr = np.array(matlab_datenum)
+    dims   = in_arr.shape
+    if len(dims)  > 1:
+        if verbose:
+            print("Warning! flattening %i-D array with dims %s"%(len(dims),str(dims)))
+        in_arr = in_arr.flatten()
+
+    # Calculate offset (In Python, reference date is Jan 1, year 1970 UTC, see "Unix Time")
+    # Additional 366 days because reference date in matlab is January 0, year 0000 
+    offset = datetime.datetime(1970, 1, 1).toordinal() + 366
+
+    # Convert to Python datetime, considering offset
+    # Note that Matlab uses "days since", hence unit="D"
+    python_datetime  = pd.to_datetime(in_arr-offset, unit='D')
+
+    # Convert to datestring, and optionally convert to numpy array
+    if datestr:
+        if verbose:
+            print("Converting to datestr")
+        python_datetime = python_datetime.strftime(fmt)
+        if return_datetimeobj:
+            return python_datetime
+        # Otherwise convert to string array
+        python_datetime = np.array(python_datetime,dtype=str)
+    else: # Convert to numpy array with datetime objects
+        if return_datetimeobj:
+            return python_datetime
+        # Otherwise convert to np.datetime64 array
+        python_datetime = np.array(python_datetime)
+
+    # Reshape array if necessary (current works only for numpy arrays)
+    if len(dims) > 1 and autoreshape:
+        if verbose:
+            print("Reshaping array to original dimensions!")
+        # Reshape array to original dimensions
+        python_datetime=python_datetime.reshape(dims) 
+    return python_datetime
+
+def noleap_tostr(timestep):
+    timestr = "%04i-%02i-%02i" % (timestep.item().year,timestep.item().month,timestep.item().day)
+    return timestr
+
+def npdatetime_to_str(dt):
+    # Change to YYYY-MM-DD
+    if type(dt) == xr.core.dataarray.DataArray:
+        return str(dt.data)[:10]
+    elif type(dt) == cftime._cftime.DatetimeNoLeap:
+        return str(dt)[:10]
+    else:
+        print("Need to implement support for type %s" % type(dt))
+        return None
+            
+def check_time_cesm(nclist,freq="D"):
+    # Given a List of NetCDFs with "time" dimension in NoLeap Calendar..
+    # Check the Start, End, and Expected # of Timesteps (Daily)
+    nclist_in = nclist.copy()#[1]
+
+    # Start Loop
+    nfiles    = len(nclist_in)
+    ff        = 0
+    check     = []
+    for ff in range(nfiles):
+        nc        = nclist_in[ff]
+        times     = xr.open_dataset(nc).time.load()
+        
+        fstart = npdatetime_to_str(times[0])
+        fend   = npdatetime_to_str(times[-1])
+        ntimef = len(times)
+        
+        cftimefile = xr.date_range(fstart,fend,freq=freq,use_cftime=True,calendar="noleap")
+        ntimec     = len(cftimefile)
+    
+        #remove_duplicate_times(times)
+        #times     = 
+        
+        print("File (%i/%i): %s" % (ff+1,nfiles,nc))
+        print("\tStart Time is         : %s" % fstart)
+        print("\tEnd Time is           : %s" % fend)
+        print("\tNumber of Timesteps   : %i" % (ntimef))
+        print("\tExpected Timesteps    : %i" % (ntimec))
+        print("\tNote, Assumed No Leap Calendar")
+        check.append(ntimef == ntimec)
+    return check
+
+def check_timelen(dsin,freq="D",calendar="noleap"):
+    # Create CFTIME Array with same start/end to check length
+    fstart = npdatetime_to_str(dsin.time[0])
+    fend   = npdatetime_to_str(dsin.time[-1])
+    cftime_check = xr.date_range(fstart,fend,freq=freq,calendar=calendar)
+    
+    print("Input Dataseries Time Length: %i (%s to %s)" % (len(dsin.time),fstart,fend))
+    print("Expected Values:            : %i (%s to %s)" % (len(cftime_check),
+                                                          cftime_check[0],
+                                                          cftime_check[-1],))
+    return len(dsin.time) == len(cftime_check)
+
+def fix_febstart(ds):
+    # Copied from preproc_CESM.py on 2022.11.15
+    if ds.time.values[0].month != 1:
+        print("Warning, first month is %s. Fixing."% ds.time.values[0])
+        # Get starting year, must be "YYYY"
+        startyr = str(ds.time.values[0].year)
+        while len(startyr) < 4:
+            startyr = '0' + startyr
+        nmon = ds.time.shape[0] # Get number of months
+        # Corrected Time
+        correctedtime = xr.cftime_range(start=startyr,periods=nmon,freq="MS",calendar="noleap")
+        ds = ds.assign_coords(time=correctedtime) 
+    return ds
+
+def get_time_bnds(ds):
+    # Get First and Last Timestep in String Form
+    return [str(ds.time.isel(time=0).data)[:10],str(ds.time.isel(time=-1).data)[:10]]
+
+def get_xryear(ystart="0000",nmon=12):
+    # Get an xarray year (dummy operation). Can indicate startyear or month
+    return xr.cftime_range(start='0000',periods=nmon,freq="MS",calendar="noleap")
+    
+def match_time_month(var_in,ts_in,timename='time',verbose=True):
+    # Crops the start and end times for var_in and ts_in (xr.DataArrays/Datasets)
+    # Note works for datetime64[ns] format in xr.DataArray
+    # See ensobase/calculate_enso_response.py for working example
+    
+    if len(var_in[timename]) != len(ts_in[timename]): # Check if they match
+        
+        # Warning: Only checking Year and Date
+        vstart = str(np.array((var_in[timename].data[0])))[:7]
+        tstart = str(np.array((ts_in[timename].data[0])))[:7]
+        
+        if vstart != tstart:
+            if verbose:
+                print("Start time (v1=%s,v2=%s) does not match..." % (vstart,tstart))
+            if vstart > tstart:
+                if verbose:
+                    print("Cropping to start from %s" % vstart)
+                ts_in = ts_in.sel( 
+                    {timename : slice(vstart+"-01",None)}
+                    )
+            elif vstart < tstart:
+                if verbose:
+                    print("Cropping to start from %s" % tstart)
+                var_in = var_in.sel(
+                    {timename : slice(tstart+"-01",None)}
+                    )
+        
+        vend = str(np.array((var_in[timename].data[-1])))[:7]
+        tend = str(np.array((ts_in[timename].data[-1])))[:7]
+        
+        
+        if vend != tend:
+            if verbose:
+                print("End times (v1=%s,v2=%s) does not match..." % (vend,tend))
+            if vend > tend:
+                dayend = '-' + str(cal.monthrange(int(tend[:4]),int(tend[-2:]))[1])
+                if verbose:
+                    print("\nCropping to end at %s" % (tend+dayend))
+                
+                var_in = var_in.sel(
+                    {timename : slice(None,tend+dayend)}
+                    )
+            elif vend < tend:
+                dayend = '-' + str(cal.monthrange(int(tend[:4]),int(tend[-2:]))[1])
+                if verbose:
+                    print("\nCropping to end at %s" % (vend+dayend))
+                ts_in = ts_in.sel(
+                    {timename : slice(None,vend+dayend)}
+                    )
+        if verbose:        
+            print(len(var_in[timename]) == len(ts_in[timename]))  
+    return var_in,ts_in
 
 """
 ------------------------------
@@ -4920,59 +5143,7 @@ def indexwindow(invar,m,monwin,combinetime=False,verbose=False):
     if combinetime:
         varout = varout.reshape((varout.shape[0]*varout.shape[1],varout.shape[2])) # combine dims
     return varout
-    
-def match_time_month(var_in,ts_in,timename='time',verbose=True):
-    # Crops the start and end times for var_in and ts_in (xr.DataArrays/Datasets)
-    # Note works for datetime64[ns] format in xr.DataArray
-    # See ensobase/calculate_enso_response.py for working example
-    
-    if len(var_in[timename]) != len(ts_in[timename]): # Check if they match
-        
-        # Warning: Only checking Year and Date
-        vstart = str(np.array((var_in[timename].data[0])))[:7]
-        tstart = str(np.array((ts_in[timename].data[0])))[:7]
-        
-        if vstart != tstart:
-            if verbose:
-                print("Start time (v1=%s,v2=%s) does not match..." % (vstart,tstart))
-            if vstart > tstart:
-                if verbose:
-                    print("Cropping to start from %s" % vstart)
-                ts_in = ts_in.sel( 
-                    {timename : slice(vstart+"-01",None)}
-                    )
-            elif vstart < tstart:
-                if verbose:
-                    print("Cropping to start from %s" % tstart)
-                var_in = var_in.sel(
-                    {timename : slice(tstart+"-01",None)}
-                    )
-        
-        vend = str(np.array((var_in[timename].data[-1])))[:7]
-        tend = str(np.array((ts_in[timename].data[-1])))[:7]
-        
-        
-        if vend != tend:
-            if verbose:
-                print("End times (v1=%s,v2=%s) does not match..." % (vend,tend))
-            if vend > tend:
-                dayend = '-' + str(cal.monthrange(int(tend[:4]),int(tend[-2:]))[1])
-                if verbose:
-                    print("\nCropping to end at %s" % (tend+dayend))
-                
-                var_in = var_in.sel(
-                    {timename : slice(None,tend+dayend)}
-                    )
-            elif vend < tend:
-                dayend = '-' + str(cal.monthrange(int(tend[:4]),int(tend[-2:]))[1])
-                if verbose:
-                    print("\nCropping to end at %s" % (vend+dayend))
-                ts_in = ts_in.sel(
-                    {timename : slice(None,vend+dayend)}
-                    )
-        if verbose:        
-            print(len(var_in[timename]) == len(ts_in[timename]))  
-    return var_in,ts_in
+
 
 def getfirstnan(x):
     # Find indices if first NaN in a 1-D Array
@@ -6066,95 +6237,7 @@ def numpy_to_da(invar,times,lat,lon,varname,savenetcdf=None):
         print("Saving netCDF to %s in %.2fs"% (savenetcdf,time.time()-st))
         return da
     
-def cftime2str(times):
-    "Convert array of cftime objects to string (YYYY-MM-DD)"
-    newtimes = []
-    for t in range(len(times)):
-        newstr = "%04i-%02i-%02i" % (times[t].year,times[t].month,times[t].day)
-        newtimes.append(newstr)
-    return np.array(newtimes)
 
-def convert_datenum(matlab_datenum,datestr=False,fmt="%d-%b-%Y %H:%M:%S",autoreshape=True,return_datetimeobj=False,verbose=False):
-    """
-    Usage: python_datenum = convert_datenum(matlab_datenum,datestr=False,
-                                fmt="%d-%b-%Y %H:%M%S",autoreshape=True,
-                                return_datetimeobj=False,verbose=False)
-    
-    Converts an array of Matlab Datenumbers to either an array of np.datetime64 or strings (if datestr=True).
-    This considers the offset for different origin date for matlab (Jan 1, year 0) vs. Python (Jan 1, 1970).
-    If you prefer to work with datetime objects, set return_datetimeobj to True.
-    
-    Inputs
-    ------
-    1) matlab_datenum     : N-D ARRAY of floats
-        Array containing matlab datenumbers to convert
-    2) datestr            : BOOL
-        Set to True to convert output to human-readable strings. Default returns np.datetime64[ns]
-    3) fmt                : STR
-        Format out output datestring. ex. of default format is "30-Jan-1990 23:59:00"
-    4) autoreshape        : BOOL
-        By default, the script flattens then reshapes the array to its original dimensions.
-        Set to False to just return the flattened array.
-    5) return_datetimeobj : BOOL
-        By default, the script returns np.datetime64. To just return datetime, set this to true.
-        NOTE: The dimensions will be flattened and autoreshape will not work.
-    6) verbose            : BOOL
-        Set to true to print messages
-    
-    Output
-    ------
-    1) python_datetime : N-D ARRAY of np.datetime64[64] or strings
-        Array containing the result of the conversion.
-    
-    Copied from cvd_utils on 2024.01.18
-    Dependencies
-        import pandas as pd
-        import numpy as np
-        import datetime as datetime
-        
-    """
-    # Preprocess inputs (flattening n-d arrays)
-    in_arr = np.array(matlab_datenum)
-    dims   = in_arr.shape
-    if len(dims)  > 1:
-        if verbose:
-            print("Warning! flattening %i-D array with dims %s"%(len(dims),str(dims)))
-        in_arr = in_arr.flatten()
-
-    # Calculate offset (In Python, reference date is Jan 1, year 1970 UTC, see "Unix Time")
-    # Additional 366 days because reference date in matlab is January 0, year 0000 
-    offset = datetime.datetime(1970, 1, 1).toordinal() + 366
-
-    # Convert to Python datetime, considering offset
-    # Note that Matlab uses "days since", hence unit="D"
-    python_datetime  = pd.to_datetime(in_arr-offset, unit='D')
-
-    # Convert to datestring, and optionally convert to numpy array
-    if datestr:
-        if verbose:
-            print("Converting to datestr")
-        python_datetime = python_datetime.strftime(fmt)
-        if return_datetimeobj:
-            return python_datetime
-        # Otherwise convert to string array
-        python_datetime = np.array(python_datetime,dtype=str)
-    else: # Convert to numpy array with datetime objects
-        if return_datetimeobj:
-            return python_datetime
-        # Otherwise convert to np.datetime64 array
-        python_datetime = np.array(python_datetime)
-
-    # Reshape array if necessary (current works only for numpy arrays)
-    if len(dims) > 1 and autoreshape:
-        if verbose:
-            print("Reshaping array to original dimensions!")
-        # Reshape array to original dimensions
-        python_datetime=python_datetime.reshape(dims) 
-    return python_datetime
-
-def noleap_tostr(timestep):
-    timestr = "%04i-%02i-%02i" % (timestep.item().year,timestep.item().month,timestep.item().day)
-    return timestr
 
 def ds_dropvars(ds,keepvars):
     '''Drop variables in ds whose name is not in the list [keepvars]'''
@@ -6338,9 +6421,7 @@ def check_sum_ds(add_list,sum_ds,lonf=50,latf=-30,t=0,fmt="%.2f"):
     print(chkstr)
     return chkstr
 
-def get_xryear(ystart="0000",nmon=12):
-    # Get an xarray year (dummy operation). Can indicate startyear or month
-    return xr.cftime_range(start='0000',periods=nmon,freq="MS",calendar="noleap")
+
 
 def rep_ds(ds,repdim,dimname):
     # repeat [ds] a number of times along a selected dimension [repdim], named [dimname]
@@ -6466,9 +6547,16 @@ def shortest_distance_mod12(current,center,verbose=True):
         print("Minimum Diff   is %i" % mindiff)
     return mindiff
 
-def get_time_bnds(ds):
-    # Get First and Last Timestep in String Form
-    return [str(ds.time.isel(time=0).data)[:10],str(ds.time.isel(time=-1).data)[:10]]
+def get_nclist(ncsearch,verbose=True):
+    # Given a search string [ncsearch], get a sorted list of NetCDFs
+    nclist = glob.glob(ncsearch)
+    nclist.sort()
+    nfiles = len(nclist)
+    if verbose:
+        print("Found %i files." % nfiles)
+    return nclist,nfiles
+
+
 
 def movmean(timeseries,N):
     # Calculate moving/running mean across N values
@@ -6630,19 +6718,7 @@ def get_stringnum(instring,keyword,nchars=1,verbose=True,return_pos=False):
         return grabstr,numstart
     return grabstr
 
-def fix_febstart(ds):
-    # Copied from preproc_CESM.py on 2022.11.15
-    if ds.time.values[0].month != 1:
-        print("Warning, first month is %s. Fixing."% ds.time.values[0])
-        # Get starting year, must be "YYYY"
-        startyr = str(ds.time.values[0].year)
-        while len(startyr) < 4:
-            startyr = '0' + startyr
-        nmon = ds.time.shape[0] # Get number of months
-        # Corrected Time
-        correctedtime = xr.cftime_range(start=startyr,periods=nmon,freq="MS",calendar="noleap")
-        ds = ds.assign_coords(time=correctedtime) 
-    return ds
+
 
 def get_lagmon(basemonth,lag):
     # Given a Lag and basemonth, get the corresponding month string
