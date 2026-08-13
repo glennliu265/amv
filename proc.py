@@ -1444,7 +1444,7 @@ def lon360to180_xr(ds,lonname='lon'):
     dsnew = ds.copy()
     dsnew.coords[lonname] = (ds.coords[lonname] + 180) % 360 - 180
     dsnew = dsnew.sortby(dsnew[lonname])
-    return ds
+    return dsnew
 
 def lon180to360_xr(ds,lonname='lon'):
     # Warning: This modifies things in place!
@@ -1872,6 +1872,34 @@ def match_time_month(var_in,ts_in,timename='time',verbose=True):
         if verbose:        
             print(len(var_in[timename]) == len(ts_in[timename]))  
     return var_in,ts_in
+
+def match_years(years1,years2):
+
+    # Given List of Strings indicating the year
+    # Match the earliest/latest years
+    # Note: Does not account for cases with duplicate years
+    # Original script: `sep_sliding_spectra_multivar.ipynb`
+    
+    years1    =  np.array(years1).astype(int)
+    years2    =  np.array(years2).astype(int)
+    ntime1    =  len(years1)
+    ntime2    =  len(years2)
+    
+    # Get Lower of start date
+    new_start = np.max([years1[0],years2[0]])   # Latest Start Date
+    new_end   = np.min([years1[-1],years2[-1]]) # Earliest End Date
+    
+    idnew_y1  = np.where( (years1 >= new_start) & (years1 <= new_end) )[0]
+    idnew_y2  = np.where( (years2 >= new_start) & (years2 <= new_end) )[0]
+    
+    year1new  = years1[idnew_y1]
+    year2new  = years2[idnew_y2]
+    print("Timeseries 1 was %i to %i" % (years1[0],years1[-1]))
+    print("\tChanged to %i to %i" % (year1new[0],year1new[-1]))
+    print("Timeseries 2 was %i to %i" % (years2[0],years2[-1]))
+    print("\tChanged to %i to %i" % (year2new[0],year2new[-1]))
+    
+    return idnew_y1,idnew_y2,year1new,year2new
 
 """
 ------------------------------
@@ -6555,8 +6583,6 @@ def get_nclist(ncsearch,verbose=True):
     if verbose:
         print("Found %i files." % nfiles)
     return nclist,nfiles
-
-
 
 def movmean(timeseries,N):
     # Calculate moving/running mean across N values
