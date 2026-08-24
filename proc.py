@@ -60,9 +60,9 @@ def maxabs(invar,axis=None,keep_sign=False,debug=False):
     if keep_sign:
         idmax = np.nanargmax(np.abs(invar),axis=axis)
         if debug:
-            test = np.take_along_axis(np.abs(invar), np.expand_dims(idmax, axis=0), axis=0).squeeze()
+            test = np.take_along_axis(np.abs(invar), np.expand_dims(idmax, axis=axis), axis=axis).squeeze()
             print("Difference is: %f" % (np.nanmax(np.abs((outvar-test).flatten()))))
-        signs = np.take_along_axis(np.sign(invar), np.expand_dims(idmax, axis=0), axis=0).squeeze()
+        signs = np.take_along_axis(np.sign(invar), np.expand_dims(idmax, axis=axis), axis=axis).squeeze()
         outvar *= signs
     return outvar
 
@@ -76,9 +76,9 @@ def minabs(invar,axis=None,keep_sign=False,debug=False):
     if keep_sign:
         idmax = np.nanargmin(np.abs(invar),axis=axis)
         if debug:
-            test = np.take_along_axis(np.abs(invar), np.expand_dims(idmax, axis=0), axis=0).squeeze()
+            test = np.take_along_axis(np.abs(invar), np.expand_dims(idmax, axis=axis), axis=axis).squeeze()
             print("Difference is: %f" % (np.nanmax(np.abs((outvar-test).flatten()))))
-        signs = np.take_along_axis(np.sign(invar), np.expand_dims(idmax, axis=0), axis=0).squeeze()
+        signs = np.take_along_axis(np.sign(invar), np.expand_dims(idmax, axis=axis), axis=axis).squeeze()
         outvar *= signs
     return outvar
 
@@ -4919,7 +4919,7 @@ def get_box_native(ds,bbox,lon='lon',lat='lat',dim='value',to180=False):
 
 
 
-def get_bbox(ds):
+def get_bbox_ds(ds):
     # Get bounding box of a dataset from "lon" and "lat" dimensions
     bbox = [ds.lon.values[0],
             ds.lon.values[-1],
