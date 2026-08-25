@@ -37,6 +37,7 @@ Functions:
         ~ Averaging ~
     ann_avg             : Take annual average of monthly time series
     area_avg            : Take (weighted) area average within bounding box
+    get_latweights      : Get latitude weights from DataArray for area-weighting
     area_avg_cosweight  : Take area-weighted average of xr.Dataset <xarray>
     area_avg_cosweight_cv : Curvilinear case of above
     
@@ -100,6 +101,7 @@ Functions:
     get_time_bnds       : Get Min/Max Time for xr.DataArray
     get_xryear          : use xr.cftime to make dummy "year" for calculations
     match_time_month    : Crop two Datasets/DataArrays to start/end from same Year-Month
+    match_year          : Match first and last year for list of string years
     
     
     

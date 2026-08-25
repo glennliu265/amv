@@ -140,6 +140,27 @@ def ann_avg(ts,dim,monid=None,nmon=12):
     annavg = np.nanmean(annavg,axis=dim+1)
     return annavg
 
+def get_latweights(ds,sqrt=False,check_arr=None,fillna=True):
+    # Get latitude weights for area-average by making a meshgrid
+    # from lat/lon dimensions of a DataArray
+    # Optionally fill NaN values with zero so they are not
+    # included in weights based on list of DataArrays
+    # Original debugging script: `niu/notebooks/mhw/visualize_oisst_mhw_events.ipynb`
+    xx,yy       = np.meshgrid(ds.lon,ds.lat)
+    weights     = np.cos(np.deg2rad(yy))# * xr.ones_like(weights)
+    if sqrt: # Take squareroot if option is set
+        weights = np.sqrt(weights)
+    
+    if fillna:
+        # Set NaN points to NaN
+        weights     = xr.where(np.isnan(ds),np.nan,weights)
+        if check_arr is not None: # Loop through list of dataarrs and fill NaN with zero
+            for arrin in check_arr:
+                weights     = xr.where(np.isnan(arrin),np.nan,weights)
+        # Fill NaN values with zero
+        weights = weights.fillna(0)
+    return weights
+
 def area_avg(data,bbox,lon,lat,wgt=None):
     """
     Function to find the area average of [data] within bounding box [bbox], 
@@ -211,16 +232,30 @@ def area_avg(data,bbox,lon,lat,wgt=None):
         data_aa = np.nanmean(sel_data,(0,1))
     return data_aa
     
-def area_avg_cosweight(ds,lat=None,sqrt=False,spacedims=['lat','lon']):
+def area_avg_cosweight(ds,lat=None,
+                          sqrt=False,
+                          spacedims=['lat','lon'],
+                          fillna=False,check_arr=None):
     # Take area average of dataset, applying cos weighting
     # Based on https://docs.xarray.dev/en/latest/examples/area_weighted_temperature.html
-    if lat is None:
-        weights     = np.cos(np.deg2rad(ds.lat))
-    else:
-        print("Using Provided Latitude")
-        weights    =  np.cos(np.deg2rad(lat))
-    if sqrt: # Take squareroot if option is set
-        weights = np.sqrt(weights)
+    # Set fillna=True to not include NaN points in the weighting
+    if fillna: # Add Option to Remove NaN Points
+        if lat is not None:
+            print("Warning, supplied lat value will not be used when fillna=True")
+            print("\ttaking lat value from DataArray")
+        
+        weights = get_latweights(ds,sqrt=sqrt,check_arr=check_arr,fillna=True)
+        
+    else: # Just Apply Weight Along Lat Dimension
+        
+        if lat is None:
+            weights     = np.cos(np.deg2rad(ds.lat))
+        else:
+            print("Using Provided Latitude")
+            weights    =  np.cos(np.deg2rad(lat))
+        if sqrt: # Take squareroot if option is set
+            weights = np.sqrt(weights)
+        
     ds_weighted = ds.weighted(weights)
     return ds_weighted.mean(spacedims)
 
