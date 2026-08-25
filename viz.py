@@ -472,7 +472,7 @@ def init_tp_map(nrow=1,ncol=1,figsize=(12.5,4.5),ax=None,latmax=20,lonbounds=[12
         return fig,ax
     return ax
 
-def init_globalmap(nrow=1,ncol=1,figsize=(12,8),centlon=200,label_axes=True,fill_color=None):
+def init_globalmap(nrow=1,ncol=1,figsize=(12,8),centlon=200,label_axes=True,fill_color=None,line_color="k"):
     proj            = ccrs.Robinson(central_longitude=centlon)
     #bbox            = [-180,180,-90,90]
     fig,ax          = plt.subplots(nrow,ncol,subplot_kw={'projection':proj},figsize=figsize,constrained_layout=True)
@@ -485,9 +485,9 @@ def init_globalmap(nrow=1,ncol=1,figsize=(12,8),centlon=200,label_axes=True,fill
     if type(ax) == tuple or (ncol+nrow > 2):
         ax = ax.flatten()
     for a in ax:
-        a.coastlines(zorder=10,lw=0.75,transform=proj)
+        a.coastlines(zorder=10,lw=0.75,transform=proj,color=line_color)
         if fill_color is not None:
-            ax.add_feature(cfeature.LAND,facecolor=fill_color)
+            a.add_feature(cfeature.LAND,facecolor=fill_color)
         
         if label_axes:
             a.gridlines(ls ='dotted',draw_labels=True)
