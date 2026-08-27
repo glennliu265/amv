@@ -133,6 +133,7 @@ Functions:
     xrcorr_leadlag      : Compute lead/lag correlation on Xarray Datasets
     construct_window_doy: Construct Windows for daily data for Lags
     index_year_base_lag : Do Lag Correlations for daily data considering window sizes
+    index_year_base_lag_xr : xr version of [index_year_base_lag]
     
         ~ EOF Analysis ~
     eof_simple          : Perform EOF Analysis (cr. Yu-Chiao Liang)
