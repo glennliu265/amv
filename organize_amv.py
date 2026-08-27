@@ -102,6 +102,8 @@ Functions:
     get_xryear          : use xr.cftime to make dummy "year" for calculations
     match_time_month    : Crop two Datasets/DataArrays to start/end from same Year-Month
     match_year          : Match first and last year for list of string years
+    get_doy_monstart    : Get Day Number of the start of each month (no leap)
+    get_doy_bymonth     : Get Day Numbers grouped by each month
     
     
     
@@ -129,6 +131,8 @@ Functions:
     leadlag_corr        : Compute lead/lag correlation of 2 variables (all months)
     append_window       : Helper function for [xrcorr_leadlag] to create 3-month window
     xrcorr_leadlag      : Compute lead/lag correlation on Xarray Datasets
+    construct_window_doy: Construct Windows for daily data for Lags
+    index_year_base_lag : Do Lag Correlations for daily data considering window sizes
     
         ~ EOF Analysis ~
     eof_simple          : Perform EOF Analysis (cr. Yu-Chiao Liang)

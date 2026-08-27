@@ -1936,6 +1936,33 @@ def match_years(years1,years2):
     
     return idnew_y1,idnew_y2,year1new,year2new
 
+def get_doy_monstart(verbose=False):
+    
+    # Get Start Month Day of Year (or another date)
+    yeardummy    = xr.date_range(start='2021-01-01',end='2021-12-31',freq="D",calendar='noleap',use_cftime=True)
+    finddates    = xr.date_range(start='2021-01-01',end='2021-12-31',freq="MS",calendar='noleap',use_cftime=True) #['2021-%02i-01' % (im+1) for im in range(12)]
+    doy_monstart = np.where(np.isin(yeardummy,finddates))[0] + 1
+
+    if verbose:
+        [print(yeardummy[dd-1]) for dd in doy_monstart]
+        print(doy_monstart)
+    return doy_monstart
+
+def get_doy_bymonth():
+    # Get a list of doys corresponding to the doys of each month
+    doy_monstart = get_doy_monstart()
+    doysbymon = []
+    for im in range(12):
+        # Determine Days to loop through based on the month
+        idstart = doy_monstart[im]
+        if im == 11:
+            idend = 366
+        else:
+            idend = doy_monstart[im+1]
+        monids    = np.arange(idstart,idend)
+        doysbymon.append(monids)
+    return doysbymon
+
 """
 ------------------------------
 |||  Statistical Analysis  ||| ****************************************************
@@ -2974,8 +3001,244 @@ def xrcorr_leadlag(dsbase,dslag,basemonth,leadlags,seasonal=False,debug=False,co
     ds_out        = xr.merge([lagcorr_shift.rename('corr'),lagmons,dofs])
     return ds_out
 
+def construct_window_doy(doy_center,winsize,verbose=False):
+    # See `daily_autocorrelation_withwindow_debugging_script.ipynb`
+    days_grab  = np.arange(doy_center-winsize,doy_center+winsize+1)
+    days_grab  = days_grab%365
+    if np.any(days_grab == 0):
+        id_swap    = np.where(days_grab == 0)[0]
 
+            
+        days_grab[id_swap] = 365
+    
+        # Get Indices Before
+        id_before = np.arange(0,id_swap+1)
+        
+        # Get Indices After
+        id_after  = np.arange(id_swap+1,len(days_grab))
+        year_cross=True
 
+        if verbose:
+            print("Year Crossing Detected at i=%i" % id_swap)
+            print(days_grab[id_swap])
+            print(days_grab[id_before])
+            print(days_grab[id_after])
+    else:
+
+        id_before = None
+        id_after  = None
+        year_cross= False
+    return days_grab,year_cross,id_before,id_after
+
+def index_year_base_lag(timeseries_rs,baseinfo,laginfo,lag,verbose=False):
+    # timeseries_rs is variable to index [ nyrs, 365 ] where 2nd dim is day of year (no leap)
+    # baseinfo is output from [construct_window_doy] for base variable
+    # (days, ycross flag, window indices for days before, window indices for days after)
+    # laginfo is same for lag variable
+    # See `daily_autocorrelation_withwindow_debugging_script.ipynb
+    days_base,ycross_base,ibefore_base,iafter_base = baseinfo
+    days_lag,ycross_lag,ibefore_lag,iafter_lag     = laginfo
+
+    # Get Number of Years
+    nyrs = timeseries_rs.shape[0]
+
+    # # ==================================
+    # Check for case where 2 years are crossed
+    # # ==================================
+    # Get Base Window Center and check if 2 years are crossed
+    doy_center         = np.take(days_base, len(days_base)//2 )
+    doy_lag            = doy_center + lag
+    winsize            = (len(days_lag) -1)/2
+    # the lag center or lag window (front) crosses into next year and
+    # the base window (back) goes into previous year)
+    if ( ((doy_lag + winsize) > 365) or (doy_lag > 365 )) and ( (doy_center - winsize) < 1):
+        if verbose:
+            print("2-year Crossing Detected... (lag center and/or front window > 365 AND base back window < 1)")
+        cross_2years = True
+    else:
+        cross_2years  = False
+
+    # ==================================
+    # Check for cases if the lag window or center has crossed entirely into the new year.
+    # and is not flagged by construct_window
+    # ==================================
+    if (ycross_lag == 0) and (doy_lag > 365):
+        
+        if verbose:
+            print("Changing DOY Before and After for Lag")
+            # print(ibefore_lag)
+            # print(iafter_lag)
+            
+        ycross_lag_center = True
+        ycross_lag        = 1
+        ndays_lag         = len(days_lag)
+        idcenter          = (ndays_lag-1)/2
+
+        if (doy_lag%365 - winsize) >= 1:
+            # Variable has still crossed into next year, but dont need to split into before/after, just assign the year
+            # Essentially a year crossing was not detected as DOY for back of window is > 1
+            if verbose:
+                print("Whole lag window has crossed into new year. Assigning indices accordingly")
+            ibefore_lag       = []
+            iafter_lag        = np.arange(ndays_lag)
+        else: 
+            # Case where if there is a year crossing in lag center, but not window, flag this
+            ibefore_lag       = list(np.arange(0,idcenter).astype(int))
+            iafter_lag        = list(np.arange(idcenter,ndays_lag).astype(int))
+        
+        if verbose:
+            print("Changing ycross_lag to [1] because center doy_lag crosses year")
+            # print(ibefore_lag)
+            # print(iafter_lag)
+    else:
+        ycross_lag_center = False
+    
+    
+    # ==================================
+    # ( Part 1 ) : Determine the Year Index based on <4> possible situations
+    # ==================================
+    # (1) No Year Crossings --> Easiest, nothing is done
+    ncross = ycross_base + ycross_lag
+    
+    if ncross == 0:
+        yindex_m1   = None
+        yindex_0    = np.arange(nyrs)
+        yindex_p1   = np.arange(nyrs)
+        if verbose:
+            print("No crossings detected. All years will be used.")
+    # (2) Year Crossing in Base Variable (usually via moving window)
+    #                 --or--
+    # (3) Year Crossing in Lag Variable (through window or center month)
+    elif ncross == 1:
+        yindex_m1   = None
+        yindex_0    = np.arange(0,nyrs-1)
+        yindex_p1   = np.arange(1,nyrs)
+        if verbose:
+            print("1 Year crossing detected. Using %i years." % (nyrs-1))
+    
+    # (4) Base Variable crosses into prev year (via back of moving window) ...
+    #     and lag variable crosses into next year (via lag and/or front of moving window)
+    # (5) Base and Lag variable both cross the same year (due to back of moving window)
+    # (6) Base and Lag variable both cross the same year (due to front of moving window)
+    elif ncross == 2: 
+        
+        if cross_2years:
+            yindex_m1   = np.arange(0,nyrs-2) 
+            yindex_0    = np.arange(1,nyrs-1)
+            yindex_p1   = np.arange(2,nyrs)
+            if verbose:
+                print("2 Year crossings detected. Using %i years." % (nyrs-2))
+        else:
+            yindex_m1   = None
+            yindex_0    = np.arange(0,nyrs-1)
+            yindex_p1   = np.arange(1,nyrs)
+            if verbose:
+                print("2 Year crossing detected, but across the same year. Using %i years." % (nyrs-1))
+    
+        
+    else:
+        print("Invalid number of crossings, please check code")
+
+    # ==================================
+    # ( Part 2 ) : Index base and lag variable, making necessary adjustments to years for days
+    # before and after crossing
+    # ==================================
+
+    # ==================================
+    # ( Part 2.1 ) : Index Base Variable
+    # ==================================
+    # Need to adjust for case where lag is crossing but base is fine...
+    if (ycross_base == 1):
+        
+        # Window Before Year
+        idays_base0     = days_base[ibefore_base] - 1
+        if (ncross == 2) and (cross_2years): # Additional Adjustment if both lag and base variable cross years
+            base_var0   = timeseries_rs[yindex_m1[:,None],idays_base0[None,:]] # Take Year Index -2
+            if verbose:
+                print("Using Years %s for Base Variable (before)" % yindex_m1)
+                
+        else: 
+            base_var0   = timeseries_rs[yindex_0[:,None],idays_base0[None,:]]
+
+            if verbose:
+                print("Using Years %s for Base Variable (before)" % yindex_0)
+        
+        # Window After Year
+        idays_base1     = days_base[iafter_base] - 1
+        if (ncross == 2) and (cross_2years):
+            base_var1   = timeseries_rs[yindex_0[:,None],idays_base1[None,:]]
+
+            if verbose:
+                print("Using Years %s for Base Variable (after)" % yindex_0)
+                
+        else:
+            base_var1       = timeseries_rs[yindex_p1[:,None],idays_base1[None,:]]
+
+            if verbose:
+                print("Using Years %s for Base Variable (after)" % yindex_p1)
+    
+        # Merge Along Window Dimension
+        base_var        = np.concatenate([base_var0,base_var1],axis=-1)
+        
+        
+            
+    # Base var is fine adjust for lag var crossing
+    elif (ycross_base == 0) and (ycross_lag == 1): 
+    
+        # Adjust year Index to shift 1 year earlier
+        idays_base      = days_base -1 
+        base_var        = timeseries_rs[yindex_0[:,None],idays_base[None,:]]
+
+        if verbose:
+                print("Using Years %s for Base Variable (ALL)" % yindex_0)
+    # Both are fine
+    else: # No crossing, No Adjustments Needed, use all years
+        
+        idays_base   = days_base - 1 # Adjust to zero-index for Python
+        base_var     = timeseries_rs[:,idays_base[None,:]]
+
+        if verbose:
+                print("Using All Years for Base Variable (ALL)")
+
+    # ==================================
+    # ( Part 2.2 ) : Index Lag Variable 
+    # ==================================
+    if (ycross_lag == 1):
+        # Window before year
+        idays_lag0 = days_lag[ibefore_lag] - 1
+        lag_var0   = timeseries_rs[yindex_0[:,None],idays_lag0[None,:]]
+        if verbose:
+                print("Using Years %s for Lag Variable (before)" % yindex_0)
+                # print(lag_var0.shape)
+                # print(lag_var0)
+        
+        # Window after year
+        idays_lag1 = days_lag[iafter_lag] - 1 
+        lag_var1   = timeseries_rs[yindex_p1[:,None],idays_lag1[None,:]]
+        if verbose:
+                print("Using Years %s for Lag Variable (after)" % yindex_p1)
+    
+    
+        # Merge Along Window Dimension
+        lag_var    = np.concatenate([lag_var0,lag_var1],axis=-1)
+        
+    # Case where lag is fine but base crosses years
+    elif (ycross_lag == 0) and (ycross_base == 1):
+    
+        # Adjust year index to shift 1 year later
+        idays_lag = days_lag - 1
+        lag_var   = timeseries_rs[yindex_p1[:,None],idays_lag[None,:]]
+
+        if verbose:
+                print("Using Years %s for Lag Variable (ALL)" % yindex_p1)
+    else:
+        # No crossing, No Adjustments Needed, use all years
+        idays_lag = days_lag - 1
+        lag_var   = timeseries_rs[:,idays_lag[None,:]]
+        if verbose:
+                print("Using All Years for Lag Variable (ALL)")
+    
+    return base_var.squeeze(),lag_var.squeeze() # Remove Added singleton dimension for if winsize = 0
 
 
 
