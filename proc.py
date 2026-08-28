@@ -300,7 +300,7 @@ def deseason(ts,dim=0,return_scycle=False):
         return tsanom,scycle
     return tsanom
 
-def xrdeseason(ds,check_mon=True,verbose=True,scycle=None):
+def xrdeseason(ds,check_mon=True,verbose=True,scycle=None,period=None):
     """ Remove seasonal cycle, given an Dataarray with dimension 'time'"""
     if check_mon:
         try: 
@@ -310,20 +310,36 @@ def xrdeseason(ds,check_mon=True,verbose=True,scycle=None):
             if verbose:
                 print("Warning, not checking for feb start")
     if scycle is None:
-        return ds.groupby('time.month') - ds.groupby('time.month').mean('time')
+        if period is not None:
+            if verbose:
+                print("Taking climatology over provided period %s" % period)
+                dsclim = ds.sel(time=slice(*period)).groupby('time.month').mean('time')
+            else:
+                dsclim = ds.groupby('time.month').mean('time')
+        return ds.groupby('time.month') - dsclim
     else:
         if verbose:
             print("Removing supplied seasonal cycle [scycle]...")
         return ds.groupby('time.month') - scycle
 
-def xrdeseason_daily(ds,clim=False):
-    """Remove seasonal cycle for daily data along dimension time."""
-    dsclim       = xrclim_daily(ds)#ds.groupby("time.dayofyear").mean("time")
+def xrdeseason_daily(ds,clim=False,period=None,verbose=True):
+    """Remove seasonal cycle for daily data along dimension time.
+    Option to manually specify climatology period for seasonal cycle.
+    
+    """
+    if period is not None:
+        if verbose:
+            print("Taking climatology over the provided period: %s" % period)
+        dsperiod = ds.sel(time=slice(*period))
+        dsclim   = xrclim_daily(dsperiod)
+    else:
+        dsclim   = xrclim_daily(ds)#ds.groupby("time.dayofyear").mean("time")
     dsanom       = ds.groupby("time.dayofyear") - dsclim
     dsanom       = dsanom.drop_vars('dayofyear')
     if clim:
         return dsanom,dsclim
     return dsanom
+
 
 def xrclim(ds):
     """ 
