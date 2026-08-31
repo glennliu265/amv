@@ -355,8 +355,6 @@ def xrclim_daily(ds):
     """
     return ds.groupby("time.dayofyear").mean("time")
 
-
-
 def calc_savg(invar,debug=False,return_str=False,axis=-1,ds=False):
     """
     Calculate Seasonal Average of input with time in the last dimension
@@ -7148,6 +7146,43 @@ def get_nclist(ncsearch,verbose=True):
     if verbose:
         print("Found %i files." % nfiles)
     return nclist,nfiles
+
+
+def remove_duplicate_times(ds,verbose=True,timename='time'):
+    # Copied from ensobase.utils on 08.31.2026
+    # From : https://stackoverflow.com/questions/51058379/drop-duplicate-times-in-xarray
+    _, index = np.unique(ds[timename], return_index=True)
+    print("Found %i duplicate times. Taking first entry." % (len(ds[timename]) - len(index)))
+    return ds.isel({timename:index})
+
+
+def remove_duplicate_latlon(ds,verbose=True,check=True,latname='lat',lonname='lon'):
+    # Remove Dupliate Lat.Lon from DataArray
+    # Use check=True to print the abs max differences between the slices
+    # See niu/merge_blockwise_calculation.ipynb for testing.examples
+    dsnew = ds.copy() # Copy Array
+    for xname in [latname,lonname]:
+        
+        _, index = np.unique(ds[xname], return_index=True)
+        if verbose:
+            print("Found %i duplicate %s. Taking first entry." % (len(ds[xname]) - len(index),xname,))
+        
+        if check:
+            id_same = np.where(~np.isin(np.arange(len(ds[xname])),index))[0]
+            if verbose:
+                print("Duplicate %s are %s" % (xname,ds[xname].data[id_same]))
+            
+            for ii in id_same: # Slice taken at ii-1
+                copy1 = ds.isel({xname:ii-1}).data.flatten() #lon=ii,lag=ll).mergebyens.data
+                copy2 = ds.isel({xname:ii}).data.flatten() #dsmerge.isel(lon=ii+1,lag=ll).mergebyens.data
+                diff  = copy1-copy2
+                if verbose:
+                    print("Max Abs. Difference is %f along %s=%s" % (np.nanmax(np.abs(diff)),xname,ds[xname][ii].data)) 
+        dsnew = dsnew.isel({xname:index})
+        if verbose:
+            print("\n")
+    return dsnew
+
 
 def movmean(timeseries,N):
     # Calculate moving/running mean across N values

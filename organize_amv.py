@@ -276,7 +276,8 @@ Functions:
     expand_bbox         : Expand bounding box by fixed amount
     shortest_distance_mod12 : Find shortest distance in mod 12
     get_nclist          : Get list of sorted NetCDFs given a search string [ncsearch] with wildcards
-    
+    remove_duplciate_times : remove duplicate time entries
+    remove_duplicate_latlon : remove duplicate lat/lon entries
     
     -----------------
     |||  Labeling ||| ****************************************************
