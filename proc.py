@@ -311,11 +311,11 @@ def xrdeseason(ds,check_mon=True,verbose=True,scycle=None,period=None):
                 print("Warning, not checking for feb start")
     if scycle is None:
         if period is not None:
+            dsclim = ds.sel(time=slice(*period)).groupby('time.month').mean('time')
             if verbose:
                 print("Taking climatology over provided period %s" % period)
-                dsclim = ds.sel(time=slice(*period)).groupby('time.month').mean('time')
-            else:
-                dsclim = ds.groupby('time.month').mean('time')
+        else:
+            dsclim = ds.groupby('time.month').mean('time')
         return ds.groupby('time.month') - dsclim
     else:
         if verbose:
