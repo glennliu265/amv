@@ -3031,7 +3031,7 @@ def construct_window_doy(doy_center,winsize,verbose=False):
         # Get Indices After
         id_after  = np.arange(id_swap+1,len(days_grab))
         year_cross=True
-
+        
         if verbose:
             print("Year Crossing Detected at i=%i" % id_swap)
             print(days_grab[id_swap])
@@ -5387,8 +5387,8 @@ def sel_region_xr_cv(ds2,bbox,debug=False,verbose=True,
     # Copied from preprocess_by_level (but removed the vname requirement)
     # Note, assumes tlon is degrees east and converts if not
     # Get mesh
-    tlat = ds2[lonname].values
-    tlon = ds2[latname].values
+    tlon = ds2[lonname].values
+    tlat = ds2[latname].values
     
     # Adjust to degrees east
     if np.any(tlon < 0):
@@ -5494,7 +5494,7 @@ def resize_ds(ds_list):
     # Given a list of datasets, (lon, lat, etc)
     # Resize all of them to the smallest bounding box
     # Note this was made to work with degrees west, have not handeled crrossing dateline
-    bboxes  = np.array([get_bbox(ds) for ds in ds_list]) # [ds.bound]
+    bboxes  = np.array([get_bbox_ds(ds) for ds in ds_list]) # [ds.bound]
     
     bbxsmall = np.zeros(4)
     bbxsmall[0] = np.max(bboxes[:,0]) # Easternmost Westbound
@@ -6902,7 +6902,10 @@ def format_ds(da,latname='lat',lonname='lon',timename='time',lon180=True,verbose
         if verbose:
             print("Flipping Latitude to go from South to North")
         format_dict['lat_original'] = da[latname].values
-        da = da.isel(**{latname:slice(None,None,-1)})
+        # https://stackoverflow.com/questions/54677161/xarray-reverse-an-array-along-one-coordinate
+        # Note this doesn't seem to work anymore? Returns Lat with 0 dimension
+        latid_reversed = np.flip(np.arange(len(da[latname])))
+        da = da.isel(**{latname:latid_reversed}) #slice(None,None,-1)})
         
     # Flip longitude to go from -180 to 180
     if lon180:
@@ -7203,6 +7206,32 @@ def pointwise_movmean(ds_raw,window):
     ds_smooth = ds_smooth.transpose(*ds_raw.dims) # Make sure Dimensions Match Original...
     print("Smoothed in %.2fs" % (time.time()-st))
     return ds_smooth
+
+def pointwise_lp(ds_raw,cutoffmon,order=6):
+    # Copied from simple_mode_ctone.ipynb
+    
+    st        = time.time()
+    
+    # Note, If there are NaNs, whole timeseries will be NaN
+    # Thus, replace NaN with zero for now.
+    if np.any(np.isnan(ds_raw)):
+        ds_raw_in = xr.where(np.isnan(ds_raw),0,ds_raw)
+    else:
+        ds_raw_in = ds_raw
+    
+    apply_lp  = lambda ds: lp_butter(ds.data,cutoffmon,order)
+    ds_smooth= xr.apply_ufunc(
+        apply_lp,
+        ds_raw_in,
+        input_core_dims=[['time']],
+        output_core_dims=[['time']],
+        vectorize=True,
+        )
+    ds_smooth['time'] = ds_raw['time']
+    ds_smooth         = ds_smooth.transpose(*ds_raw.dims) # Make sure Dimensions Match Original...
+    print("Smoothed in %.2fs" % (time.time()-st))
+    return ds_smooth
+
 
 """
 -----------------

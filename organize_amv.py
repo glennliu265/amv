@@ -33,6 +33,7 @@ Functions:
     make_mask           : Create a mask from a dataarray using specified nan values
     movmean             : Calculate moving/running mean
     pointwise_movmean   : Apply movmean pointwise...
+    pointwise_lp        : Apply low-pass filter pointwise
     
         ~ Averaging ~
     ann_avg             : Take annual average of monthly time series
