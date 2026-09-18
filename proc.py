@@ -1701,6 +1701,13 @@ def make_mesh(ds,lonname='lon',latname='lat',xname="x",yname="y"):
     yy     = xr.DataArray(yy,coords=coords,dims=coords,name=yname)
     return xr.merge([xx,yy])
 
+def get_cosweight_sqrt(ds):
+    lon     = ds.lon.data
+    lat     = ds.lat.data
+    _,Y  = np.meshgrid(lon,lat)
+    wgt  = np.sqrt(np.cos(np.radians(Y))) # [lat x lon]
+    return wgt
+
 #%% ~Time Formatting and Wrangling
 
 def cftime2str(times):
@@ -2447,6 +2454,39 @@ def quickregr(x,y,dimname='time'):
     # Calculate Regression Slope (convenience function)
     # See `notebooks/regional_eof_SEP.ipynb` for unit testing and o(1e-5) roundoff error
     return xr.cov(x,y,dim=dimname) / x.var(dimname)
+
+def project_pattern_ds(pattern,invar,cosweight=False):
+    # Given a pattern [lat x lon] and target variable [invar: time x lat x lon]
+    # Project pattern onto the variable and get the linearly related timeseries [time]
+    # Transpose Dimensions
+    pattern_in  = pattern.transpose('lat','lon')
+    invar_in    = invar.transpose('time','lat','lon')
+    
+    # Match in Space (need to add warning of they are not the same)
+    pattern_in,invar_in = resize_ds([pattern_in,invar_in])
+    
+    # Apply Sqrt Cos Weighting
+    if cosweight:
+        wgt      = get_cosweight_sqrt(invar_in)
+        invar_in = invar_in * wgt[None,:,:]
+
+    # Get Dimensions
+    ntime,nlat,nlon = invar_in.shape
+    nspace          = nlat*nlon
+
+    # Reshape to combine lat lon and convert to np arrays
+    pattern_rs      = pattern_in.data.reshape(nspace)
+    invar_rs        = invar_in.data.reshape(ntime,nspace)
+
+    # Perform Regression
+    beta,b = regress_2d(pattern_rs,invar_rs)
+
+    # Reformat as DataArray
+    coords       = dict(time=invar.time)
+    da_slope     = xr.DataArray(beta.squeeze(),dims=coords,coords=coords,name='slope')
+    da_intercept = xr.DataArray(b.squeeze(),dims=coords,coords=coords,name='intercept')
+    return xr.merge([da_slope,da_intercept])
+
 
 #%% ~ Lead/Lag Analysis
 def calc_lagcovar(var1,var2,lags,basemonth,detrendopt,yr_mask=None,debug=True,

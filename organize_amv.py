@@ -90,6 +90,7 @@ Functions:
     get_box             : Get box centered at lat/lon with specified size (correcting for lat/lon)
     sel_box             : Select box from DataArray based on specified window size
     make_mesh           : xarray version of mesh grid
+    get_coswgt_sqrt     : Get sqrt(cos(lat)) weights given DataArray with lat
     
         ~ Time Formatting and Wrangling
     cftime2str          : Convert array of cftime objects to string
@@ -122,6 +123,7 @@ Functions:
     polyfit_1d               : Fit n-degree polynomial to timeseries (helper for pointwise_polyfit)
     pointwise_polyfit        : xrfunc appliation to fit polynomial at each location
     quickregr                : Convenient function for determining regression slope
+    project_pattern_ds       : Project pattern onto variable to get timeseries
     
         ~ Lead/Lag Analysis ~
     calc_lagcovar       : Monthly lag-lead correlation
