@@ -6761,23 +6761,20 @@ def get_bbox(bbox_name,degrees_east=True):
                     ),
         "mhw_SCS" : dict(bbox=[],
                           bbname="SCS",
-                          bbname_long="South China Sea (2020.07)",
+                          bbname_long="South China Sea (2020.07)"
+                          )
         
         
-        "" : dict(bbox=[],
-                  bbname="",
-                  bbname_long="",
-                    ),
-        # ---
+        # "" : dict(bbox=[],
+        #           bbname="",
+        #           bbname_long="",
+        #             ),
+        # # ---
         
         
         
         
         # Enter New Thing Here....
-        
-        
-        
-        
         
         }
     
