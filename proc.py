@@ -1711,7 +1711,6 @@ def get_cosweight_sqrt(ds):
 def absmax_latlon(ds):
     # Get absolute maximum of DataArray
     # Assumes positive and that no duplicate values exist...
-    ds      = regrout_djf.slope
     maxval  = np.abs(ds).max(('lat','lon'))#.data.item()
     dsmax   = ds.where(ds==maxval,drop=True).squeeze()
     if len(dsmax) == 0:
