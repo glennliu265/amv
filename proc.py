@@ -1708,6 +1708,16 @@ def get_cosweight_sqrt(ds):
     wgt  = np.sqrt(np.cos(np.radians(Y))) # [lat x lon]
     return wgt
 
+def absmax_latlon(ds):
+    # Get absolute maximum of DataArray
+    # Assumes positive and that no duplicate values exist...
+    ds      = regrout_djf.slope
+    maxval  = np.abs(ds).max(('lat','lon'))#.data.item()
+    dsmax   = ds.where(ds==maxval,drop=True).squeeze()
+    if len(dsmax) == 0:
+        dsmax   = ds.where(ds==-maxval,drop=True).squeeze()
+    return dsmax
+
 #%% ~Time Formatting and Wrangling
 
 def cftime2str(times):
@@ -6676,7 +6686,99 @@ def get_bbox(bbox_name,degrees_east=True):
                           bbname="SEP_North",
                           bbname_long="Northern SEP Box",
                           ),
+        
+        # ---
+        # Marine Heatwave Regions (Adapted from Xu et al. 2022)
+        #  - Added regions from Capotondi et al. 2024
+        # ---
+        
+        "mhw_Beng" : dict(bbox=[],
+                          bbname="Beng",
+                          bbname_long="Benguela (1995.04) ",
+                    ),
+        "mhw_BOB" : dict( bbox=[],
+                          bbname="BoB",
+                          bbname_long="Bay of Bengal (1987.12)",
+                    ),
+        "mhw_CCS" : dict( bbox=[],
+                          bbname="CCS",
+                          bbname_long="California Current System (2014.12)",
+                    ),
+        "mhw_ECS" : dict( bbox=[],
+                          bbname="ECS",
+                          bbname_long="East China Sea (2016.08)",
+                    ),
+        "mhw_GOA" : dict(bbox=[],
+                         bbname="GOA",
+                         bbname_long="Gulf of Alaska (2014.01)",
+                    ),
+        "mhw_KOE" : dict(bbox=[],
+                         bbname="KOE",
+                         bbname_long="Kuroshio-Oyashio Extension (2012.09)",
+                    ),
+        
+        "mhw_Med" : dict(bbox=[],
+                         bbname="Med",
+                         bbname_long="Mediterranean (2003.06)",
+                    ),
+        
+        "mhw_NA" : dict(bbox=[],
+                         bbname="NA",
+                         bbname_long="Northern Australia (2016.03)",
+                    ),
+        
+        "mhw_Nino34" : dict(bbox=[],
+                         bbname="Nino3.4",
+                         bbname_long="Niño3.4 (1997.12)",
+                    ),
+        
+        "mhw_NWA" : dict(bbox=[],
+                         bbname="NWA",
+                         bbname_long="Northwest Atlantic (2012.05)",
+                    ),
+        
+        "mhw_Peru" : dict(bbox=[],
+                         bbname="Peru",
+                         bbname_long="Peru (2017.03)",
+                    ),
+        
+        "mhw_Tas" : dict(bbox=[],
+                         bbname="Tas",
+                         bbname_long="Tasman Sea (2017.12)",
+                    ),
+        "mhw_WA" : dict(bbox=[],
+                         bbname="WA",
+                         bbname_long="Western Australia (2011.02)",
+                    ),
+        "mhw_WSA" : dict(bbox=[],
+                         bbname="WSA",
+                         bbname_long="Western South Atlantic (2014.02)",
+                    ),
+        # From Capotondi et al. 2024
+        "mhw_SWIO" : dict(bbox=[],
+                          bbname="SWIO",
+                          bbname_long="Southwestern Indian Ocean (2020.07)",
+                    ),
+        "mhw_SCS" : dict(bbox=[],
+                          bbname="SCS",
+                          bbname_long="South China Sea (2020.07)",
+        
+        
+        "" : dict(bbox=[],
+                  bbname="",
+                  bbname_long="",
+                    ),
+        # ---
+        
+        
+        
+        
         # Enter New Thing Here....
+        
+        
+        
+        
+        
         }
     
     keylist = list(bbdict.keys())
