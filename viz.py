@@ -1539,7 +1539,7 @@ def init_specplot_cvdp(nrow=1,ncol=1,figsize=(6,6),fsz_ticks=12,fsz_axis=12,
     # =====================
     return fig,ax,ax2
 
-def add_ctones(ax=None,ylims=None,enso_bands=[2,5.5],return_tones=False):
+def add_ctones(ax=None,ylims=None,enso_bands=[2,5.5],return_tones=False,dotborder=True):
     """ 
     
     Add Combination Tone Bands/Rectangles based on enso_bands
@@ -1576,12 +1576,13 @@ def add_ctones(ax=None,ylims=None,enso_bands=[2,5.5],return_tones=False):
     ax.fill_between(Mfreq_fmins, y_min, y_max, fc='gray', alpha=0.2)
     
     # Plot lines delineating range
-    ax.axvline([1/(enso_bands[1]*12)],label="",ls='dotted',c='gray') # ENSO Maxp0
-    ax.axvline([1/(enso_bands[0]*12)],label="",ls='dotted',c='gray') # ENSO Min
-    ax.axvline([Mfreq_fmins[1]],label="",ls='dotted',c='gray')       # Diff Tone
-    ax.axvline([Mfreq_fmins[0]],label="",ls='dotted',c='gray')       # Diff Tone
-    ax.axvline([Mfreq_fplus[0]],label="",ls='dotted',c='gray')       # Sum Tone
-    ax.axvline([Mfreq_fplus[1]],label="",ls='dotted',c='gray')       # Sum Tone
+    if dotborder:
+        ax.axvline([1/(enso_bands[1]*12)],label="",ls='dotted',c='gray') # ENSO Maxp0
+        ax.axvline([1/(enso_bands[0]*12)],label="",ls='dotted',c='gray') # ENSO Min
+        ax.axvline([Mfreq_fmins[1]],label="",ls='dotted',c='gray')       # Diff Tone
+        ax.axvline([Mfreq_fmins[0]],label="",ls='dotted',c='gray')       # Diff Tone
+        ax.axvline([Mfreq_fplus[0]],label="",ls='dotted',c='gray')       # Sum Tone
+        ax.axvline([Mfreq_fplus[1]],label="",ls='dotted',c='gray')       # Sum Tone
     
     # Add Some Text
     ensoband_label = '$f_{ENSO}=$\n %.1f-%.1f yrs' % (enso_bands[0],enso_bands[1])
