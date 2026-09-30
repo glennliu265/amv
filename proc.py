@@ -2035,6 +2035,11 @@ def mlr_point(predictors,target,fill_value=0,return_dict=False,verbose=True):
     if np.any(np.isnan(X)):
         if verbose:
             print("NaN values detected! Replace with %f" % fill_value)
+    if np.any(X == np.inf):
+        if verbose:
+            print("Inf values detected! Replace with %f" % fill_value)
+            X = np.where(X==np.inf,fill_value,X) # Set NaN to zero
+        
     X = np.where(np.isnan(X),fill_value,X) # Set NaN to zero
     
     # Initialize Model and Fit
@@ -6665,7 +6670,7 @@ def check_flx(da_flx,flxname=None,return_flag=True,bbox_gs=None):
         da_flx = da_flx * -1
         #da_in = da_in * -1
     return da_flx
-    
+
 def get_bbox(bbox_name,degrees_east=True):
     # --------------------------------------
     # Get Dictionary of Bounding Boxes [LonW, LonE, LatS, LatN]
