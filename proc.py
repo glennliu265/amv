@@ -2038,8 +2038,8 @@ def mlr_point(predictors,target,fill_value=0,return_dict=False,verbose=True):
     if np.any(X == np.inf):
         if verbose:
             print("Inf values detected! Replace with %f" % fill_value)
-            X = np.where(X==np.inf,fill_value,X) # Set NaN to zero
-        
+    
+    X = np.where(X==np.inf,fill_value,X) # Set Inf to zero    
     X = np.where(np.isnan(X),fill_value,X) # Set NaN to zero
     
     # Initialize Model and Fit
