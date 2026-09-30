@@ -2002,7 +2002,7 @@ def get_doy_bymonth():
 
 #%% ~ Regression
 
-def mlr_point(predictors,target,fill_value=0,return_dict=False,verbose=True):
+def mlr_point(predictors,target,fill_value=0,return_dict=False,verbose=True,tol=1e-10):
     """
     
     Perform multiple linear regression at point using sklearn
@@ -2015,6 +2015,7 @@ def mlr_point(predictors,target,fill_value=0,return_dict=False,verbose=True):
         Target Timeseries
     fill_value : Numeric, optional
         Values to substitute NaN for The default is 0.
+    tol : Smallest number to include, set numbers below to zero
 
     Returns
     -------
@@ -2038,7 +2039,11 @@ def mlr_point(predictors,target,fill_value=0,return_dict=False,verbose=True):
     if np.any(X == np.inf):
         if verbose:
             print("Inf values detected! Replace with %f" % fill_value)
+    if np.any(X < tol):
+        if verbose:
+            print("Values smaller than %.2e Detected. Replace with %f" % fill_value)
     
+    X = np.where(X < tol,fill_value,X) # Set small values to zero
     X = np.where(X==np.inf,fill_value,X) # Set Inf to zero    
     X = np.where(np.isnan(X),fill_value,X) # Set NaN to zero
     
