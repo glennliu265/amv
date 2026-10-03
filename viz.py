@@ -748,12 +748,20 @@ def draw_gridlines(axs,proj,fontsize_tick=12,rowplot=True):
         gl.xformatter = LongitudeFormatter(zero_direction_label=False,degree_symbol='')
         gl.yformatter = LatitudeFormatter(degree_symbol='')
         return gl
+    
     for e in range(ntotal):
+        
         ax = axs.flatten()[e]
+        
+        # Draw Grid and Start with everything off
+        gl                  = drawgrid(ax,proj)
+        gl.left_labels      = False
+        gl.right_labels     = False
+        gl.top_labels       = False
+        gl.bottom_labels    = False
         
         # Left Column =======
         if e%ncol == 0 or ncol == 1:
-            gl                  = drawgrid(ax,proj)
             gl.left_labels      = True 
             gl.right_labels     = False
             gl.top_labels       = False
@@ -766,7 +774,6 @@ def draw_gridlines(axs,proj,fontsize_tick=12,rowplot=True):
             
         # Bottom Row ========
         if (e >= (ncol*(nrow-1)+1)) or nrow == 1:
-            gl                  = drawgrid(ax,proj)
             gl.left_labels      = False 
             if (e == ntotal-1): # Right Bottom 
                 gl.right_labels     = True
@@ -777,9 +784,9 @@ def draw_gridlines(axs,proj,fontsize_tick=12,rowplot=True):
             gl.bottom_labels    = True
             
             gl = remove_deg(gl,fontsize_tick)
+        
         # Top Row
         if (e <= ncol-1) or nrow == 1:
-            gl                  = drawgrid(ax,proj)
             gl.left_labels      = False 
             if (e == (ncol-1)): # Right Top
                 gl.right_labels = True
@@ -789,14 +796,14 @@ def draw_gridlines(axs,proj,fontsize_tick=12,rowplot=True):
             gl.bottom_labels    = False
     
             gl = remove_deg(gl,fontsize_tick)
+        
         # Right Column
         if e%ncol == (ncol-1) and e > (ncol-1) and e < (ntotal-1) or ncol == 1:
-            gl                  = drawgrid(ax,proj)
             gl.left_labels      = False 
             gl.right_labels     = True
             gl.top_labels       = False
             gl.bottom_labels    = False
-        
+            
             gl = remove_deg(gl,fontsize_tick)
     return axs
 
