@@ -759,6 +759,7 @@ def draw_gridlines(axs,proj,fontsize_tick=12,rowplot=True):
         gl.right_labels     = False
         gl.top_labels       = False
         gl.bottom_labels    = False
+        gl                  = remove_deg(gl,fontsize_tick)
         
         # Left Column =======
         if e%ncol == 0 or ncol == 1:
