@@ -2399,6 +2399,22 @@ def pointwise_linear_fit(ds_index,ds_target):
     print("Extracted Component in %.2fs" % (time.time()-st))
     return ds_lincomp
 
+def xr_linfit(dsin,fitx,deg=1,calc_r2=True):
+    # Use xr.polyval to get linear fit quickly, and optionally r2
+    # Taken from find_earlylate_split_ssp585,ipynb
+    ds_linfit  = dsin.copy()
+    ds_linfit  = ds_linfit.assign_coords(dict(fitcoord=fitx))
+    coeffs     = ds_linfit.polyfit('fitcoord',deg=deg).polyfit_coefficients
+    model      = xr.polyval(coord=fitx,coeffs=coeffs)
+    if calc_r2:
+        r2  = pointwise_r2(model,dsin)
+    dsout = xr.merge([model.rename('model'),coeffs.rename('coeffs')])
+    if calc_r2:
+        dsout = xr.merge([dsout,r2.rename('r2')])
+    return dsout
+
+    
+
 def polyfit_1d(x,y,deg,return_all=True):
     # Fit n-degree polynomial to y
     # Fit is coeffs from lowest degree first (flip NP order)

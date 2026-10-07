@@ -121,6 +121,7 @@ Functions:
     regress2ts               : Regression variable to a timeseries (uses regress_2d)
     extract_linear_component : Get component of variable linearly related to a timeseries
     pointwise_linear_fit     : Apply extract_linear_component to each point
+    xr_linfit                : Quickly get pointwise linear fit using xr.polyval
     polyfit_1d               : Fit n-degree polynomial to timeseries (helper for pointwise_polyfit)
     pointwise_polyfit        : xrfunc appliation to fit polynomial at each location
     quickregr                : Convenient function for determining regression slope
