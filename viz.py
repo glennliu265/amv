@@ -472,7 +472,8 @@ def init_tp_map(nrow=1,ncol=1,figsize=(12.5,4.5),ax=None,latmax=20,lonbounds=[12
         return fig,ax
     return ax
 
-def init_globalmap(nrow=1,ncol=1,figsize=(12,8),centlon=200,label_axes=True,fill_color=None,line_color="k"):
+def init_globalmap(nrow=1,ncol=1,figsize=(12,8),centlon=200,
+                   label_axes=True,fill_color=None,line_color="k",fontsize=14,blabels=[1,0,0,1]):
     proj            = ccrs.Robinson(central_longitude=centlon)
     #bbox            = [-180,180,-90,90]
     fig,ax          = plt.subplots(nrow,ncol,subplot_kw={'projection':proj},figsize=figsize,constrained_layout=True)
@@ -490,7 +491,17 @@ def init_globalmap(nrow=1,ncol=1,figsize=(12,8),centlon=200,label_axes=True,fill
             a.add_feature(cfeature.LAND,facecolor=fill_color)
         
         if label_axes:
-            a.gridlines(ls ='dotted',draw_labels=True)
+            gl = a.gridlines(ls ='dotted',draw_labels=True)
+            
+            # Set Fontsize
+            gl.xlabel_style = {'size':fontsize}
+            gl.ylabel_style = {'size':fontsize}
+            
+            # Adjust Labels
+            gl.left_labels      = blabels[0]
+            gl.right_labels     = blabels[1]
+            gl.top_labels       = blabels[2]
+            gl.bottom_labels    = blabels[3]
         
     if multiax is False:
         ax = ax[0]
@@ -742,12 +753,12 @@ def draw_gridlines(axs,proj,fontsize_tick=12,rowplot=True):
     ntotal    = nrow*ncol
     drawgrid = lambda ax,proj: ax.gridlines(crs=proj, draw_labels=True,
                       linewidth=0.75, color='gray', alpha=0.5, linestyle="dotted")
-    def remove_deg(gl,fontsize_tick):
-        gl.xlabel_style = {'size':fontsize_tick}
-        gl.ylabel_style = {'size':fontsize_tick}
-        gl.xformatter = LongitudeFormatter(zero_direction_label=False,degree_symbol='')
-        gl.yformatter = LatitudeFormatter(degree_symbol='')
-        return gl
+    # def remove_deg(gl,fontsize_tick):
+    #     gl.xlabel_style = {'size':fontsize_tick}
+    #     gl.ylabel_style = {'size':fontsize_tick}
+    #     gl.xformatter = LongitudeFormatter(zero_direction_label=False,degree_symbol='')
+    #     gl.yformatter = LatitudeFormatter(degree_symbol='')
+    #     return gl
     
     for e in range(ntotal):
         
@@ -808,6 +819,22 @@ def draw_gridlines(axs,proj,fontsize_tick=12,rowplot=True):
             gl = remove_deg(gl,fontsize_tick)
     return axs
 
+def remove_deg(gl,fontsize_tick):
+    gl.xlabel_style = {'size':fontsize_tick}
+    gl.ylabel_style = {'size':fontsize_tick}
+    gl.xformatter = LongitudeFormatter(zero_direction_label=False,degree_symbol='')
+    gl.yformatter = LatitudeFormatter(degree_symbol='')
+    return gl
+    
+def add_gl(ax,proj,fontsize=12,left=True,right=False,top=False,bottom=True):
+    gl = ax.gridlines(crs=proj, draw_labels=True,
+                      linewidth=0.75, color='gray', alpha=0.5, linestyle="dotted")
+    gl = remove_deg(gl,fontsize)
+    gl.left_labels      = left
+    gl.right_labels     = right
+    gl.top_labels       = top
+    gl.bottom_labels    = bottom
+    return ax,gl
 
 # ~~~~~~~~~~~~~~~~~~~~~~
 #%% Time Series/1-D Plot
@@ -1491,7 +1518,7 @@ def init_specplot_enso(nrow=1,ncol=1,figsize=(8,4.5),fsz_ticks=12,fsz_axis=12,
     # Bottom x-axis in frequency (1/month)
     # Top x-axis in period (Years)
     
-    fig,ax    = plt.subplots(1,1,figsize=(8,4.5),constrained_layout=True)
+    fig,ax    = plt.subplots(1,1,figsize=figsize,constrained_layout=True)
     
     # Set Up Spectra ========= (Look for function I wrote for this)
     xper            = np.array(xper)
