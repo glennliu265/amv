@@ -107,6 +107,7 @@ Functions:
     match_year          : Match first and last year for list of string years
     get_doy_monstart    : Get Day Number of the start of each month (no leap)
     get_doy_bymonth     : Get Day Numbers grouped by each month
+    get_doy_date        : Get MM-DD for each day of non-leap year
     
     
     
@@ -283,6 +284,7 @@ Functions:
     get_nclist          : Get list of sorted NetCDFs given a search string [ncsearch] with wildcards
     remove_duplciate_times : remove duplicate time entries
     remove_duplicate_latlon : remove duplicate lat/lon entries
+    xrconcat_ens        : Concatenate ensembles along the time dimension
     
     -----------------
     |||  Labeling ||| ****************************************************

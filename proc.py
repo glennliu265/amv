@@ -1994,6 +1994,13 @@ def get_doy_bymonth():
         doysbymon.append(monids)
     return doysbymon
 
+def get_doy_dates():
+    # Get MM-DD for each day of non-leap year
+    doy_date=xr.date_range('2001-01-01','2001-12-31',freq="D")
+    dates   =["%02i-%02i" % (dd.month,dd.day) for dd in doy_date]
+    return np.array(dates)
+
+
 """
 ------------------------------
 |||  Statistical Analysis  ||| ****************************************************
@@ -7350,6 +7357,52 @@ def remove_duplicate_latlon(ds,verbose=True,check=True,latname='lat',lonname='lo
         if verbose:
             print("\n")
     return dsnew
+
+
+def xrconcat_ens(dsin,start='0001-01-01',freq="D",calendar='noleap'):
+    """
+    Given a DataArray with dimensions [ens] and [time], concatenate
+    ensemble members along the time dimension.
+
+    Parameters
+    ----------
+    dsin : xr.DataArray
+        DataArray with dimensions [ens] and [time]
+    start : STR, optional
+        Starting Date. The default is '0001-01-01'.
+    freq : STR, optional
+        Code representing frequency. The default is "D".
+    calendar : STR, optional
+        Calendar Type. The default is 'noleap'.
+
+    Returns
+    -------
+    dsout : xr.Dataset
+        Contains flattened variable with additional ensemble dimension.
+
+    """
+    # Get Length of ensemble and time dimension
+    nens       = len(dsin.ens)
+    ntime      = len(dsin.time)
+    ntotal     = nens*ntime
+    dummy_time = xr.date_range(start=start,periods=ntotal,freq=freq,calendar=calendar,use_cftime=True)
+    
+    # Load and Unroll
+    dsin        = dsin.transpose('ens','time')
+    dsin_arr    = dsin.data.flatten()
+    
+    # Also Concat Ens Info
+    ensconcat = []
+    for e in range(10):
+        ensconcat.append(np.ones(ntime)*(e+1))
+    ensconcat = np.hstack(ensconcat).astype(int)
+    
+    
+    coords       = dict(time=dummy_time)
+    dsin_concat = xr.DataArray(dsin_arr,dims=coords,coords=coords,name='variable')
+    ens_concat   = xr.DataArray(ensconcat,dims=coords,coords=coords,name='ens')
+    dsout = xr.merge([dsin_concat,ens_concat])
+    return dsout
 
 
 def movmean(timeseries,N):
