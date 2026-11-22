@@ -2009,7 +2009,8 @@ def get_doy_dates():
 
 #%% ~ Regression
 
-def mlr_point(predictors,target,fill_value=0,return_dict=False,verbose=True,tol=1e-10):
+def mlr_point(predictors,target,fill_value=0,return_dict=False,return_pred=False,
+              verbose=True,tol=1e-10):
     """
     
     Perform multiple linear regression at point using sklearn
@@ -2070,9 +2071,12 @@ def mlr_point(predictors,target,fill_value=0,return_dict=False,verbose=True,tol=
             residual=residual
             )
         return outdict
+    if return_pred:
+        return coeffs,r2,residual,pred
     return coeffs,r2,residual
 
-def pointwise_mlr(predictors,target,fill_value=0,standardize=True,predictor_names=None):
+def pointwise_mlr(predictors,target,fill_value=0,standardize=True,
+                  predictor_names=None,return_pred=False):
     """
     xr.ufunc application of pointwise_mlr on monthly predictors/target over dimension [time]. 
     
@@ -2095,6 +2099,7 @@ def pointwise_mlr(predictors,target,fill_value=0,standardize=True,predictor_name
         True to standardize predictors along [time] dimension. The default is True.
     predictor_names : Array of Strings [predictor], optional
         Name of each predictor. The default is None.
+    return_pred : BOOL, True to return predicted target
 
     Returns
     -------
@@ -2118,22 +2123,31 @@ def pointwise_mlr(predictors,target,fill_value=0,standardize=True,predictor_name
         print("Warning... first dimension in target should be time!")
     
     # use xr ufunc to compute MLR fit (Takes ~72 seconds)
-    mlr_point_noprint = lambda x,y : mlr_point(x,y,verbose=False)
+    mlr_point_noprint = lambda x,y : mlr_point(x,y,verbose=False,return_pred=return_pred)
+    if return_pred:
+        outdims = [['predictors'],[],['time'],['time']]
+    else:
+        outdims = [['predictors'],[],['time']]
     ds_mlr_fit = xr.apply_ufunc(
         mlr_point_noprint,
         predictors, # Time must be in the first dimension
         target,
         input_core_dims=[['time','predictors'],['time']],
-        output_core_dims=[['predictors'],[],['time']],
+        output_core_dims=outdims,
         vectorize=True,
         )
     
     # Make DataSet
-    ds_coeffs,ds_r2,ds_residual = ds_mlr_fit
+    if return_pred:
+        ds_coeffs,ds_r2,ds_residual,ds_ypred = ds_mlr_fit
+    else:
+        ds_coeffs,ds_r2,ds_residual = ds_mlr_fit
     ds_coeffs   = ds_coeffs.rename('coeff')
     ds_r2       = ds_r2.rename('r2')
     ds_residual = ds_residual.rename('residual')
     ds_mlr_out  = xr.merge([ds_coeffs,ds_r2,ds_residual])
+    if return_pred:
+        ds_mlr_out = xr.merge([ds_mlr_out,ds_ypred.rename("ypred")])
     if predictor_names is not None:
         ds_mlr_out['predictors'] = predictor_names
         
