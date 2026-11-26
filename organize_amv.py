@@ -216,9 +216,12 @@ Functions:
     maxid_2d            : Find indices along each dimension for a 2D matrix. Ignores NaN values.
     sort_by_axis        : Sort arrays along axis by values from a single array 
     get_nearest         : Get indices of the closest value to an input (absolute diff)
-    index_window        : Index a moving window of values (from scm.)
     
-    getfirstnan         : Find Index of first NaN in a 1-D array (can use with xr.ufunc)
+    indexwindow        : Index a moving window of values (from scm.) --> Not sure if is here
+    getfirstnan         : Find Index of first NaN in a 1-D array (can use with xr.ufunc) --> not sure if it is here
+    
+    xr_selindex         : Get Index given xarray value
+    
     
     
     -----------------------------------

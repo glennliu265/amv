@@ -5841,6 +5841,15 @@ def getfirstnan(x):
         return len(x)
     else:
         return idout[0]
+    
+def xr_selindex(ds,dim,val,verbose=False):
+    # Get Index of value [val] for dimension [dim] in DataArray [ds]....
+    # Note, current works only for exact values
+    # Based on: https://stackoverflow.com/questions/61457310/how-can-i-find-the-indices-equivalent-to-a-specific-selection-of-xarray
+    ival = list(ds[dim].values).index(ds.sel({dim:val})[dim].data)
+    if verbose:
+        print("[%s] index = %i for [%s] = %s" % (dim,ival,dim,val))
+    return ival
 
 """
 -----------------------------------
